@@ -278,7 +278,7 @@ export default function GameShell() {
 
       {mobilePlay && !portrait && (
         <VirtualJoystick
-          className="absolute right-4 bottom-4 z-30"
+          className="absolute right-4 bottom-10 z-30"
           onMove={onJoystickMove}
           disabled={gameplayFrozen}
         />
