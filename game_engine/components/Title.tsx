@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useMobilePlay } from "@/lib/useMobilePlay";
 
 const COMFORT_OPTIONS: {
   value: ComfortLevel;
@@ -28,10 +29,11 @@ export default function Title({
 }) {
   const [picked, setPicked] = useState<District>(DISTRICTS[0]);
   const [comfort, setComfort] = useState<ComfortLevel>("medium");
+  const { mobilePlay } = useMobilePlay();
 
   return (
     <main className="relative min-h-full max-h-full overflow-y-auto bg-background text-foreground">
-      <div className="mx-auto flex min-h-full max-w-5xl flex-col justify-center px-6 py-10 lg:px-8">
+      <div className="mx-auto flex min-h-full max-w-5xl flex-col justify-center px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         <div className="mb-10 flex flex-wrap items-baseline justify-between gap-3">
           <span className="flex items-baseline gap-2">
             <span className="font-indic text-lg font-heading" lang="hi">
@@ -47,7 +49,7 @@ export default function Title({
             Sarvam Epoch Buildathon
           </p>
 
-          <h1 className="mx-auto mt-6 max-w-[16ch] text-4xl font-heading leading-tight tracking-tight sm:text-5xl">
+          <h1 className="mx-auto mt-4 max-w-[16ch] text-3xl font-heading leading-tight tracking-tight sm:mt-6 sm:text-4xl sm:text-5xl">
             Sadak Errands
           </h1>
 
@@ -57,8 +59,8 @@ export default function Title({
             Each errand is a real transaction — in Hindi, Tamil, Kannada, or Bengali.
           </p>
 
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            <Button size="lg" onClick={() => onEnter(picked, comfort)}>
+          <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:mt-10 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+            <Button size="lg" className="w-full sm:w-auto" onClick={() => onEnter(picked, comfort)}>
               Enter {picked.name}
             </Button>
             <span className="text-sm text-foreground/70">
@@ -192,29 +194,36 @@ export default function Title({
           </Card>
         </section>
 
-        <footer className="sticky bottom-0 z-10 mt-auto flex flex-wrap items-center justify-between gap-4 border-t-2 border-border bg-background py-4">
-          <ul className="flex flex-wrap gap-4 text-xs text-foreground/70">
-            <li className="flex items-center gap-1">
-              <kbd>W</kbd>
-              <kbd>A</kbd>
-              <kbd>S</kbd>
-              <kbd>D</kbd> move
-            </li>
-            <li className="flex items-center gap-1">
-              <kbd>←</kbd>
-              <kbd>→</kbd> look
-            </li>
-            <li className="flex items-center gap-1">
-              <kbd>E</kbd> talk
-            </li>
-            <li className="flex items-center gap-1">
-              <kbd>Space</kbd> hold to speak
-            </li>
-            <li className="flex items-center gap-1">
-              <kbd>P</kbd> phrasebook
-            </li>
-          </ul>
-          <p className="text-xs text-foreground/70">
+        <footer className="mt-auto flex flex-col gap-3 border-t-2 border-border bg-background py-4 sm:sticky sm:bottom-0 sm:z-10 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
+          {mobilePlay ? (
+            <p className="text-xs leading-relaxed text-foreground/70">
+              Rotate to landscape to play. Move with the on-screen joystick, drag to look, and tap
+              vendors to talk.
+            </p>
+          ) : (
+            <ul className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-foreground/70">
+              <li className="flex items-center gap-1">
+                <kbd>W</kbd>
+                <kbd>A</kbd>
+                <kbd>S</kbd>
+                <kbd>D</kbd> move
+              </li>
+              <li className="flex items-center gap-1">
+                <kbd>←</kbd>
+                <kbd>→</kbd> look
+              </li>
+              <li className="flex items-center gap-1">
+                <kbd>E</kbd> talk
+              </li>
+              <li className="flex items-center gap-1">
+                <kbd>Space</kbd> hold to speak
+              </li>
+              <li className="flex items-center gap-1">
+                <kbd>P</kbd> phrasebook
+              </li>
+            </ul>
+          )}
+          <p className="shrink-0 text-xs text-foreground/70">
             Speech, voice and dialogue by <strong className="font-base text-foreground">Sarvam AI</strong>
           </p>
         </footer>
