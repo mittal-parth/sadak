@@ -1,19 +1,33 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { DISTRICTS, type District } from "@/lib/game/districts";
+import { DISTRICT_COVER_IMAGES } from "@/lib/game/district-covers";
 import { tasksForDistrict } from "@/lib/game/tasks";
+import type { ComfortLevel } from "@/lib/game/levels";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-function skyWash(d: District) {
-  return `linear-gradient(160deg, ${d.theme.sky.join(", ")})`;
-}
+const COMFORT_OPTIONS: {
+  value: ComfortLevel;
+  title: string;
+  description: string;
+}[] = [
+  { value: "easy", title: "Easy", description: "I'm new to this language" },
+  { value: "medium", title: "Medium", description: "I know some phrases" },
+  { value: "hard", title: "Hard", description: "I can hold a basic conversation" },
+];
 
-export default function Title({ onEnter }: { onEnter: (d: District) => void }) {
+export default function Title({
+  onEnter,
+}: {
+  onEnter: (d: District, comfort: ComfortLevel) => void;
+}) {
   const [picked, setPicked] = useState<District>(DISTRICTS[0]);
+  const [comfort, setComfort] = useState<ComfortLevel>("medium");
 
   return (
     <main className="relative min-h-full max-h-full overflow-y-auto bg-background text-foreground">
@@ -44,7 +58,7 @@ export default function Title({ onEnter }: { onEnter: (d: District) => void }) {
           </p>
 
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            <Button size="lg" onClick={() => onEnter(picked)}>
+            <Button size="lg" onClick={() => onEnter(picked, comfort)}>
               Enter {picked.name}
             </Button>
             <span className="text-sm text-foreground/70">
@@ -76,17 +90,20 @@ export default function Title({ onEnter }: { onEnter: (d: District) => void }) {
                 >
                   <Card
                     className={cn(
-                      "relative min-h-40 gap-2 overflow-hidden py-4 transition-all hover:translate-x-boxShadowX hover:translate-y-boxShadowY hover:shadow-none",
+                      "relative aspect-[4/3] gap-2 overflow-hidden py-4 transition-all hover:translate-x-boxShadowX hover:translate-y-boxShadowY hover:shadow-none",
                       on && "ring-2 ring-foreground ring-offset-2 ring-offset-background",
                     )}
                   >
-                    <span
-                      className="absolute inset-0 opacity-90"
-                      style={{ background: skyWash(d) }}
-                      aria-hidden
+                    <Image
+                      src={DISTRICT_COVER_IMAGES[d.id]}
+                      alt=""
+                      fill
+                      className="object-cover object-center"
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      priority
                     />
                     <span
-                      className="absolute inset-0 bg-linear-to-t from-black/70 to-transparent"
+                      className="absolute inset-0 bg-linear-to-t from-black/75 via-black/25 to-black/10"
                       aria-hidden
                     />
                     <CardContent className="relative z-10 flex flex-col gap-1 px-4">
@@ -99,6 +116,46 @@ export default function Title({ onEnter }: { onEnter: (d: District) => void }) {
                           {d.city}
                         </em>
                       </span>
+                    </CardContent>
+                  </Card>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="mt-10 text-center" aria-label="Language comfort">
+          <h2 className="text-xs font-base uppercase tracking-widest text-foreground/70">
+            How comfortable are you with {picked.languageLabel}?
+          </h2>
+          <p className="mx-auto mt-2 max-w-[40ch] text-sm text-foreground/70">
+            Errands get harder as you go. Your answer sets where the first level starts.
+          </p>
+          <div
+            className="mx-auto mt-4 grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3"
+            role="radiogroup"
+            aria-label="Language comfort"
+          >
+            {COMFORT_OPTIONS.map((opt) => {
+              const on = comfort === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  className="cursor-pointer border-0 bg-transparent p-0 text-left"
+                  onClick={() => setComfort(opt.value)}
+                >
+                  <Card
+                    className={cn(
+                      "h-full gap-1 py-4 transition-all hover:translate-x-boxShadowX hover:translate-y-boxShadowY hover:shadow-none",
+                      on && "ring-2 ring-foreground ring-offset-2 ring-offset-background",
+                    )}
+                  >
+                    <CardContent className="px-4">
+                      <strong className="font-heading">{opt.title}</strong>
+                      <p className="mt-1 text-sm text-foreground/80">{opt.description}</p>
                     </CardContent>
                   </Card>
                 </button>

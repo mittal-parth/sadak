@@ -17,6 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { lessonTierLabel } from "@/lib/game/levels";
 import { cn } from "@/lib/utils";
 
 type Phase = "recall" | "npc" | "player" | "result" | "finished";
@@ -231,9 +232,16 @@ export default function Dialogue({
               <strong className="font-indic text-foreground">{district.native}</strong>
             </DialogDescription>
           </div>
-          <Badge variant="neutral">
-            {Math.min(stepIndex + 1, steps.length)} / {steps.length}
-          </Badge>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            {target.errandLevel != null && target.lessonTier != null && (
+              <Badge variant="neutral" className="text-[0.625rem] uppercase tracking-wide">
+                Level {target.errandLevel}/4 · {lessonTierLabel(target.lessonTier)}
+              </Badge>
+            )}
+            <Badge variant="neutral">
+              {Math.min(stepIndex + 1, steps.length)} / {steps.length}
+            </Badge>
+          </div>
         </DialogHeader>
 
         <Alert className="rounded-none border-x-0 border-t-0 shadow-none">

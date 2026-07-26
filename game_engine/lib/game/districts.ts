@@ -106,6 +106,8 @@ export type District = {
   script: string;
   /** The stolen vehicle at the heart of the arc. */
   premise: string;
+  /** Cover art on the district picker (path under /public). */
+  coverImage: string;
   theme: Theme;
   /** Survival phrases, shown in-game so a non-speaker can actually play. */
   phrases: Phrase[];
@@ -140,6 +142,7 @@ const puraniSadak: District = {
   name: "Purani Sadak",
   city: "Old Delhi",
   blurb: "Dust, gold light, and an auto that isn't where it was left.",
+  coverImage: "/covers/purani-sadak.png",
   language: "hi-IN",
   languageLabel: "Hindi",
   native: "हिन्दी",
@@ -362,6 +365,7 @@ const marinaNagar: District = {
   name: "Marina Nagar",
   city: "Chennai",
   blurb: "Salt air, white light, and a fish tempo gone from the shore road.",
+  coverImage: "/covers/marina-nagar.png",
   language: "ta-IN",
   languageLabel: "Tamil",
   native: "தமிழ்",
@@ -519,6 +523,7 @@ const majesticCross: District = {
   name: "Majestic Cross",
   city: "Bengaluru",
   blurb: "Wet tarmac, grey light, and a delivery scooter that never came back.",
+  coverImage: "/covers/majestic-cross.png",
   language: "kn-IN",
   languageLabel: "Kannada",
   native: "ಕನ್ನಡ",
@@ -674,6 +679,7 @@ const parkGully: District = {
   name: "Park Gully",
   city: "Kolkata",
   blurb: "Wet red brick, failing light, and a yellow taxi that didn't come home.",
+  coverImage: "/covers/park-gully.png",
   language: "bn-IN",
   languageLabel: "Bengali",
   native: "বাংলা",

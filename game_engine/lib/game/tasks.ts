@@ -1,4 +1,9 @@
 import type { LessonStep } from "@/lib/game/districts";
+import {
+  lessonTierFor,
+  type ComfortLevel,
+  type LessonTier,
+} from "@/lib/game/levels";
 
 export type TaskKind = "auto" | "shop" | "temple" | "bus";
 
@@ -17,7 +22,7 @@ export type StreetTask = {
   role: string;
   speaker: string;
   colour: number;
-  lesson: LessonStep[];
+  lessons: Record<LessonTier, LessonStep[]>;
   /** Shown on the completion card instead of a detective clue. */
   completionNote: string;
 };
@@ -39,9 +44,27 @@ export type LessonTarget = {
   reward: number;
   lesson: LessonStep[];
   completionNote: string;
+  errandLevel?: number;
+  lessonTier?: LessonTier;
 };
 
-export function taskAsLessonTarget(task: StreetTask): LessonTarget {
+export function errandIndexForTask(taskId: string, districtId: string): number {
+  const tasks = tasksForDistrict(districtId);
+  const idx = tasks.findIndex((t) => t.id === taskId);
+  return idx >= 0 ? idx : 0;
+}
+
+export function resolveTaskLesson(task: StreetTask, comfort: ComfortLevel): LessonStep[] {
+  const index = errandIndexForTask(task.id, task.districtId);
+  const tier = lessonTierFor(comfort, index);
+  return task.lessons[tier];
+}
+
+export function taskAsLessonTarget(
+  task: StreetTask,
+  lesson: LessonStep[],
+  meta?: { errandLevel: number; lessonTier: LessonTier }
+): LessonTarget {
   return {
     id: task.id,
     name: task.name,
@@ -50,8 +73,10 @@ export function taskAsLessonTarget(task: StreetTask): LessonTarget {
     title: task.title,
     brief: task.brief,
     reward: task.reward,
-    lesson: task.lesson,
+    lesson,
     completionNote: task.completionNote,
+    errandLevel: meta?.errandLevel,
+    lessonTier: meta?.lessonTier,
   };
 }
 
@@ -76,7 +101,34 @@ const puraniSadak: DistrictTaskPack = {
       speaker: "aditya",
       colour: 0xf4d03f,
       completionNote: "Fare agreed — you're riding to New Delhi station.",
-      lesson: [
+      lessons: {
+        easy: [
+        {
+          npc: {
+            native: "कहाँ जाना है?",
+            roman: "Kahaan jaana hai?",
+            en: "Where do you want to go?",
+          },
+          prompt: {
+            native: "नई दिल्ली रेलवे स्टेशन",
+            roman: "Nayi Dilli railway station",
+            en: "New Delhi railway station",
+          },
+        },
+        {
+          npc: {
+            native: "ठीक है, कितने दोगे?",
+            roman: "Theek hai, kitne doge?",
+            en: "Fine, what will you pay?",
+          },
+          prompt: {
+            native: "डेढ़ सौ में चलोगे?",
+            roman: "Dedh sau mein chaloge?",
+            en: "Will you go for 150?",
+          },
+        }
+      ],
+        medium: [
         {
           npc: {
             native: "कहाँ जाना है?",
@@ -122,6 +174,65 @@ const puraniSadak: DistrictTaskPack = {
           },
         },
       ],
+        hard: [
+        {
+          npc: {
+            native: "कहाँ जाना है?",
+            roman: "Kahaan jaana hai?",
+            en: "Where do you want to go?",
+          },
+          prompt: {
+            native: "नई दिल्ली रेलवे स्टेशन",
+            roman: "Nayi Dilli railway station",
+            en: "New Delhi railway station",
+          },
+        },
+        {
+          npc: {
+            native: "तीन सौ! पेट्रोल महंगा है भाई",
+            roman: "Teen sau! Petrol mehenga hai bhai",
+            en: "Three hundred! Petrol is expensive, brother",
+          },
+          interruption: true,
+        },
+        {
+          npc: {
+            native: "ठीक है, कितने दोगे?",
+            roman: "Theek hai, kitne doge?",
+            en: "Fine, what will you pay?",
+          },
+          prompt: {
+            native: "डेढ़ सौ में चलोगे?",
+            roman: "Dedh sau mein chaloge?",
+            en: "Will you go for 150?",
+          },
+        },
+        {
+          npc: {
+            native: "मीटर से चलोगे?",
+            roman: "Meter se chaloge?",
+            en: "Will you go by meter?",
+          },
+          prompt: {
+            native: "नहीं, पक्का किराया",
+            roman: "Nahin, pakka kiraya",
+            en: "No, fixed fare",
+          },
+        },
+        {
+          npc: {
+            native: "चलो, बैठ जाओ",
+            roman: "Chalo, baith jao",
+            en: "Come on, get in",
+          },
+          prompt: {
+            native: "धन्यवाद, चलिए",
+            roman: "Dhanyavaad, chaliye",
+            en: "Thank you, let's go",
+          },
+        }
+      ],
+      },
     },
     {
       id: "purani-sadak-shop",
@@ -137,7 +248,34 @@ const puraniSadak: DistrictTaskPack = {
       speaker: "rohan",
       colour: 0xe67e22,
       completionNote: "Two kachoris and cutting chai — breakfast sorted.",
-      lesson: [
+      lessons: {
+        easy: [
+        {
+          npc: {
+            native: "क्या लेंगे?",
+            roman: "Kya lenge?",
+            en: "What will you have?",
+          },
+          prompt: {
+            native: "दो कचौड़ी दीजिए",
+            roman: "Do kachaudi dijiye",
+            en: "Two kachoris, please",
+          },
+        },
+        {
+          npc: {
+            native: "चालीस रुपये",
+            roman: "Chalees rupaye",
+            en: "Forty rupees",
+          },
+          prompt: {
+            native: "कितने पैसे हुए?",
+            roman: "Kitne paise hue?",
+            en: "What do I owe you?",
+          },
+        }
+      ],
+        medium: [
         {
           npc: {
             native: "क्या लेंगे?",
@@ -183,6 +321,65 @@ const puraniSadak: DistrictTaskPack = {
           },
         },
       ],
+        hard: [
+        {
+          npc: {
+            native: "क्या लेंगे?",
+            roman: "Kya lenge?",
+            en: "What will you have?",
+          },
+          prompt: {
+            native: "दो कचौड़ी दीजिए",
+            roman: "Do kachaudi dijiye",
+            en: "Two kachoris, please",
+          },
+        },
+        {
+          npc: {
+            native: "अरे, वो बिल्ली फिर आ गई!",
+            roman: "Arre, wo billi phir aa gayi!",
+            en: "Hey, that cat is back again!",
+          },
+          interruption: true,
+        },
+        {
+          npc: {
+            native: "चाय भी?",
+            roman: "Chai bhi?",
+            en: "Chai as well?",
+          },
+          prompt: {
+            native: "हाँ, एक कटिंग चाय",
+            roman: "Haan, ek cutting chai",
+            en: "Yes, one cutting chai",
+          },
+        },
+        {
+          npc: {
+            native: "मीठी चाय या सादी?",
+            roman: "Meethi chai ya saadi?",
+            en: "Sweet tea or plain?",
+          },
+          prompt: {
+            native: "सादी चाय",
+            roman: "Saadi chai",
+            en: "Plain tea",
+          },
+        },
+        {
+          npc: {
+            native: "चालीस रुपये",
+            roman: "Chalees rupaye",
+            en: "Forty rupees",
+          },
+          prompt: {
+            native: "कितने पैसे हुए?",
+            roman: "Kitne paise hue?",
+            en: "What do I owe you?",
+          },
+        }
+      ],
+      },
     },
     {
       id: "purani-sadak-temple",
@@ -198,7 +395,34 @@ const puraniSadak: DistrictTaskPack = {
       speaker: "ritu",
       colour: 0xe74c3c,
       completionNote: "Garlands in hand — ready for darshan.",
-      lesson: [
+      lessons: {
+        easy: [
+        {
+          npc: {
+            native: "मंदिर के लिए फूल?",
+            roman: "Mandir ke liye phool?",
+            en: "Flowers for the temple?",
+          },
+          prompt: {
+            native: "हाँ, दो गenda की माला",
+            roman: "Haan, do genda ki maala",
+            en: "Yes, two marigold garlands",
+          },
+        },
+        {
+          npc: {
+            native: "चालीस में ले लो",
+            roman: "Chalees mein le lo",
+            en: "Take it for forty",
+          },
+          prompt: {
+            native: "धन्यवाद, ये लीजिए",
+            roman: "Dhanyavaad, ye lijiye",
+            en: "Thank you, here you go",
+          },
+        }
+      ],
+        medium: [
         {
           npc: {
             native: "मंदिर के लिए फूल?",
@@ -244,6 +468,65 @@ const puraniSadak: DistrictTaskPack = {
           },
         },
       ],
+        hard: [
+        {
+          npc: {
+            native: "मंदिर के लिए फूल?",
+            roman: "Mandir ke liye phool?",
+            en: "Flowers for the temple?",
+          },
+          prompt: {
+            native: "हाँ, दो गenda की माला",
+            roman: "Haan, do genda ki maala",
+            en: "Yes, two marigold garlands",
+          },
+        },
+        {
+          npc: {
+            native: "घंटी बज रही है, जल्दी कीजिए",
+            roman: "Ghanti baj rahi hai, jaldi kijiye",
+            en: "The bell is ringing, hurry up",
+          },
+          interruption: true,
+        },
+        {
+          npc: {
+            native: "पचास रुपये",
+            roman: "Pachaas rupaye",
+            en: "Fifty rupees",
+          },
+          prompt: {
+            native: "कितने का है?",
+            roman: "Kitne ka hai?",
+            en: "How much is it?",
+          },
+        },
+        {
+          npc: {
+            native: "और कुछ चाहिए?",
+            roman: "Aur kuch chahiye?",
+            en: "Need anything else?",
+          },
+          prompt: {
+            native: "नहीं, बस इतना",
+            roman: "Nahin, bas itna",
+            en: "No, just this",
+          },
+        },
+        {
+          npc: {
+            native: "चालीस में ले लो",
+            roman: "Chalees mein le lo",
+            en: "Take it for forty",
+          },
+          prompt: {
+            native: "धन्यवाद, ये लीजिए",
+            roman: "Dhanyavaad, ye lijiye",
+            en: "Thank you, here you go",
+          },
+        }
+      ],
+      },
     },
     {
       id: "purani-sadak-bus",
@@ -259,7 +542,34 @@ const puraniSadak: DistrictTaskPack = {
       speaker: "shubh",
       colour: 0x5d6d7e,
       completionNote: "Ticket punched — next stop Chandni Chowk.",
-      lesson: [
+      lessons: {
+        easy: [
+        {
+          npc: {
+            native: "कहाँ जाना है?",
+            roman: "Kahaan jaana hai?",
+            en: "Where are you going?",
+          },
+          prompt: {
+            native: "चांदनी चौक",
+            roman: "Chandni Chowk",
+            en: "Chandni Chowk",
+          },
+        },
+        {
+          npc: {
+            native: "लो, टिकट",
+            roman: "Lo, ticket",
+            en: "Here, your ticket",
+          },
+          prompt: {
+            native: "धन्यवाद",
+            roman: "Dhanyavaad",
+            en: "Thank you",
+          },
+        }
+      ],
+        medium: [
         {
           npc: {
             native: "कहाँ जाना है?",
@@ -305,6 +615,65 @@ const puraniSadak: DistrictTaskPack = {
           },
         },
       ],
+        hard: [
+        {
+          npc: {
+            native: "कहाँ जाना है?",
+            roman: "Kahaan jaana hai?",
+            en: "Where are you going?",
+          },
+          prompt: {
+            native: "चांदनी चौक",
+            roman: "Chandni Chowk",
+            en: "Chandni Chowk",
+          },
+        },
+        {
+          npc: {
+            native: "पीछे से चढ़ो, भीड़ है",
+            roman: "Peeche se chadho, bheed hai",
+            en: "Board from the back, it's crowded",
+          },
+          interruption: true,
+        },
+        {
+          npc: {
+            native: "बीस रुपये",
+            roman: "Bees rupaye",
+            en: "Twenty rupees",
+          },
+          prompt: {
+            native: "एक टिकट दीजिए",
+            roman: "Ek ticket dijiye",
+            en: "One ticket, please",
+          },
+        },
+        {
+          npc: {
+            native: "छोटे नोट हैं?",
+            roman: "Chhote note hain?",
+            en: "Do you have small notes?",
+          },
+          prompt: {
+            native: "हाँ, ये लीजिए",
+            roman: "Haan, ye lijiye",
+            en: "Yes, here you go",
+          },
+        },
+        {
+          npc: {
+            native: "लो, टिकट",
+            roman: "Lo, ticket",
+            en: "Here, your ticket",
+          },
+          prompt: {
+            native: "धन्यवाद",
+            roman: "Dhanyavaad",
+            en: "Thank you",
+          },
+        }
+      ],
+      },
     },
   ],
 };
@@ -330,7 +699,34 @@ const marinaNagar: DistrictTaskPack = {
       speaker: "vijay",
       colour: 0xf5c518,
       completionNote: "Share auto to T Nagar — meter plus split fare.",
-      lesson: [
+      lessons: {
+        easy: [
+        {
+          npc: {
+            native: "எங்க போகணும்?",
+            roman: "Enga poganum?",
+            en: "Where do you need to go?",
+          },
+          prompt: {
+            native: "டி நகர்",
+            roman: "T Nagar",
+            en: "T Nagar",
+          },
+        },
+        {
+          npc: {
+            native: "சரி, ஏறுங்க",
+            roman: "Sari, erunga",
+            en: "Okay, get in",
+          },
+          prompt: {
+            native: "நன்றி",
+            roman: "Nandri",
+            en: "Thank you",
+          },
+        }
+      ],
+        medium: [
         {
           npc: {
             native: "எங்க போகணும்?",
@@ -376,6 +772,65 @@ const marinaNagar: DistrictTaskPack = {
           },
         },
       ],
+        hard: [
+        {
+          npc: {
+            native: "எங்க போகணும்?",
+            roman: "Enga poganum?",
+            en: "Where do you need to go?",
+          },
+          prompt: {
+            native: "டி நகர்",
+            roman: "T Nagar",
+            en: "T Nagar",
+          },
+        },
+        {
+          npc: {
+            native: "இவரும் டி நகர் தான்!",
+            roman: "Ivarum T Nagar dhaan!",
+            en: "This person is also going to T Nagar!",
+          },
+          interruption: true,
+        },
+        {
+          npc: {
+            native: "எழுபது ரூபாய்",
+            roman: "Ezhupathi rupaai",
+            en: "Seventy rupees",
+          },
+          prompt: {
+            native: "பகிர்ந்து கொள்ளலாமா?",
+            roman: "Pagirndhu kollalaamaa?",
+            en: "Can we share?",
+          },
+        },
+        {
+          npc: {
+            native: "மீட்டர் போடலாமா?",
+            roman: "Meter podalaamaa?",
+            en: "Shall we use the meter?",
+          },
+          prompt: {
+            native: "சரி, மீட்டர்",
+            roman: "Sari, meter",
+            en: "Okay, meter",
+          },
+        },
+        {
+          npc: {
+            native: "சரி, ஏறுங்க",
+            roman: "Sari, erunga",
+            en: "Okay, get in",
+          },
+          prompt: {
+            native: "நன்றி",
+            roman: "Nandri",
+            en: "Thank you",
+          },
+        }
+      ],
+      },
     },
     {
       id: "marina-nagar-shop",
@@ -391,7 +846,34 @@ const marinaNagar: DistrictTaskPack = {
       speaker: "rohan",
       colour: 0x16a085,
       completionNote: "Crisp dosa and kaapi — Marina breakfast.",
-      lesson: [
+      lessons: {
+        easy: [
+        {
+          npc: {
+            native: "என்ன வேணும்?",
+            roman: "Enna venum?",
+            en: "What do you want?",
+          },
+          prompt: {
+            native: "ஒரு மசாலா தோசை",
+            roman: "Oru masala dosai",
+            en: "One masala dosa",
+          },
+        },
+        {
+          npc: {
+            native: "எழுபத்து ஐந்து ரூபாய்",
+            roman: "Ezhupathu aindhu rupaai",
+            en: "Seventy-five rupees",
+          },
+          prompt: {
+            native: "எவ்வளavu?",
+            roman: "Evvalavu?",
+            en: "How much?",
+          },
+        }
+      ],
+        medium: [
         {
           npc: {
             native: "என்ன வேணும்?",
@@ -437,6 +919,65 @@ const marinaNagar: DistrictTaskPack = {
           },
         },
       ],
+        hard: [
+        {
+          npc: {
+            native: "என்ன வேணும்?",
+            roman: "Enna venum?",
+            en: "What do you want?",
+          },
+          prompt: {
+            native: "ஒரு மசாலா தோசை",
+            roman: "Oru masala dosai",
+            en: "One masala dosa",
+          },
+        },
+        {
+          npc: {
+            native: "சுட சுட வரும்!",
+            roman: "Suda suda varum!",
+            en: "It'll come piping hot!",
+          },
+          interruption: true,
+        },
+        {
+          npc: {
+            native: "காபி?",
+            roman: "Kaapi?",
+            en: "Coffee?",
+          },
+          prompt: {
+            native: "ஆம், ஒரு காபி",
+            roman: "Aam, oru kaapi",
+            en: "Yes, one coffee",
+          },
+        },
+        {
+          npc: {
+            native: "சட்னி extra?",
+            roman: "Chutney extra?",
+            en: "Extra chutney?",
+          },
+          prompt: {
+            native: "ஆம், கொடுங்க",
+            roman: "Aam, kodunga",
+            en: "Yes, give some",
+          },
+        },
+        {
+          npc: {
+            native: "எழுபத்து ஐந்து ரூபாய்",
+            roman: "Ezhupathu aindhu rupaai",
+            en: "Seventy-five rupees",
+          },
+          prompt: {
+            native: "எவ்வளavu?",
+            roman: "Evvalavu?",
+            en: "How much?",
+          },
+        }
+      ],
+      },
     },
     {
       id: "marina-nagar-temple",
@@ -452,7 +993,34 @@ const marinaNagar: DistrictTaskPack = {
       speaker: "kavitha",
       colour: 0x8e44ad,
       completionNote: "Coconut and kumkum — ready for archana.",
-      lesson: [
+      lessons: {
+        easy: [
+        {
+          npc: {
+            native: "தேங்காய் வேணுமா?",
+            roman: "Thengai venumaa?",
+            en: "Do you want a coconut?",
+          },
+          prompt: {
+            native: "ஆம், ஒரு தேங்காய்",
+            roman: "Aam, oru thengai",
+            en: "Yes, one coconut",
+          },
+        },
+        {
+          npc: {
+            native: "எடுத்துக்கோங்க",
+            roman: "Eduthukkonga",
+            en: "Take it",
+          },
+          prompt: {
+            native: "நன்றி",
+            roman: "Nandri",
+            en: "Thank you",
+          },
+        }
+      ],
+        medium: [
         {
           npc: {
             native: "தேங்காய் வேணுமா?",
@@ -498,6 +1066,65 @@ const marinaNagar: DistrictTaskPack = {
           },
         },
       ],
+        hard: [
+        {
+          npc: {
+            native: "தேங்காய் வேணுமா?",
+            roman: "Thengai venumaa?",
+            en: "Do you want a coconut?",
+          },
+          prompt: {
+            native: "ஆம், ஒரு தேங்காய்",
+            roman: "Aam, oru thengai",
+            en: "Yes, one coconut",
+          },
+        },
+        {
+          npc: {
+            native: "பூஜை நேரம் ஆரம்பம்!",
+            roman: "Poojai neram aarambam!",
+            en: "Puja time is starting!",
+          },
+          interruption: true,
+        },
+        {
+          npc: {
+            native: "முப்பது ரூபாய்",
+            roman: "Muppathu rupaai",
+            en: "Thirty rupees",
+          },
+          prompt: {
+            native: "எவ்வளavu?",
+            roman: "Evvalavu?",
+            en: "How much?",
+          },
+        },
+        {
+          npc: {
+            native: "குங்குமம் வேணுமா?",
+            roman: "Kungumam venumaa?",
+            en: "Want kumkum too?",
+          },
+          prompt: {
+            native: "ஆம், கொடுங்க",
+            roman: "Aam, kodunga",
+            en: "Yes, please",
+          },
+        },
+        {
+          npc: {
+            native: "எடுத்துக்கோங்க",
+            roman: "Eduthukkonga",
+            en: "Take it",
+          },
+          prompt: {
+            native: "நன்றி",
+            roman: "Nandri",
+            en: "Thank you",
+          },
+        }
+      ],
+      },
     },
     {
       id: "marina-nagar-bus",
@@ -513,7 +1140,34 @@ const marinaNagar: DistrictTaskPack = {
       speaker: "shubh",
       colour: 0x2980b9,
       completionNote: "Ticket to Marina Beach — keep it for checking.",
-      lesson: [
+      lessons: {
+        easy: [
+        {
+          npc: {
+            native: "எங்க போறீங்க?",
+            roman: "Enga poringa?",
+            en: "Where are you going?",
+          },
+          prompt: {
+            native: "மெரினா beach",
+            roman: "Marina Beach",
+            en: "Marina Beach",
+          },
+        },
+        {
+          npc: {
+            native: "போங்க",
+            roman: "Ponga",
+            en: "Go ahead",
+          },
+          prompt: {
+            native: "நன்றி",
+            roman: "Nandri",
+            en: "Thank you",
+          },
+        }
+      ],
+        medium: [
         {
           npc: {
             native: "எங்க போறீங்க?",
@@ -559,6 +1213,65 @@ const marinaNagar: DistrictTaskPack = {
           },
         },
       ],
+        hard: [
+        {
+          npc: {
+            native: "எங்க போறீங்க?",
+            roman: "Enga poringa?",
+            en: "Where are you going?",
+          },
+          prompt: {
+            native: "மெரினா beach",
+            roman: "Marina Beach",
+            en: "Marina Beach",
+          },
+        },
+        {
+          npc: {
+            native: "பின்னாடி ஏறுங்க!",
+            roman: "Pinnadi erunga!",
+            en: "Board from the back!",
+          },
+          interruption: true,
+        },
+        {
+          npc: {
+            native: "பதினைந்து ரூபாய்",
+            roman: "Pathinaidu rupaai",
+            en: "Fifteen rupees",
+          },
+          prompt: {
+            native: "ஒரு டிக்கெட்",
+            roman: "Oru ticket",
+            en: "One ticket",
+          },
+        },
+        {
+          npc: {
+            native: "சில்லறை இருக்கா?",
+            roman: "Sillara irukkaa?",
+            en: "Got change?",
+          },
+          prompt: {
+            native: "ஆம், இதோ",
+            roman: "Aam, itho",
+            en: "Yes, here",
+          },
+        },
+        {
+          npc: {
+            native: "போங்க",
+            roman: "Ponga",
+            en: "Go ahead",
+          },
+          prompt: {
+            native: "நன்றி",
+            roman: "Nandri",
+            en: "Thank you",
+          },
+        }
+      ],
+      },
     },
   ],
 };
@@ -584,7 +1297,34 @@ const majesticCross: DistrictTaskPack = {
       speaker: "vijay",
       colour: 0x2980b9,
       completionNote: "Auto to Majestic — fare settled in Kannada.",
-      lesson: [
+      lessons: {
+        easy: [
+        {
+          npc: {
+            native: "ಎಲ್ಲಿಗೆ?",
+            roman: "Ellige?",
+            en: "Where to?",
+          },
+          prompt: {
+            native: "ಮೆಜೆಸ್ಟಿಕ್ ಬಸ್ ಸ್ಟ್ಯಾಂಡ್",
+            roman: "Majestic bus stand",
+            en: "Majestic bus stand",
+          },
+        },
+        {
+          npc: {
+            native: "ಒಪ್ಪಿಗೆ, ಬನ್ನಿ",
+            roman: "Oppige, banni",
+            en: "Agreed, come",
+          },
+          prompt: {
+            native: "ಧನ್ಯವಾದ",
+            roman: "Dhanyavaada",
+            en: "Thank you",
+          },
+        }
+      ],
+        medium: [
         {
           npc: {
             native: "ಎಲ್ಲಿಗೆ?",
@@ -630,6 +1370,65 @@ const majesticCross: DistrictTaskPack = {
           },
         },
       ],
+        hard: [
+        {
+          npc: {
+            native: "ಎಲ್ಲಿಗೆ?",
+            roman: "Ellige?",
+            en: "Where to?",
+          },
+          prompt: {
+            native: "ಮೆಜೆಸ್ಟಿಕ್ ಬಸ್ ಸ್ಟ್ಯಾಂಡ್",
+            roman: "Majestic bus stand",
+            en: "Majestic bus stand",
+          },
+        },
+        {
+          npc: {
+            native: "ಟ್ರಾಫಿಕ್ ಜಾಸ್ತಿ ಇದೆ!",
+            roman: "Traffic jaasti ide!",
+            en: "Traffic is heavy!",
+          },
+          interruption: true,
+        },
+        {
+          npc: {
+            native: "ನೂರು ರೂಪಾಯಿ",
+            roman: "Nuru rupaayi",
+            en: "Hundred rupees",
+          },
+          prompt: {
+            native: "ಎಷ್ಟು?",
+            roman: "Eshtu?",
+            en: "How much?",
+          },
+        },
+        {
+          npc: {
+            native: "ಮೀಟರ್ ಹಾಕೋವಾ?",
+            roman: "Meter haakova?",
+            en: "Shall I put the meter?",
+          },
+          prompt: {
+            native: "ಇಲ್ಲ, ಫಿಕ್ಸ್",
+            roman: "Illa, fix",
+            en: "No, fixed",
+          },
+        },
+        {
+          npc: {
+            native: "ಒಪ್ಪಿಗೆ, ಬನ್ನಿ",
+            roman: "Oppige, banni",
+            en: "Agreed, come",
+          },
+          prompt: {
+            native: "ಧನ್ಯವಾದ",
+            roman: "Dhanyavaada",
+            en: "Thank you",
+          },
+        }
+      ],
+      },
     },
     {
       id: "majestic-cross-shop",
@@ -645,7 +1444,34 @@ const majesticCross: DistrictTaskPack = {
       speaker: "shruti",
       colour: 0x8e44ad,
       completionNote: "Hot idli-vada and chutney — classic Bengaluru.",
-      lesson: [
+      lessons: {
+        easy: [
+        {
+          npc: {
+            native: "ಏನು ಬೇಕು?",
+            roman: "Enu beku?",
+            en: "What do you want?",
+          },
+          prompt: {
+            native: "ಎರಡು ಇಡ್ಲಿ ಒಂದು ವಡೆ",
+            roman: "Eradu idli ondu vade",
+            en: "Two idlis and one vada",
+          },
+        },
+        {
+          npc: {
+            native: "ನಲವತ್ತು ರೂಪಾಯಿ",
+            roman: "Nalavattu rupaayi",
+            en: "Forty rupees",
+          },
+          prompt: {
+            native: "ಎಷ್ಟು?",
+            roman: "Eshtu?",
+            en: "How much?",
+          },
+        }
+      ],
+        medium: [
         {
           npc: {
             native: "ಏನು ಬೇಕು?",
@@ -691,6 +1517,65 @@ const majesticCross: DistrictTaskPack = {
           },
         },
       ],
+        hard: [
+        {
+          npc: {
+            native: "ಏನು ಬೇಕು?",
+            roman: "Enu beku?",
+            en: "What do you want?",
+          },
+          prompt: {
+            native: "ಎರಡು ಇಡ್ಲಿ ಒಂದು ವಡೆ",
+            roman: "Eradu idli ondu vade",
+            en: "Two idlis and one vada",
+          },
+        },
+        {
+          npc: {
+            native: "ಬಿಸಿ ಬಿಸಿ!",
+            roman: "Bisi bisi!",
+            en: "Hot hot!",
+          },
+          interruption: true,
+        },
+        {
+          npc: {
+            native: "ಕಾಫಿ?",
+            roman: "Kaafi?",
+            en: "Coffee?",
+          },
+          prompt: {
+            native: "ಇಲ್ಲ, ಧನ್ಯವಾದ",
+            roman: "Illa, dhanyavaada",
+            en: "No, thank you",
+          },
+        },
+        {
+          npc: {
+            native: "ಚಟ್ನಿ ಜಾಸ್ತಿ?",
+            roman: "Chutney jaasti?",
+            en: "Extra chutney?",
+          },
+          prompt: {
+            native: "ಹೌದು, ಕೊಡಿ",
+            roman: "Haudu, kodi",
+            en: "Yes, give some",
+          },
+        },
+        {
+          npc: {
+            native: "ನಲವತ್ತು ರೂಪಾಯಿ",
+            roman: "Nalavattu rupaayi",
+            en: "Forty rupees",
+          },
+          prompt: {
+            native: "ಎಷ್ಟು?",
+            roman: "Eshtu?",
+            en: "How much?",
+          },
+        }
+      ],
+      },
     },
     {
       id: "majestic-cross-temple",
@@ -706,7 +1591,34 @@ const majesticCross: DistrictTaskPack = {
       speaker: "ritu",
       colour: 0xe74c3c,
       completionNote: "Mallige garland for the deity.",
-      lesson: [
+      lessons: {
+        easy: [
+        {
+          npc: {
+            native: "ಮಲ್ಲಿಗೆ?",
+            roman: "Mallige?",
+            en: "Jasmine?",
+          },
+          prompt: {
+            native: "ಹೌದು, ಒಂದು ಮಾಲೆ",
+            roman: "Haudu, ondu maale",
+            en: "Yes, one garland",
+          },
+        },
+        {
+          npc: {
+            native: "ತೆಗೆದುಕೊಳ್ಳಿ",
+            roman: "Tegedukolli",
+            en: "Take it",
+          },
+          prompt: {
+            native: "ಧನ್ಯವಾದ",
+            roman: "Dhanyavaada",
+            en: "Thank you",
+          },
+        }
+      ],
+        medium: [
         {
           npc: {
             native: "ಮಲ್ಲಿಗೆ?",
@@ -752,6 +1664,65 @@ const majesticCross: DistrictTaskPack = {
           },
         },
       ],
+        hard: [
+        {
+          npc: {
+            native: "ಮಲ್ಲಿಗೆ?",
+            roman: "Mallige?",
+            en: "Jasmine?",
+          },
+          prompt: {
+            native: "ಹೌದು, ಒಂದು ಮಾಲೆ",
+            roman: "Haudu, ondu maale",
+            en: "Yes, one garland",
+          },
+        },
+        {
+          npc: {
+            native: "ಘಂಟೆ ಬರುತ್ತಿದೆ!",
+            roman: "Ghante baruttide!",
+            en: "The bell is ringing!",
+          },
+          interruption: true,
+        },
+        {
+          npc: {
+            native: "ಮೂವತ್ತು ರೂಪಾಯಿ",
+            roman: "Muvattu rupaayi",
+            en: "Thirty rupees",
+          },
+          prompt: {
+            native: "ಎಷ್ಟು?",
+            roman: "Eshtu?",
+            en: "How much?",
+          },
+        },
+        {
+          npc: {
+            native: "ಕುಂಕುಮ ಬೇಕಾ?",
+            roman: "Kunkuma bekaa?",
+            en: "Want kumkum?",
+          },
+          prompt: {
+            native: "ಹೌದು",
+            roman: "Haudu",
+            en: "Yes",
+          },
+        },
+        {
+          npc: {
+            native: "ತೆಗೆದುಕೊಳ್ಳಿ",
+            roman: "Tegedukolli",
+            en: "Take it",
+          },
+          prompt: {
+            native: "ಧನ್ಯವಾದ",
+            roman: "Dhanyavaada",
+            en: "Thank you",
+          },
+        }
+      ],
+      },
     },
     {
       id: "majestic-cross-bus",
@@ -767,7 +1738,34 @@ const majesticCross: DistrictTaskPack = {
       speaker: "gokul",
       colour: 0x27ae60,
       completionNote: "BMTC ticket to Shivajinagar.",
-      lesson: [
+      lessons: {
+        easy: [
+        {
+          npc: {
+            native: "ಎಲ್ಲಿಗೆ?",
+            roman: "Ellige?",
+            en: "Where to?",
+          },
+          prompt: {
+            native: "ಶಿವಾಜಿನಗರ",
+            roman: "Shivajinagar",
+            en: "Shivajinagar",
+          },
+        },
+        {
+          npc: {
+            native: "ಹೋಗಿ",
+            roman: "Hogi",
+            en: "Go",
+          },
+          prompt: {
+            native: "ಧನ್ಯವಾದ",
+            roman: "Dhanyavaada",
+            en: "Thank you",
+          },
+        }
+      ],
+        medium: [
         {
           npc: {
             native: "ಎಲ್ಲಿಗೆ?",
@@ -813,6 +1811,65 @@ const majesticCross: DistrictTaskPack = {
           },
         },
       ],
+        hard: [
+        {
+          npc: {
+            native: "ಎಲ್ಲಿಗೆ?",
+            roman: "Ellige?",
+            en: "Where to?",
+          },
+          prompt: {
+            native: "ಶಿವಾಜಿನಗರ",
+            roman: "Shivajinagar",
+            en: "Shivajinagar",
+          },
+        },
+        {
+          npc: {
+            native: "ಹಿಂದಿನ ಬಾಗಿಲು!",
+            roman: "Hindina baagilu!",
+            en: "Back door!",
+          },
+          interruption: true,
+        },
+        {
+          npc: {
+            native: "ಇಪ್ಪತ್ತು ರೂಪಾಯಿ",
+            roman: "Ippattu rupaayi",
+            en: "Twenty rupees",
+          },
+          prompt: {
+            native: "ಒಂದು ಟಿಕೆಟ್",
+            roman: "Ondu ticket",
+            en: "One ticket",
+          },
+        },
+        {
+          npc: {
+            native: "ಚಿಲ್ಲರೆ ಇದೆಯಾ?",
+            roman: "Chillare ideyaa?",
+            en: "Got change?",
+          },
+          prompt: {
+            native: "ಹೌದು, ತೆಗೆದುಕೊಳ್ಳಿ",
+            roman: "Haudu, tegedukolli",
+            en: "Yes, take it",
+          },
+        },
+        {
+          npc: {
+            native: "ಹೋಗಿ",
+            roman: "Hogi",
+            en: "Go",
+          },
+          prompt: {
+            native: "ಧನ್ಯವಾದ",
+            roman: "Dhanyavaada",
+            en: "Thank you",
+          },
+        }
+      ],
+      },
     },
   ],
 };
@@ -838,7 +1895,34 @@ const parkGully: DistrictTaskPack = {
       speaker: "soham",
       colour: 0xf4d03f,
       completionNote: "Howrah-bound — fare settled.",
-      lesson: [
+      lessons: {
+        easy: [
+        {
+          npc: {
+            native: "কোথায় যাবেন?",
+            roman: "Kothay jaben?",
+            en: "Where will you go?",
+          },
+          prompt: {
+            native: "হাওড়া স্টেশন",
+            roman: "Howrah station",
+            en: "Howrah station",
+          },
+        },
+        {
+          npc: {
+            native: "ঠিক আছে, উঠুন",
+            roman: "Thik ache, uthun",
+            en: "Okay, get in",
+          },
+          prompt: {
+            native: "ধন্যবাদ",
+            roman: "Dhonnobad",
+            en: "Thank you",
+          },
+        }
+      ],
+        medium: [
         {
           npc: {
             native: "কোথায় যাবেন?",
@@ -884,6 +1968,65 @@ const parkGully: DistrictTaskPack = {
           },
         },
       ],
+        hard: [
+        {
+          npc: {
+            native: "কোথায় যাবেন?",
+            roman: "Kothay jaben?",
+            en: "Where will you go?",
+          },
+          prompt: {
+            native: "হাওড়া স্টেশন",
+            roman: "Howrah station",
+            en: "Howrah station",
+          },
+        },
+        {
+          npc: {
+            native: "বৃষ্টি হচ্ছে, ভিজবেন!",
+            roman: "Brishti hocche, vijben!",
+            en: "It's raining, you'll get wet!",
+          },
+          interruption: true,
+        },
+        {
+          npc: {
+            native: "দুশো টাকা",
+            roman: "Dusho taka",
+            en: "Two hundred rupees",
+          },
+          prompt: {
+            native: "কত?",
+            roman: "Koto?",
+            en: "How much?",
+          },
+        },
+        {
+          npc: {
+            native: "মিটার চালাবেন?",
+            roman: "Meter chalaben?",
+            en: "Run the meter?",
+          },
+          prompt: {
+            native: "না, ঠিক ভাড়া",
+            roman: "Na, thik bhara",
+            en: "No, fixed fare",
+          },
+        },
+        {
+          npc: {
+            native: "ঠিক আছে, উঠুন",
+            roman: "Thik ache, uthun",
+            en: "Okay, get in",
+          },
+          prompt: {
+            native: "ধন্যবাদ",
+            roman: "Dhonnobad",
+            en: "Thank you",
+          },
+        }
+      ],
+      },
     },
     {
       id: "park-gully-shop",
@@ -899,7 +2042,34 @@ const parkGully: DistrictTaskPack = {
       speaker: "ishita",
       colour: 0xc0392b,
       completionNote: "Singara-kachori and cha — para snack.",
-      lesson: [
+      lessons: {
+        easy: [
+        {
+          npc: {
+            native: "কী নেবেন?",
+            roman: "Ki neben?",
+            en: "What will you take?",
+          },
+          prompt: {
+            native: "দুটো শিঙ্গারা আর একটা কচুরি",
+            roman: "Duto shingara ar ekta kachori",
+            en: "Two singaras and one kachori",
+          },
+        },
+        {
+          npc: {
+            native: "চল্লিশ টাকা",
+            roman: "Chollish taka",
+            en: "Forty taka",
+          },
+          prompt: {
+            native: "কত?",
+            roman: "Koto?",
+            en: "How much?",
+          },
+        }
+      ],
+        medium: [
         {
           npc: {
             native: "কী নেবেন?",
@@ -945,6 +2115,65 @@ const parkGully: DistrictTaskPack = {
           },
         },
       ],
+        hard: [
+        {
+          npc: {
+            native: "কী নেবেন?",
+            roman: "Ki neben?",
+            en: "What will you take?",
+          },
+          prompt: {
+            native: "দুটো শিঙ্গারা আর একটা কচুরি",
+            roman: "Duto shingara ar ekta kachori",
+            en: "Two singaras and one kachori",
+          },
+        },
+        {
+          npc: {
+            native: "গরম গরম!",
+            roman: "Garam garam!",
+            en: "Hot hot!",
+          },
+          interruption: true,
+        },
+        {
+          npc: {
+            native: "চা?",
+            roman: "Cha?",
+            en: "Tea?",
+          },
+          prompt: {
+            native: "হ্যাঁ, এক কাপ",
+            roman: "Hyaa, ek kap",
+            en: "Yes, one cup",
+          },
+        },
+        {
+          npc: {
+            native: "মিষ্টি চা নাকি?",
+            roman: "Mishti cha naki?",
+            en: "Sweet tea or not?",
+          },
+          prompt: {
+            native: "না, সাদা চা",
+            roman: "Na, sada cha",
+            en: "No, plain tea",
+          },
+        },
+        {
+          npc: {
+            native: "চল্লিশ টাকা",
+            roman: "Chollish taka",
+            en: "Forty taka",
+          },
+          prompt: {
+            native: "কত?",
+            roman: "Koto?",
+            en: "How much?",
+          },
+        }
+      ],
+      },
     },
     {
       id: "park-gully-temple",
@@ -960,7 +2189,34 @@ const parkGully: DistrictTaskPack = {
       speaker: "ashutosh",
       colour: 0x7f8c8d,
       completionNote: "Prasad in hand — join the queue.",
-      lesson: [
+      lessons: {
+        easy: [
+        {
+          npc: {
+            native: "প্রসাদ নেবেন?",
+            roman: "Prasad neben?",
+            en: "Will you take prasad?",
+          },
+          prompt: {
+            native: "হ্যাঁ, এক পacket",
+            roman: "Hyaa, ek packet",
+            en: "Yes, one packet",
+          },
+        },
+        {
+          npc: {
+            native: "নিন",
+            roman: "Nin",
+            en: "Take it",
+          },
+          prompt: {
+            native: "ধন্যবাদ",
+            roman: "Dhonnobad",
+            en: "Thank you",
+          },
+        }
+      ],
+        medium: [
         {
           npc: {
             native: "প্রসাদ নেবেন?",
@@ -1006,6 +2262,65 @@ const parkGully: DistrictTaskPack = {
           },
         },
       ],
+        hard: [
+        {
+          npc: {
+            native: "প্রসাদ নেবেন?",
+            roman: "Prasad neben?",
+            en: "Will you take prasad?",
+          },
+          prompt: {
+            native: "হ্যাঁ, এক পacket",
+            roman: "Hyaa, ek packet",
+            en: "Yes, one packet",
+          },
+        },
+        {
+          npc: {
+            native: "ঘণ্টা বাজছে!",
+            roman: "Ghonta bajche!",
+            en: "The bell is ringing!",
+          },
+          interruption: true,
+        },
+        {
+          npc: {
+            native: "পঁচিশ টাকা",
+            roman: "Pochish taka",
+            en: "Twenty-five taka",
+          },
+          prompt: {
+            native: "কত?",
+            roman: "Koto?",
+            en: "How much?",
+          },
+        },
+        {
+          npc: {
+            native: "সিঁদুর লাগবে?",
+            roman: "Sindur lagbe?",
+            en: "Need vermillion?",
+          },
+          prompt: {
+            native: "হ্যাঁ, দিন",
+            roman: "Hyaa, din",
+            en: "Yes, give it",
+          },
+        },
+        {
+          npc: {
+            native: "নিন",
+            roman: "Nin",
+            en: "Take it",
+          },
+          prompt: {
+            native: "ধন্যবাদ",
+            roman: "Dhonnobad",
+            en: "Thank you",
+          },
+        }
+      ],
+      },
     },
     {
       id: "park-gully-bus",
@@ -1021,7 +2336,34 @@ const parkGully: DistrictTaskPack = {
       speaker: "soham",
       colour: 0x16a085,
       completionNote: "Tram ticket to Esplanade — validate before boarding.",
-      lesson: [
+      lessons: {
+        easy: [
+        {
+          npc: {
+            native: "কোথায়?",
+            roman: "Kothay?",
+            en: "Where to?",
+          },
+          prompt: {
+            native: "এসপ্ল্যানেড",
+            roman: "Esplanade",
+            en: "Esplanade",
+          },
+        },
+        {
+          npc: {
+            native: "যান",
+            roman: "Jan",
+            en: "Go",
+          },
+          prompt: {
+            native: "ধন্যবাদ",
+            roman: "Dhonnobad",
+            en: "Thank you",
+          },
+        }
+      ],
+        medium: [
         {
           npc: {
             native: "কোথায়?",
@@ -1067,6 +2409,65 @@ const parkGully: DistrictTaskPack = {
           },
         },
       ],
+        hard: [
+        {
+          npc: {
+            native: "কোথায়?",
+            roman: "Kothay?",
+            en: "Where to?",
+          },
+          prompt: {
+            native: "এসপ্ল্যানেড",
+            roman: "Esplanade",
+            en: "Esplanade",
+          },
+        },
+        {
+          npc: {
+            native: "টram আসছে!",
+            roman: "Tram asche!",
+            en: "Tram is coming!",
+          },
+          interruption: true,
+        },
+        {
+          npc: {
+            native: "দশ টাকা",
+            roman: "Dash taka",
+            en: "Ten taka",
+          },
+          prompt: {
+            native: "একটা ticket",
+            roman: "Ekta ticket",
+            en: "One ticket",
+          },
+        },
+        {
+          npc: {
+            native: "খুচরো আছে?",
+            roman: "Khuchro ache?",
+            en: "Got change?",
+          },
+          prompt: {
+            native: "হ্যাঁ, নিন",
+            roman: "Hyaa, nin",
+            en: "Yes, take it",
+          },
+        },
+        {
+          npc: {
+            native: "যান",
+            roman: "Jan",
+            en: "Go",
+          },
+          prompt: {
+            native: "ধন্যবাদ",
+            roman: "Dhonnobad",
+            en: "Thank you",
+          },
+        }
+      ],
+      },
     },
   ],
 };

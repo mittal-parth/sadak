@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Game, type Telemetry } from "@/lib/game/engine";
 import type { District } from "@/lib/game/districts";
 import {
+  errandIndexForTask,
+  resolveTaskLesson,
   taskAsLessonTarget,
   taskById,
   taskFinaleForDistrict,
@@ -11,6 +13,8 @@ import {
   totalTaskReward,
   type StreetTask,
 } from "@/lib/game/tasks";
+import type { ComfortLevel } from "@/lib/game/levels";
+import { errandLevelNumber, lessonTierFor } from "@/lib/game/levels";
 import Title from "./Title";
 import Hud from "./Hud";
 import Dialogue from "./Dialogue";
@@ -37,6 +41,7 @@ export default function GameShell() {
   const gameRef = useRef<Game | null>(null);
 
   const [district, setDistrict] = useState<District | null>(null);
+  const [comfort, setComfort] = useState<ComfortLevel>("medium");
   const [tel, setTel] = useState<Telemetry | null>(null);
   const [talking, setTalking] = useState<StreetTask | null>(null);
   const [cash, setCash] = useState(0);
@@ -55,6 +60,17 @@ export default function GameShell() {
     () => (district ? tasksForDistrict(district.id) : []),
     [district]
   );
+
+  const talkingTarget = useMemo(() => {
+    if (!talking) return null;
+    const index = errandIndexForTask(talking.id, talking.districtId);
+    const tier = lessonTierFor(comfort, index);
+    const lesson = resolveTaskLesson(talking, comfort);
+    return taskAsLessonTarget(talking, lesson, {
+      errandLevel: errandLevelNumber(index),
+      lessonTier: tier,
+    });
+  }, [talking, comfort]);
 
   const nearbyRef = useRef<string | null>(null);
   const talkingRef = useRef<StreetTask | null>(null);
@@ -194,6 +210,7 @@ export default function GameShell() {
     setCard(null);
     metRef.current = new Set();
     setNpcMemory({});
+    setComfort("medium");
   }, []);
 
   const release = useCallback(() => {
@@ -201,7 +218,16 @@ export default function GameShell() {
     setHeat(0);
   }, []);
 
-  if (!district) return <Title onEnter={setDistrict} />;
+  if (!district) {
+    return (
+      <Title
+        onEnter={(d, c) => {
+          setDistrict(d);
+          setComfort(c);
+        }}
+      />
+    );
+  }
 
   const allDone = tasks.length > 0 && completed.size === tasks.length;
   const finale = taskFinaleForDistrict(district.id);
@@ -219,6 +245,7 @@ export default function GameShell() {
         artifacts={artifacts}
         completed={completed}
         heat={heat}
+        errandProgress={{ done: completed.size, total: tasks.length }}
         onOpen={openTalk}
         phrasesOpen={phrasesOpen}
         onTogglePhrases={() => setPhrasesOpen((p) => !p)}
@@ -301,11 +328,11 @@ export default function GameShell() {
         </Dialog>
       )}
 
-      {talking && (
+      {talking && talkingTarget && (
         <Dialogue
           key={talking.id}
           district={district}
-          target={taskAsLessonTarget(talking)}
+          target={talkingTarget}
           priorMemory={npcMemory[memoryKey(district.id, talking.id)] ?? []}
           onMemoryUpdate={(turns) => mergeNpcMemory(talking.id, turns)}
           onClose={() => setTalking(null)}

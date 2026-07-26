@@ -148,6 +148,7 @@ export default function Hud({
   artifacts,
   completed,
   heat,
+  errandProgress,
   onOpen,
   phrasesOpen,
   onTogglePhrases,
@@ -161,6 +162,7 @@ export default function Hud({
   artifacts: string[];
   completed: Set<string>;
   heat: number;
+  errandProgress: { done: number; total: number };
   onOpen: () => void;
   phrasesOpen: boolean;
   onTogglePhrases: () => void;
@@ -174,6 +176,12 @@ export default function Hud({
         <div className="flex flex-col items-start gap-2">
           <Badge className="text-base font-heading">₹{cash.toLocaleString("en-IN")}</Badge>
           <Badge variant="neutral">{xp} XP</Badge>
+          {errandProgress.total > 0 && (
+            <Badge variant="neutral" className="text-xs uppercase tracking-wide">
+              Level {Math.min(errandProgress.done + 1, errandProgress.total)} of{" "}
+              {errandProgress.total}
+            </Badge>
+          )}
           {heat > 0 && (
             <HudCard className="flex-row px-3 py-2">
               <CardContent className="flex gap-0.5 px-0 py-0" aria-label={`Wanted level ${heat} of 5`}>
