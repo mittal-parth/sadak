@@ -15,6 +15,7 @@ export default function GameShell() {
   const [tel, setTel] = useState<Telemetry | null>(null);
   const [talking, setTalking] = useState<Npc | null>(null);
   const [cash, setCash] = useState(0);
+  const [xp, setXp] = useState(0);
   const [completed, setCompleted] = useState<Set<string>>(new Set());
   const [clues, setClues] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
@@ -134,6 +135,10 @@ export default function GameShell() {
     setHeat((h) => Math.min(5, h + amount));
   }, []);
 
+  const onPoints = useCallback((points: number) => {
+    setXp((x) => x + points);
+  }, []);
+
   const onComplete = useCallback(
     (npcId: string, reward: number, clue: string | null) => {
       if (!district) return;
@@ -158,6 +163,7 @@ export default function GameShell() {
     setTel(null);
     setTalking(null);
     setCash(0);
+    setXp(0);
     setCompleted(new Set());
     setClues([]);
     setToast(null);
@@ -187,6 +193,7 @@ export default function GameShell() {
         district={district}
         tel={tel}
         cash={cash}
+        xp={xp}
         clues={clues}
         completed={completed}
         heat={heat}
@@ -254,12 +261,14 @@ export default function GameShell() {
 
       {talking && (
         <Dialogue
+          key={talking.id}
           district={district}
           npc={talking}
           clues={clues}
           onClose={() => setTalking(null)}
           onComplete={onComplete}
           onAnger={onAnger}
+          onPoints={onPoints}
         />
       )}
     </div>
