@@ -1,0 +1,10 @@
+{
+  "remoteName": "origin",
+  "projects": [
+    {
+      "id": "prj_c2ghkwNHHxni9pl2ugbCX0yvRDL3",
+      "name": "sadak",
+      "directory": "game_engine"
+    }
+  ]
+}

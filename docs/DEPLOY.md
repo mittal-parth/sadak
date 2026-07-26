@@ -33,7 +33,7 @@ Never commit `.env`. Use the Vercel dashboard and `lk agent update-secrets`.
 3. Leave **Install Command** / **Build Command** empty so `game_engine/vercel.json` applies (`npm ci`, `npm run build`).
 4. **Redeploy** the latest `main` commit.
 
-If Root Directory is left blank, the repo-root `vercel.json` runs install/build under `game_engine/` as a fallback, but setting Root Directory is the supported setup for Next.js.
+The repo also includes `.vercel/repo.json` (from `vercel link --repo`) mapping this project to `game_engine/`, and a root `vercel.json` fallback that runs install/build under `game_engine/` when Root Directory is unset.
 
 ### CLI
 
