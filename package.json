@@ -1,0 +1,12 @@
+{
+  "name": "sadak-repo",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "build": "npm run build --prefix game_engine && rm -rf .next && cp -R game_engine/.next .next",
+    "postinstall": "npm ci --prefix game_engine --ignore-scripts"
+  },
+  "dependencies": {
+    "next": "15.1.12"
+  }
+}

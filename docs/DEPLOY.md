@@ -33,7 +33,7 @@ Never commit `.env`. Use the Vercel dashboard and `lk agent update-secrets`.
 3. Leave **Install Command** / **Build Command** empty so `game_engine/vercel.json` applies (`npm ci`, `npm run build`).
 4. **Redeploy** the latest `main` commit.
 
-The repo also includes `.vercel/repo.json` (from `vercel link --repo`) mapping this project to `game_engine/`, and a root `vercel.json` fallback that runs install/build under `game_engine/` when Root Directory is unset.
+The repo also includes `.vercel/repo.json` (from `vercel link --repo`) mapping this project to `game_engine/`, and a root `package.json` / `package-lock.json` so Git-connected builds can run `npm ci` at the repo root and delegate install/build to `game_engine/`.
 
 ### CLI
 
