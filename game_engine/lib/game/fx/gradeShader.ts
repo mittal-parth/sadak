@@ -5,13 +5,21 @@
  * a laptop GPU we're trying to hold at 60fps):
  *
  *   depth haze -> lift/gamma/gain -> saturation -> temperature -> vignette
- *   -> chromatic aberration -> film grain
+ *   -> chromatic aberration -> film grain -> ordered dither
+ *
+ * The dither is last and deliberately tiny (half an 8-bit step). Haze, bloom
+ * and the sky gradient are all near-flat ramps stretched over hundreds of
+ * pixels, and those band hard on an 8-bit display however clean the geometry
+ * behind them is; an ordered threshold trades that banding for a fine pattern
+ * the eye reintegrates. See mat/dither.ts.
  *
  * Chromatic aberration is applied by offsetting the *sampling* UVs per
  * channel (so it has to happen before the single tDiffuse sample is treated
  * as "the" scene colour), everything after that is a per-pixel colour op on
  * the already-composited colour.
  */
+
+import { BAYER_GLSL } from "../mat/dither";
 
 export const GradeShader = {
   uniforms: {
@@ -35,6 +43,9 @@ export const GradeShader = {
 
     uGrain: { value: 0.03 },
     uChromaticAberration: { value: 0.0015 },
+    /** Ordered-dither amplitude, in 8-bit output steps. 1.0 is the point where
+     *  banding disappears without the pattern itself becoming visible. */
+    uDither: { value: 1.0 },
   },
 
   vertexShader: /* glsl */ `
@@ -68,8 +79,11 @@ export const GradeShader = {
 
     uniform float uGrain;
     uniform float uChromaticAberration;
+    uniform float uDither;
 
     varying vec2 vUv;
+
+    ${BAYER_GLSL}
 
     float linearizeDepth(float z) {
       // z is the raw [0,1] perspective depth-buffer value.
@@ -131,6 +145,10 @@ export const GradeShader = {
       // dirty-lens texture.
       float grain = (hash(vUv * vec2(1920.0, 1080.0) + uTime) - 0.5) * uGrain;
       color += grain;
+
+      // --- ordered dither, in pixel space so the pattern stays pinned to the
+      // display grid instead of swimming with the camera.
+      color += (bayer8(gl_FragCoord.xy) - 0.5) * (uDither / 255.0);
 
       gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
     }

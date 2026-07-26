@@ -30,8 +30,14 @@ export type Theme = {
   ambient: number;
   hemiSky: number;
   hemiGround: number;
+  /**
+   * Moving traffic, per vehicle class. These are deliberately low: the road
+   * grid is only so long, and a lane packed bumper-to-bumper reads as a car
+   * park, not a street. Traffic is spaced out into lane slots by the engine,
+   * so raising these past roughly a dozen just tightens the gaps.
+   */
   autos: number;
-  cows: number;
+  cars: number;
   /** Canopy colour of the auto-rickshaws in this city. */
   autoCanopy: number;
   exposure: number;
@@ -160,8 +166,8 @@ tell you.`,
     ambient: 0.62,
     hemiSky: 0xbfd8ef,
     hemiGround: 0xb08040,
-    autos: 22,
-    cows: 7,
+    autos: 9,
+    cars: 6,
     autoCanopy: 0xf5c518,
     exposure: 1.12,
     landmark: "delhi",
@@ -382,8 +388,8 @@ wants to be the one who spoke.`,
     ambient: 0.72,
     hemiSky: 0xd6ecf7,
     hemiGround: 0xc9b48a,
-    autos: 18,
-    cows: 4,
+    autos: 7,
+    cars: 7,
     autoCanopy: 0xf5c518,
     exposure: 1.2,
     landmark: "chennai",
@@ -539,8 +545,8 @@ theft and puts it on him.`,
     ambient: 0.85,
     hemiSky: 0xb8c4cc,
     hemiGround: 0x6a6f66,
-    autos: 26,
-    cows: 5,
+    autos: 8,
+    cars: 9,
     autoCanopy: 0xe8c518,
     exposure: 1.0,
     landmark: "bengaluru",
@@ -694,8 +700,8 @@ car, though he will not say so.`,
     ambient: 0.6,
     hemiSky: 0xa88ab0,
     hemiGround: 0x8a6048,
-    autos: 14,
-    cows: 6,
+    autos: 6,
+    cars: 8,
     autoCanopy: 0xf5c518,
     exposure: 1.15,
     landmark: "kolkata",
