@@ -63,10 +63,30 @@ export type Npc = {
   requiresClues?: number;
   /** What makes this character call the cops on you. Feeds the wanted level. */
   provokes: string;
+  /** The language drill for this NPC: 3-4 lines, easiest first. */
+  lesson: LessonStep[];
 };
 
 /** A line the player can actually use, for the phrasebook. */
 export type Phrase = { native: string; roman: string; en: string };
+
+/**
+ * One line of speech: native script (spoken by TTS / matched against STT),
+ * roman transliteration (what the player actually reads on screen — the
+ * script is always Latin, the words are the target language), and an English
+ * gloss. `native` and `roman` must be word-aligned: word N of one is word N
+ * of the other, so a per-word verdict on the native line can be painted onto
+ * the roman line the player is looking at.
+ */
+export type LessonLine = { native: string; roman: string; en: string };
+
+export type LessonStep = {
+  /** Scripted, not model-generated: the target phrase has to be exact to grade it. */
+  npc: LessonLine;
+  /** Omitted for an interruption: an off-script beat the player just has to roll with. */
+  prompt?: LessonLine;
+  interruption?: boolean;
+};
 
 export type District = {
   id: string;
@@ -86,6 +106,24 @@ export type District = {
   npcs: Npc[];
   finale: { title: string; text: string };
 };
+
+/**
+ * A safe fallback lesson built entirely from a district's own vetted
+ * phrasebook (no new translations invented): the NPC's opening is one
+ * phrase, the player's reply is another. Used where a district hasn't had a
+ * hand-authored, NPC-specific lesson written yet.
+ */
+function phrasebookLesson(phrases: Phrase[]): LessonStep[] {
+  const pairs: [number, number][] = [
+    [0, 1],
+    [2, 3],
+    [4, 5],
+  ];
+  return pairs.map(([a, b]) => ({
+    npc: { native: phrases[a].native, roman: phrases[a].roman, en: phrases[a].en },
+    prompt: { native: phrases[b].native, roman: phrases[b].roman, en: phrases[b].en },
+  }));
+}
 
 /* ------------------------------------------------------------------ *
  * 1. PURANI SADAK, Delhi, Hindi, golden hour
@@ -160,6 +198,24 @@ parked outside Kumar's chai stall since 4am.`,
         reward: 200,
       },
       clue: "Green-and-yellow auto, DL-1RN-4412, taken from outside the chai stall before dawn.",
+      lesson: [
+        {
+          npc: { native: "नमस्ते! क्या हुआ?", roman: "Namaste! Kya hua?", en: "Hello! What happened?" },
+          prompt: { native: "आप ठीक हैं?", roman: "Aap theek hain?", en: "Are you okay?" },
+        },
+        {
+          npc: { native: "अरे, वो कुत्ता भाग गया!", roman: "Arre, wo kutta bhaag gaya!", en: "Hey, that dog ran off!" },
+          interruption: true,
+        },
+        {
+          npc: { native: "मेरा ऑटो चोरी हो गया!", roman: "Mera auto chori ho gaya!", en: "My auto got stolen!" },
+          prompt: { native: "धीरे बोलिए, सब बताइए", roman: "Dheere boliye, sab bataiye", en: "Speak slowly, tell me everything" },
+        },
+        {
+          npc: { native: "ऑटो हरा-पीला था, नंबर याद नहीं", roman: "Auto hara-peela tha, number yaad nahin", en: "The auto was green-yellow, I don't remember the number" },
+          prompt: { native: "कोई बात नहीं, आराम से याद कीजिए", roman: "Koi baat nahin, aaraam se yaad kijiye", en: "No worries, remember it calmly" },
+        },
+      ],
     },
     {
       id: "kumar",
@@ -184,6 +240,20 @@ market.`,
         reward: 200,
       },
       clue: "A man in a red helmet drove it towards the flower market around 5am.",
+      lesson: [
+        {
+          npc: { native: "क्या चाहिए?", roman: "Kya chahiye?", en: "What do you need?" },
+          prompt: { native: "एक कटिंग चाय दीजिए", roman: "Ek cutting chai dijiye", en: "One cutting chai, please" },
+        },
+        {
+          npc: { native: "ठीक है, बैठिए", roman: "Theek hai, baithiye", en: "Okay, sit down" },
+          prompt: { native: "धन्यवाद, आपने ऑटो देखा?", roman: "Dhanyavaad, aapne auto dekha?", en: "Thank you, did you see the auto?" },
+        },
+        {
+          npc: { native: "हाँ, लाल हेलमेट वाला आदमी था", roman: "Haan, laal helmet waala aadmi tha", en: "Yes, it was a man in a red helmet" },
+          prompt: { native: "वो किधर गया, बता सकते हैं?", roman: "Wo kidhar gaya, bata sakte hain?", en: "Where did he go, can you tell me?" },
+        },
+      ],
     },
     {
       id: "lakshmi",
@@ -208,6 +278,20 @@ old cinema.`,
         reward: 200,
       },
       clue: "The red helmet is Bunty. He parks behind the old cinema.",
+      lesson: [
+        {
+          npc: { native: "बेटा, कहाँ से हो?", roman: "Beta, kahaan se ho?", en: "Child, where are you from?" },
+          prompt: { native: "मैं दिल्ली से हूँ", roman: "Main Dilli se hoon", en: "I am from Delhi" },
+        },
+        {
+          npc: { native: "खाना खाया या नहीं?", roman: "Khaana khaya ya nahin?", en: "Have you eaten or not?" },
+          prompt: { native: "हाँ खाया, आप बताइए बंटी के बारे में", roman: "Haan khaya, aap bataiye Bunty ke baare mein", en: "Yes I ate, please tell me about Bunty" },
+        },
+        {
+          npc: { native: "अच्छा बच्चे हो, सुनो", roman: "Achha bachche ho, suno", en: "You're a good kid, listen" },
+          prompt: { native: "कृपया धीरे-धीरे बताइए, मैं समझ जाऊँगा", roman: "Kripya dheere-dheere bataiye, main samajh jaunga", en: "Please tell slowly, I will understand" },
+        },
+      ],
     },
     {
       id: "havaldar",
@@ -232,6 +316,20 @@ plainly. Given all three you drop the act, radio it in, and recover the auto.`,
       },
       clue: "The auto is recovered behind the old cinema. Raju gets it back before Friday.",
       requiresClues: 3,
+      lesson: [
+        {
+          npc: { native: "क्या समस्या है?", roman: "Kya samasya hai?", en: "What's the problem?" },
+          prompt: { native: "मेरा ऑटो चोरी हुआ है", roman: "Mera auto chori hua hai", en: "My auto has been stolen" },
+        },
+        {
+          npc: { native: "नंबर प्लेट बताओ", roman: "Number plate batao", en: "Tell me the number plate" },
+          prompt: { native: "बंटी का नाम, पुराना सिनेमा जगह", roman: "Bunty ka naam, purana cinema jagah", en: "Bunty's name, old cinema location" },
+        },
+        {
+          npc: { native: "ठीक है, मैं देखता हूँ", roman: "Theek hai, main dekhta hoon", en: "Okay, I will look into it" },
+          prompt: { native: "कृपया जल्दी मदद कीजिए, धन्यवाद", roman: "Kripya jaldi madad kijiye, dhanyavaad", en: "Please help quickly, thank you" },
+        },
+      ],
     },
   ],
   finale: {
@@ -243,6 +341,15 @@ plainly. Given all three you drop the act, radio it in, and recover the auto.`,
 /* ------------------------------------------------------------------ *
  * 2. MARINA NAGAR, Chennai, Tamil, hard coastal light
  * ------------------------------------------------------------------ */
+
+const marinaPhrases: Phrase[] = [
+  { native: "வணக்கம்", roman: "Vanakkam", en: "Hello" },
+  { native: "எவ்வளவு?", roman: "Evvalavu?", en: "How much?" },
+  { native: "எனக்கு உதவி வேண்டும்", roman: "Enakku udhavi vendum", en: "I need help" },
+  { native: "புரியவில்லை", roman: "Puriyavillai", en: "I do not understand" },
+  { native: "மெதுவாக சொல்லுங்க", roman: "Meduvaa sollunga", en: "Please say it slowly" },
+  { native: "நன்றி", roman: "Nandri", en: "Thank you" },
+];
 
 const marinaNagar: District = {
   id: "marina-nagar",
@@ -281,14 +388,7 @@ wants to be the one who spoke.`,
     exposure: 1.2,
     landmark: "chennai",
   },
-  phrases: [
-    { native: "வணக்கம்", roman: "Vanakkam", en: "Hello" },
-    { native: "எவ்வளவு?", roman: "Evvalavu?", en: "How much?" },
-    { native: "எனக்கு உதவி வேண்டும்", roman: "Enakku udhavi vendum", en: "I need help" },
-    { native: "புரியவில்லை", roman: "Puriyavillai", en: "I do not understand" },
-    { native: "மெதுவாக சொல்லுங்க", roman: "Meduvaa sollunga", en: "Please say it slowly" },
-    { native: "நன்றி", roman: "Nandri", en: "Thank you" },
-  ],
+  phrases: marinaPhrases,
   npcs: [
     {
       id: "selvi",
@@ -312,6 +412,7 @@ Ashok Leyland tempo, TN-09-BK-2231, loaded with the morning ice.`,
         reward: 200,
       },
       clue: "Blue tempo, TN-09-BK-2231, still loaded with the morning ice.",
+      lesson: phrasebookLesson(marinaPhrases),
     },
     {
       id: "anbu",
@@ -335,6 +436,7 @@ the driver was not Selvi's usual boy.`,
         reward: 200,
       },
       clue: "The tempo went north to the harbour gate. The driver was a stranger.",
+      lesson: phrasebookLesson(marinaPhrases),
     },
     {
       id: "iyer",
@@ -359,6 +461,7 @@ owner, took it, and it is behind the ice factory.`,
       },
       clue: "Dass the boat owner took it. It is parked behind the ice factory.",
       requiresClues: 2,
+      lesson: phrasebookLesson(marinaPhrases),
     },
     {
       id: "dass",
@@ -383,6 +486,7 @@ relent and return the tempo. Accusation hardens you; acknowledgement moves you.`
       },
       clue: "Dass returns the tempo. The debt goes to the panchayat instead.",
       requiresClues: 3,
+      lesson: phrasebookLesson(marinaPhrases),
     },
   ],
   finale: {
@@ -394,6 +498,15 @@ relent and return the tempo. Accusation hardens you; acknowledgement moves you.`
 /* ------------------------------------------------------------------ *
  * 3. MAJESTIC CROSS, Bengaluru, Kannada, monsoon overcast
  * ------------------------------------------------------------------ */
+
+const majesticPhrases: Phrase[] = [
+  { native: "ನಮಸ್ಕಾರ", roman: "Namaskara", en: "Hello" },
+  { native: "ಎಷ್ಟು?", roman: "Eshtu?", en: "How much?" },
+  { native: "ಸ್ವಲ್ಪ ಸಹಾಯ ಮಾಡಿ", roman: "Swalpa sahaya maadi", en: "Please help me a little" },
+  { native: "ಗೊತ್ತಿಲ್ಲ", roman: "Gottilla", en: "I do not know" },
+  { native: "ನಿಧಾನವಾಗಿ ಹೇಳಿ", roman: "Nidhaanavaagi heli", en: "Please say it slowly" },
+  { native: "ಧನ್ಯವಾದ", roman: "Dhanyavaada", en: "Thank you" },
+];
 
 const majesticCross: District = {
   id: "majestic-cross",
@@ -432,14 +545,7 @@ theft and puts it on him.`,
     exposure: 1.0,
     landmark: "bengaluru",
   },
-  phrases: [
-    { native: "ನಮಸ್ಕಾರ", roman: "Namaskara", en: "Hello" },
-    { native: "ಎಷ್ಟು?", roman: "Eshtu?", en: "How much?" },
-    { native: "ಸ್ವಲ್ಪ ಸಹಾಯ ಮಾಡಿ", roman: "Swalpa sahaya maadi", en: "Please help me a little" },
-    { native: "ಗೊತ್ತಿಲ್ಲ", roman: "Gottilla", en: "I do not know" },
-    { native: "ನಿಧಾನವಾಗಿ ಹೇಳಿ", roman: "Nidhaanavaagi heli", en: "Please say it slowly" },
-    { native: "ಧನ್ಯವಾದ", roman: "Dhanyavaada", en: "Thank you" },
-  ],
+  phrases: majesticPhrases,
   npcs: [
     {
       id: "manju",
@@ -463,6 +569,7 @@ Activa, KA-01-JX-7788, left outside the coffee stall for four minutes.`,
         reward: 200,
       },
       clue: "White Activa, KA-01-JX-7788, cash bag under the seat, left running for four minutes.",
+      lesson: phrasebookLesson(majesticPhrases),
     },
     {
       id: "girija",
@@ -486,6 +593,7 @@ not ridden, by two boys towards the garage lane.`,
         reward: 200,
       },
       clue: "It was pushed, not ridden, two boys took it towards the garage lane.",
+      lesson: phrasebookLesson(majesticPhrases),
     },
     {
       id: "shankar",
@@ -508,6 +616,7 @@ you say it plainly: the boys took it to Rafi's garage to be repainted tonight.`,
         reward: 200,
       },
       clue: "The boys took it to Rafi's garage to be repainted tonight.",
+      lesson: phrasebookLesson(majesticPhrases),
     },
     {
       id: "rafi",
@@ -532,6 +641,7 @@ and gives you a way to hand it back without losing face, you do.`,
       },
       clue: "Rafi hands back the scooter and the untouched cash bag before the deadline.",
       requiresClues: 2,
+      lesson: phrasebookLesson(majesticPhrases),
     },
   ],
   finale: {
@@ -543,6 +653,15 @@ and gives you a way to hand it back without losing face, you do.`,
 /* ------------------------------------------------------------------ *
  * 4. PARK GULLY, Kolkata, Bengali, rain-washed dusk
  * ------------------------------------------------------------------ */
+
+const parkGullyPhrases: Phrase[] = [
+  { native: "নমস্কার", roman: "Nomoshkar", en: "Hello" },
+  { native: "কত?", roman: "Koto?", en: "How much?" },
+  { native: "একটু সাহায্য করুন", roman: "Ektu shahajjo korun", en: "Please help a little" },
+  { native: "আমি বুঝতে পারছি না", roman: "Ami bujhte parchi na", en: "I do not understand" },
+  { native: "আস্তে বলুন", roman: "Aste bolun", en: "Please speak slowly" },
+  { native: "ধন্যবাদ", roman: "Dhonnobad", en: "Thank you" },
+];
 
 const parkGully: District = {
   id: "park-gully",
@@ -581,14 +700,7 @@ car, though he will not say so.`,
     exposure: 1.15,
     landmark: "kolkata",
   },
-  phrases: [
-    { native: "নমস্কার", roman: "Nomoshkar", en: "Hello" },
-    { native: "কত?", roman: "Koto?", en: "How much?" },
-    { native: "একটু সাহায্য করুন", roman: "Ektu shahajjo korun", en: "Please help a little" },
-    { native: "আমি বুঝতে পারছি না", roman: "Ami bujhte parchi na", en: "I do not understand" },
-    { native: "আস্তে বলুন", roman: "Aste bolun", en: "Please speak slowly" },
-    { native: "ধন্যবাদ", roman: "Dhonnobad", en: "Thank you" },
-  ],
+  phrases: parkGullyPhrases,
   npcs: [
     {
       id: "bikash",
@@ -613,6 +725,7 @@ plate: WB-04-2847.`,
         reward: 200,
       },
       clue: "Yellow Ambassador, WB-04-2847. His father's photograph is clipped to the sun visor.",
+      lesson: phrasebookLesson(parkGullyPhrases),
     },
     {
       id: "mitali",
@@ -636,6 +749,7 @@ by someone who knew where the spare key was kept.`,
         reward: 200,
       },
       clue: "Whoever took it knew where the spare key was kept, not a stranger.",
+      lesson: phrasebookLesson(parkGullyPhrases),
     },
     {
       id: "paritosh",
@@ -660,6 +774,7 @@ Bikash more than the truth will.`,
       },
       clue: "Bikash's own nephew Nazrul took it. He runs a garage two lanes over.",
       requiresClues: 1,
+      lesson: phrasebookLesson(parkGullyPhrases),
     },
     {
       id: "nazrul",
@@ -685,6 +800,7 @@ him.`,
       },
       clue: "Nazrul rebuilt the engine as a gift. The photograph never left the visor.",
       requiresClues: 3,
+      lesson: phrasebookLesson(parkGullyPhrases),
     },
   ],
   finale: {

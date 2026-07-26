@@ -85,6 +85,7 @@ export default function Hud({
   district,
   tel,
   cash,
+  xp,
   clues,
   completed,
   heat,
@@ -96,6 +97,7 @@ export default function Hud({
   district: District;
   tel: Telemetry | null;
   cash: number;
+  xp: number;
   clues: string[];
   completed: Set<string>;
   heat: number;
@@ -112,6 +114,7 @@ export default function Hud({
       <div className="hud-top">
         <div className="hud-top-left">
           <div className="cash cash-plate panel">₹{cash.toLocaleString("en-IN")}</div>
+          <div className="cash cash-plate panel xp-plate">{xp} XP</div>
           {heat > 0 && (
             <div className="wanted" aria-label={`Wanted level ${heat} of 5`}>
               {Array.from({ length: 5 }, (_, i) => (

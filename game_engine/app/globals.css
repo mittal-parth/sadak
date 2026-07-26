@@ -1103,6 +1103,129 @@ kbd {
 }
 
 /* ================================================================
+   LANGUAGE LESSON — captions instead of a chat log
+   ================================================================ */
+
+.lesson-step {
+  flex: none;
+  padding: 0.125rem var(--space-xs);
+  border-radius: var(--radius-sm);
+  background: var(--color-paper-3);
+  color: var(--color-ink-3);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.captions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  min-height: min(15rem, 34vh);
+}
+
+.caption {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  padding: var(--space-sm);
+  border: var(--rule);
+  border-radius: var(--radius-md);
+  background: var(--color-paper-2);
+}
+.caption-npc { align-items: flex-start; text-align: left; }
+.caption-player { align-items: flex-end; text-align: right; }
+
+.caption-who {
+  color: var(--color-ink-3);
+  font-size: 0.625rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.caption-native {
+  font-family: var(--font-indic);
+  font-size: var(--text-lg);
+  line-height: 1.4;
+}
+.caption-roman {
+  color: var(--color-ink-2);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+.caption-en { color: var(--color-ink-3); font-size: var(--text-xs); }
+.caption-live {
+  color: var(--color-accent);
+  font-size: var(--text-xs);
+  animation: pulse-dot 1.2s infinite;
+}
+
+.caption-prompt {
+  font-size: var(--text-lg);
+  line-height: 1.5;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35em;
+}
+.caption-prompt.caption-free {
+  color: var(--color-ink-2);
+  font-style: italic;
+  font-size: var(--text-base);
+}
+.pw { color: var(--color-ink-2); }
+.pw.word-green { color: var(--color-pass); font-weight: 700; }
+.pw.word-yellow { color: oklch(78% 0.14 85); font-weight: 700; }
+.pw.word-red { color: oklch(70% 0.18 25); font-weight: 700; }
+
+.caption-heard {
+  color: var(--color-ink-3);
+  font-size: var(--text-xs);
+  font-style: italic;
+}
+.caption-heard.warn { color: oklch(70% 0.18 25); font-style: normal; }
+
+.lesson-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-top: var(--rule);
+  background: oklch(30% 0.06 60 / 0.35);
+}
+.lesson-result strong { color: var(--color-accent); font-size: var(--text-lg); }
+
+.lesson-finished {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-lg) var(--space-md);
+  text-align: center;
+}
+.lesson-finished h3 { font-family: var(--font-display); font-size: var(--text-xl); }
+.lesson-reward { color: var(--color-pass); font-weight: 700; }
+
+.lesson-mic {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  border-top: var(--rule);
+}
+.mic.big {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  font-size: var(--text-2xl, 1.75rem);
+}
+.lesson-mic-hint { color: var(--color-ink-3); font-size: var(--text-xs); }
+
+.xp-plate { color: var(--color-accent); }
+
+/* ================================================================
    RESPONSIVE
    ================================================================ */
 
@@ -1127,6 +1250,9 @@ kbd {
   .hud-missions { display: none; }
   .hud-map { transform: scale(0.8); transform-origin: bottom right; }
   .dlg-log { height: 40vh; }
+  .captions { grid-template-columns: 1fr; }
+  .caption-player { align-items: flex-start; text-align: left; }
+  .caption-prompt { justify-content: flex-start; }
 }
 
 @media (prefers-reduced-motion: reduce) {
