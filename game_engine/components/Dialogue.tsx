@@ -1,40 +1,50 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { District, Npc } from "@/lib/game/districts";
+import type { District } from "@/lib/game/districts";
+import type { NpcTurn } from "@/lib/game/npc-memory";
+import type { LessonTarget } from "@/lib/game/tasks";
 import { useVoice } from "@/lib/useVoice";
 import { scoreAttempt, type WordVerdict } from "@/lib/game/speech-score";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
-/**
- * The language lesson: no chat box. The NPC speaks a scripted line (native
- * script, read aloud by TTS), the player is shown the phrase they should say
- * back — romanised, since the script on screen is always Latin — and after
- * they speak it, each word of that prompt is painted green / yellow / red
- * against what Sarvam actually heard.
- *
- * Steps run easiest-first per NPC (lib/game/districts.ts), and an occasional
- * step has no prompt at all: an interruption the player just has to roll
- * with, same as a real conversation going sideways.
- */
+type Phase = "recall" | "npc" | "player" | "result" | "finished";
+
 export default function Dialogue({
   district,
-  npc,
+  target,
+  priorMemory,
+  onMemoryUpdate,
   onClose,
   onComplete,
   onPoints,
 }: {
   district: District;
-  npc: Npc;
-  clues: string[];
+  target: LessonTarget;
+  priorMemory: NpcTurn[];
+  onMemoryUpdate: (turns: NpcTurn[]) => void;
   onClose: () => void;
-  onComplete: (npcId: string, reward: number, clue: string | null) => void;
-  onAnger: (amount: number) => void;
+  onComplete: (id: string, reward: number) => void;
   onPoints: (points: number) => void;
 }) {
-  const steps = npc.lesson;
+  const steps = target.lesson;
+  const hasPrior = priorMemory.length > 0;
 
   const [stepIndex, setStepIndex] = useState(0);
-  const [phase, setPhase] = useState<"npc" | "player" | "result" | "finished">("npc");
+  const [recallDone, setRecallDone] = useState(!hasPrior);
+  const [recallLine, setRecallLine] = useState<string | null>(null);
+  const [phase, setPhase] = useState<Phase>(hasPrior ? "recall" : "npc");
   const [attempt, setAttempt] = useState<{
     transcript: string;
     verdicts: WordVerdict[];
@@ -48,80 +58,129 @@ export default function Dialogue({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const voice = useVoice(district.language);
   const finishedRef = useRef(false);
+  const sessionTurnsRef = useRef<NpcTurn[]>([]);
+  const onMemoryUpdateRef = useRef(onMemoryUpdate);
+  onMemoryUpdateRef.current = onMemoryUpdate;
 
   const step = steps[stepIndex];
 
+  const pushTurn = useCallback((turn: NpcTurn) => {
+    const text = turn.content.trim();
+    if (!text) return;
+    sessionTurnsRef.current = [...sessionTurnsRef.current, { ...turn, content: text }];
+  }, []);
+
   const playNpcLine = useCallback(
-    async (text: string) => {
+    async (text: string, after: "player" | "lesson") => {
       setNpcSpeaking(true);
       try {
         const res = await fetch("/api/speak", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ districtId: district.id, npcId: npc.id, text }),
+          body: JSON.stringify({ districtId: district.id, npcId: target.id, text }),
         });
         const { audio } = await res.json();
-        if (!audio) {
+        const finish = () => {
           setNpcSpeaking(false);
-          setPhase("player");
+          if (after === "player") setPhase("player");
+          else setRecallDone(true);
+        };
+        if (!audio) {
+          finish();
           return;
         }
         audioRef.current?.pause();
         const a = new Audio(audio);
         audioRef.current = a;
-        a.onended = () => {
-          setNpcSpeaking(false);
-          setPhase("player");
-        };
-        a.onerror = () => {
-          setNpcSpeaking(false);
-          setPhase("player");
-        };
-        await a.play().catch(() => {
-          setNpcSpeaking(false);
-          setPhase("player");
-        });
+        a.onended = finish;
+        a.onerror = finish;
+        await a.play().catch(finish);
       } catch {
         setNpcSpeaking(false);
-        setPhase("player");
+        if (after === "player") setPhase("player");
+        else setRecallDone(true);
       }
     },
-    [district.id, npc.id]
+    [district.id, target.id]
   );
 
-  // Speak each NPC line as its step comes up.
   useEffect(() => {
-    if (!step) return;
+    if (!hasPrior) return;
+    let cancelled = false;
+
+    (async () => {
+      setPhase("recall");
+      try {
+        const res = await fetch("/api/recall", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            districtId: district.id,
+            taskId: target.id,
+            memory: priorMemory,
+          }),
+        });
+        const json = (await res.json()) as { reply?: string };
+        if (cancelled) return;
+        if (res.ok && json.reply?.trim()) {
+          const line = json.reply.trim();
+          setRecallLine(line);
+          pushTurn({ role: "assistant", content: line });
+          await playNpcLine(line, "lesson");
+          if (!cancelled) setPhase("npc");
+          return;
+        }
+      } catch {
+        /* fall through to normal lesson */
+      }
+      if (!cancelled) setRecallDone(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!recallDone || !step) return;
     setPhase("npc");
     setAttempt(null);
     setHeardNothing(false);
-    playNpcLine(step.npc.native);
+    pushTurn({ role: "assistant", content: step.npc.native });
+    playNpcLine(step.npc.native, "player");
     return () => {
       audioRef.current?.pause();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stepIndex]);
+  }, [stepIndex, recallDone]);
 
-  useEffect(() => () => audioRef.current?.pause(), []);
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+      const turns = sessionTurnsRef.current;
+      if (turns.length) onMemoryUpdateRef.current(turns);
+    };
+  }, []);
 
   const advance = useCallback(() => {
     if (stepIndex + 1 >= steps.length) {
       setPhase("finished");
       if (!finishedRef.current) {
         finishedRef.current = true;
-        onComplete(npc.id, npc.mission.reward, npc.clue);
+        onComplete(target.id, target.reward);
       }
       return;
     }
     setStepIndex((i) => i + 1);
-  }, [stepIndex, steps.length, onComplete, npc]);
+  }, [stepIndex, steps.length, onComplete, target]);
 
   async function onMicUp() {
     if (!voice.recording) return;
     const transcript = await voice.stop();
 
     if (!step.prompt) {
-      // Interruption: whatever they said, the scene just carries on.
+      if (transcript) pushTurn({ role: "user", content: transcript });
       setAttempt(transcript ? { transcript, verdicts: [], points: 0 } : null);
       setPhase("result");
       setTimeout(advance, transcript ? 1400 : 700);
@@ -133,6 +192,7 @@ export default function Dialogue({
       return;
     }
 
+    pushTurn({ role: "user", content: transcript });
     const scored = scoreAttempt(step.prompt.native, transcript);
     setAttempt({ transcript, verdicts: scored.verdicts, points: scored.points });
     setTotalPoints((p) => p + scored.points);
@@ -151,100 +211,144 @@ export default function Dialogue({
   const stepsGraded = steps.filter((s) => s.prompt).length;
   const avgAccuracy = gradedCount ? Math.round(totalPoints / gradedCount) : 0;
 
+  const npcNative =
+    phase === "recall" && recallLine ? recallLine : step?.npc.native ?? "";
+  const npcRoman = phase === "recall" ? null : step?.npc.roman;
+  const npcEn = phase === "recall" ? null : step?.npc.en;
+
   return (
-    <div className="dlg-backdrop" onMouseDown={onClose}>
-      <div className="dlg lesson" onMouseDown={(e) => e.stopPropagation()}>
-        <header className="dlg-head">
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="fixed top-auto bottom-6 max-h-[min(85vh,42rem)] translate-y-0 gap-0 overflow-y-auto p-0 sm:max-w-2xl">
+        <DialogHeader className="flex-row items-center gap-3 space-y-0 border-b-2 border-border px-4 py-3 text-left">
           <div
-            className="dlg-avatar"
-            style={{ background: `#${npc.colour.toString(16).padStart(6, "0")}` }}
+            className="size-9 shrink-0 rounded-base border-2 border-border"
+            style={{ background: `#${target.colour.toString(16).padStart(6, "0")}` }}
           />
-          <div className="dlg-id">
-            <h2>{npc.name}</h2>
-            <p>
-              {npc.role} · learning <strong>{district.native}</strong>
-            </p>
+          <div className="min-w-0 flex-1">
+            <DialogTitle className="text-lg">{target.name}</DialogTitle>
+            <DialogDescription>
+              {target.role} · learning{" "}
+              <strong className="font-indic text-foreground">{district.native}</strong>
+            </DialogDescription>
           </div>
-          <span className="lesson-step">
+          <Badge variant="neutral">
             {Math.min(stepIndex + 1, steps.length)} / {steps.length}
-          </span>
-          <button className="dlg-x" onClick={onClose} aria-label="Leave conversation">
-            ✕
-          </button>
-        </header>
+          </Badge>
+        </DialogHeader>
 
-        <div className="dlg-objective">
-          <span className="tag">OBJECTIVE</span>
-          {npc.mission.brief}
-        </div>
+        <Alert className="rounded-none border-x-0 border-t-0 shadow-none">
+          <AlertTitle className="text-xs uppercase tracking-widest">Objective</AlertTitle>
+          <AlertDescription>{target.brief}</AlertDescription>
+        </Alert>
 
-        {phase !== "finished" && (
-          <div className="captions">
-            <div className="caption caption-npc">
-              <span className="caption-who">{npc.name}</span>
-              <p className="caption-native" lang={district.language.slice(0, 2)}>
-                {step.npc.native}
-              </p>
-              <p className="caption-roman">{step.npc.roman}</p>
-              <p className="caption-en">{step.npc.en}</p>
-              {npcSpeaking && <span className="caption-live">🔊 speaking…</span>}
-            </div>
+        {phase !== "finished" && step && (
+          <div className="grid gap-3 p-4 sm:grid-cols-2">
+            <Card className="gap-2 py-4">
+              <CardHeader className="px-4 pb-0">
+                <CardTitle className="text-[0.625rem] uppercase tracking-widest text-foreground/70">
+                  {target.name}
+                  {phase === "recall" && (
+                    <span className="ml-2 normal-case tracking-normal text-main">· remembers you</span>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1 px-4">
+                <p className="font-indic text-lg leading-snug" lang={district.language.slice(0, 2)}>
+                  {npcNative}
+                </p>
+                {npcRoman && (
+                  <p className="text-sm italic text-foreground/80">{npcRoman}</p>
+                )}
+                {npcEn && <p className="text-xs text-foreground/70">{npcEn}</p>}
+                {npcSpeaking && (
+                  <span className="text-xs text-main animate-pulse">🔊 speaking…</span>
+                )}
+              </CardContent>
+            </Card>
 
-            <div className="caption caption-player">
-              <span className="caption-who">You</span>
-              {step.prompt ? (
-                <>
-                  <p className="caption-prompt">
-                    {promptWords.map((w, i) => (
-                      <span
-                        key={i}
-                        className={
-                          attempt?.verdicts[i] ? `pw ${verdictColor[attempt.verdicts[i]]}` : "pw"
-                        }
-                      >
-                        {w}
-                      </span>
-                    ))}
+            <Card className="gap-2 py-4 text-right sm:text-right">
+              <CardHeader className="px-4 pb-0">
+                <CardTitle className="text-[0.625rem] uppercase tracking-widest text-foreground/70">
+                  You
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1 px-4 max-sm:text-left">
+                {phase === "recall" ? (
+                  <p className="text-base italic text-foreground/80">…</p>
+                ) : step.prompt ? (
+                  <>
+                    <p className="flex flex-wrap justify-end gap-1.5 text-lg max-sm:justify-start">
+                      {promptWords.map((w, i) => (
+                        <span
+                          key={i}
+                          className={
+                            attempt?.verdicts[i]
+                              ? verdictColor[attempt.verdicts[i]]
+                              : "text-foreground/80"
+                          }
+                        >
+                          {w}
+                        </span>
+                      ))}
+                    </p>
+                    <p className="text-xs text-foreground/70">{step.prompt.en}</p>
+                  </>
+                ) : (
+                  <p className="text-base italic text-foreground/80">Say anything back…</p>
+                )}
+                {attempt && (
+                  <p className="text-xs italic text-foreground/70">
+                    You said: “{attempt.transcript}”
                   </p>
-                  <p className="caption-en">{step.prompt.en}</p>
-                </>
-              ) : (
-                <p className="caption-prompt caption-free">Say anything back…</p>
-              )}
-              {attempt && <p className="caption-heard">You said: “{attempt.transcript}”</p>}
-              {heardNothing && <p className="caption-heard warn">Didn't catch that — try again.</p>}
-            </div>
+                )}
+                {heardNothing && (
+                  <p className="text-xs text-chart-2">Didn&apos;t catch that — try again.</p>
+                )}
+              </CardContent>
+            </Card>
           </div>
         )}
 
         {phase === "result" && attempt && step.prompt && (
-          <div className="lesson-result">
-            <strong>+{attempt.points} pts</strong>
-            <button className="menu-primary" onClick={advance}>
-              Continue
-            </button>
+          <div className="flex items-center justify-between gap-3 border-t-2 border-border px-4 py-3">
+            <div>
+              <p className="text-[0.625rem] uppercase tracking-widest text-foreground/70">
+                This line
+              </p>
+              <strong className="text-xl text-main">+{attempt.points} pts</strong>
+            </div>
+            <Button type="button" onClick={advance}>
+              Continue →
+            </Button>
           </div>
         )}
 
         {phase === "finished" && (
-          <div className="lesson-finished">
-            <h3>Lesson complete</h3>
-            <p>
+          <div className="flex flex-col items-center gap-2 border-t-2 border-border px-4 py-6 text-center">
+            <Badge className="size-10 justify-center text-lg">✓</Badge>
+            <h3 className="text-xl font-heading">Errand complete</h3>
+            <p className="text-sm text-foreground/80">
               {gradedCount}/{stepsGraded} lines scored · average accuracy{" "}
               <strong>{avgAccuracy}%</strong>
             </p>
-            <p className="lesson-reward">+₹{npc.mission.reward} · clue unlocked</p>
-            <button className="menu-primary" onClick={onClose}>
+            <p className="font-base text-chart-4">
+              +₹{target.reward} · {target.completionNote}
+            </p>
+            <Button type="button" className="mt-2 w-full max-w-xs" onClick={onClose}>
               Done
-            </button>
+            </Button>
           </div>
         )}
 
         {phase === "player" && (
-          <div className="lesson-mic">
-            <button
+          <div className="flex flex-col items-center gap-2 border-t-2 border-border px-4 py-4">
+            <Button
               type="button"
-              className={`mic big ${voice.recording ? "live" : ""}`}
+              size="icon"
+              className={cn(
+                "size-16 text-2xl",
+                voice.recording && "bg-chart-2 hover:bg-chart-2",
+              )}
               onMouseDown={voice.start}
               onMouseUp={onMicUp}
               onMouseLeave={onMicUp}
@@ -252,19 +356,23 @@ export default function Dialogue({
               aria-label="Hold to speak"
             >
               {voice.transcribing ? "···" : voice.recording ? "◉" : "🎙"}
-            </button>
-            <p className="lesson-mic-hint">
+            </Button>
+            <p className="text-xs text-foreground/70">
               {voice.transcribing
                 ? "Transcribing…"
                 : voice.recording
-                ? "Listening…"
-                : "Hold to speak the line above"}
+                  ? "Listening…"
+                  : "Hold to speak the line above"}
             </p>
           </div>
         )}
 
-        {voice.error && <div className="dlg-err">{voice.error}</div>}
-      </div>
-    </div>
+        {voice.error && (
+          <Alert variant="destructive" className="rounded-none border-x-0 border-b-0">
+            <AlertDescription>{voice.error}</AlertDescription>
+          </Alert>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,12 +1,58 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { roadLines, WORLD_LIMIT, ROAD_W } from "@/lib/game/city";
 import type { Telemetry } from "@/lib/game/engine";
 import type { District } from "@/lib/game/districts";
+import type { StreetTask, TaskKind } from "@/lib/game/tasks";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { cn } from "@/lib/utils";
 
 const MAP_PX = 168;
-const MAP_RANGE = 90; // world units visible across the minimap
+const MAP_RANGE = 90;
+
+function kindColour(kind: TaskKind, done: boolean): string {
+  if (done) return "#3ddc84";
+  switch (kind) {
+    case "auto":
+      return "#f5c518";
+    case "shop":
+      return "#e67e22";
+    case "temple":
+      return "#e74c3c";
+    case "bus":
+      return "#3498db";
+    default: {
+      const _exhaustive: never = kind;
+      return _exhaustive;
+    }
+  }
+}
+
+function kindLabel(kind: TaskKind): string {
+  switch (kind) {
+    case "auto":
+      return "Auto";
+    case "shop":
+      return "Shop";
+    case "temple":
+      return "Temple";
+    case "bus":
+      return "Bus";
+    default: {
+      const _exhaustive: never = kind;
+      return _exhaustive;
+    }
+  }
+}
 
 function Minimap({ tel }: { tel: Telemetry }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
@@ -33,7 +79,6 @@ function Minimap({ tel }: { tel: Telemetry }) {
     ctx.fillStyle = "#1d2229";
     ctx.fillRect(0, 0, MAP_PX, MAP_PX);
 
-    // Rotate the world so the player's heading is always "up".
     ctx.translate(R, R);
     ctx.rotate(tel.heading);
     ctx.translate(-tel.playerX * scale, -tel.playerZ * scale);
@@ -53,16 +98,15 @@ function Minimap({ tel }: { tel: Telemetry }) {
       ctx.stroke();
     }
 
-    for (const n of tel.npcs) {
-      ctx.fillStyle = n.done ? "#3ddc84" : n.locked ? "#7c8896" : "#ffc247";
+    for (const t of tel.tasks) {
+      ctx.fillStyle = kindColour(t.kind, t.done);
       ctx.beginPath();
-      ctx.arc(n.x * scale, n.z * scale, 4.5, 0, Math.PI * 2);
+      ctx.arc(t.x * scale, t.z * scale, 4.5, 0, Math.PI * 2);
       ctx.fill();
     }
 
     ctx.restore();
 
-    // Player arrow, fixed at the centre.
     ctx.fillStyle = "#5ab0ff";
     ctx.beginPath();
     ctx.moveTo(R, R - 7);
@@ -81,12 +125,27 @@ function Minimap({ tel }: { tel: Telemetry }) {
   return <canvas ref={ref} style={{ width: MAP_PX, height: MAP_PX }} />;
 }
 
+function HudCard({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Card className={cn("pointer-events-auto gap-2 py-3 shadow-shadow", className)}>
+      {children}
+    </Card>
+  );
+}
+
 export default function Hud({
   district,
+  tasks,
   tel,
   cash,
   xp,
-  clues,
+  artifacts,
   completed,
   heat,
   onOpen,
@@ -95,10 +154,11 @@ export default function Hud({
   onMenu,
 }: {
   district: District;
+  tasks: StreetTask[];
   tel: Telemetry | null;
   cash: number;
   xp: number;
-  clues: string[];
+  artifacts: string[];
   completed: Set<string>;
   heat: number;
   onOpen: () => void;
@@ -106,107 +166,141 @@ export default function Hud({
   onTogglePhrases: () => void;
   onMenu: () => void;
 }) {
-  const nearby = tel?.nearby ? district.npcs.find((n) => n.id === tel.nearby) : null;
-  const nearbyLocked = !!nearby?.requiresClues && clues.length < nearby.requiresClues;
+  const nearbyTask = tel?.nearby ? tasks.find((t) => t.id === tel.nearby) : null;
 
   return (
     <>
-      <div className="hud-top">
-        <div className="hud-top-left">
-          <div className="cash cash-plate panel">₹{cash.toLocaleString("en-IN")}</div>
-          <div className="cash cash-plate panel xp-plate">{xp} XP</div>
+      <div className="pointer-events-none absolute inset-x-6 top-4 flex items-start justify-between gap-4">
+        <div className="flex flex-col items-start gap-2">
+          <Badge className="text-base font-heading">₹{cash.toLocaleString("en-IN")}</Badge>
+          <Badge variant="neutral">{xp} XP</Badge>
           {heat > 0 && (
-            <div className="wanted" aria-label={`Wanted level ${heat} of 5`}>
-              {Array.from({ length: 5 }, (_, i) => (
-                <span key={i} className={i < heat ? "star on" : "star"}>
-                  ★
-                </span>
-              ))}
-            </div>
+            <HudCard className="flex-row px-3 py-2">
+              <CardContent className="flex gap-0.5 px-0 py-0" aria-label={`Wanted level ${heat} of 5`}>
+                {Array.from({ length: 5 }, (_, i) => (
+                  <span
+                    key={i}
+                    className={cn("text-base leading-none", i < heat ? "text-main" : "text-foreground/30")}
+                  >
+                    ★
+                  </span>
+                ))}
+              </CardContent>
+            </HudCard>
           )}
         </div>
-        <div className="hud-top-right">
-          <div className="hud-district panel">
-            {district.name} · <strong>{district.native}</strong>
-          </div>
-          <button className="hud-btn panel" onClick={onTogglePhrases}>
+        <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-2">
+          <Badge variant="neutral" className="uppercase tracking-widest">
+            {district.name} · <strong className="font-indic normal-case">{district.native}</strong>
+          </Badge>
+          <Button variant="neutral" size="sm" onClick={onTogglePhrases}>
             <kbd>P</kbd> Phrasebook
-          </button>
-          <button className="hud-btn panel" onClick={onMenu}>
+          </Button>
+          <Button variant="neutral" size="sm" onClick={onMenu}>
             <kbd>Esc</kbd> Menu
-          </button>
+          </Button>
         </div>
       </div>
 
       {phrasesOpen && (
-        <div className="phrasebook panel">
-          <h3>Say it in {district.native}</h3>
-          <dl>
-            {district.phrases.map((p) => (
-              <div key={p.native} className="phrase">
-                <dt lang={district.language.slice(0, 2)}>{p.native}</dt>
-                <dd>
-                  <span className="roman">{p.roman}</span>
-                  <span className="gloss">{p.en}</span>
-                </dd>
-              </div>
-            ))}
-          </dl>
-          <p className="phrase-note">
-            Type or speak these. They work on anyone in this district.
-          </p>
-        </div>
+        <HudCard className="absolute top-20 right-6 z-10 w-80 max-w-[calc(100vw-3rem)]">
+          <CardHeader className="px-4 pb-0">
+            <CardTitle className="text-sm uppercase tracking-widest">
+              Say it in {district.native}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pt-2">
+            <Accordion type="single" collapsible className="w-full">
+              {district.phrases.map((p) => (
+                <AccordionItem key={p.native} value={p.native}>
+                  <AccordionTrigger className="text-sm">{p.native}</AccordionTrigger>
+                  <AccordionContent>
+                    <p className="text-main">{p.roman}</p>
+                    <p className="text-foreground/70">{p.en}</p>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+            <p className="mt-3 text-xs text-foreground/70">
+              Type or speak these. They work on anyone in this district.
+            </p>
+          </CardContent>
+        </HudCard>
       )}
 
-      <div className="hud-missions panel">
-        <h3>Missions</h3>
-        {district.npcs.map((n) => {
-          const done = completed.has(n.id);
-          const locked = !done && !!n.requiresClues && clues.length < n.requiresClues;
-          return (
-            <div key={n.id} className={`mission ${done ? "done" : ""} ${locked ? "locked" : ""}`}>
-              <span className="dot" />
-              <div>
-                <strong>{locked ? "???" : n.mission.title}</strong>
-                <em>
-                  {locked
-                    ? `Needs ${n.requiresClues} clue${n.requiresClues === 1 ? "" : "s"}`
-                    : n.name}
-                </em>
+      <HudCard className="absolute top-32 left-6 w-60 max-w-[calc(100vw-3rem)] max-[620px]:hidden max-lg:top-20 max-lg:w-48 max-lg:text-xs">
+        <CardHeader className="px-4 pb-0">
+          <CardTitle className="text-xs uppercase tracking-widest text-main">Errands</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 px-4 pt-0">
+          {tasks.map((t) => {
+            const done = completed.has(t.id);
+            return (
+              <div
+                key={t.id}
+                className={cn("flex gap-2", done && "opacity-50 line-through")}
+              >
+                <span
+                  className={cn(
+                    "mt-1.5 size-2 shrink-0 rounded-full border border-border",
+                    done ? "bg-chart-4" : "bg-main",
+                  )}
+                />
+                <div>
+                  <strong className="block text-sm">{t.title}</strong>
+                  <em className="text-xs not-italic text-foreground/70">
+                    {kindLabel(t.kind)} · {t.name}
+                  </em>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </CardContent>
+      </HudCard>
 
-      <div className="hud-clues panel">
-        <h3>Clues · {clues.length}</h3>
-        {clues.length === 0 ? (
-          <p className="clues-empty">Nothing yet. Go talk to someone.</p>
-        ) : (
-          <ol>
-            {clues.map((c, i) => (
-              <li key={i}>
-                <span>{i + 1}</span>
-                {c}
-              </li>
-            ))}
-          </ol>
+      <HudCard className="absolute bottom-6 left-6 w-72 max-w-[calc(100vw-3rem)] max-lg:hidden">
+        <CardHeader className="px-4 pb-0">
+          <CardTitle className="text-xs uppercase tracking-widest text-main">
+            Done · {artifacts.length}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pt-0">
+          {artifacts.length === 0 ? (
+            <p className="text-xs italic text-foreground/70">
+              Walk the map — autos, stalls, temples, buses.
+            </p>
+          ) : (
+            <ol className="grid list-none gap-2">
+              {artifacts.map((c, i) => (
+                <li key={i} className="flex gap-2 text-xs">
+                  <span className="font-heading text-main">{i + 1}</span>
+                  {c}
+                </li>
+              ))}
+            </ol>
+          )}
+        </CardContent>
+      </HudCard>
+
+      <div className="absolute right-6 bottom-6 max-lg:origin-bottom-right max-lg:scale-90">
+        {tel && (
+          <HudCard className="p-2">
+            <CardContent className="px-2 py-0">
+              <Minimap tel={tel} />
+            </CardContent>
+          </HudCard>
         )}
       </div>
 
-      <div className="hud-map">{tel && <Minimap tel={tel} />}</div>
-
-      {nearby && (
-        <button
-          className={`talk-prompt ${nearbyLocked ? "locked" : ""}`}
+      {nearbyTask && (
+        <Button
+          className="absolute bottom-20 left-1/2 -translate-x-1/2"
+          size="lg"
           onClick={onOpen}
         >
           <kbd>E</kbd>
-          {nearbyLocked
-            ? `${nearby.name} won't talk yet`
-            : `Talk to ${nearby.name}`}
-        </button>
+          {nearbyTask.interactLabel}
+        </Button>
       )}
     </>
   );

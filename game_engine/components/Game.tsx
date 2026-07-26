@@ -1,11 +1,36 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Game, type Telemetry } from "@/lib/game/engine";
-import { totalReward, CLUES_TO_UNLOCK, type District, type Npc } from "@/lib/game/districts";
+import type { District } from "@/lib/game/districts";
+import {
+  taskAsLessonTarget,
+  taskById,
+  taskFinaleForDistrict,
+  tasksForDistrict,
+  totalTaskReward,
+  type StreetTask,
+} from "@/lib/game/tasks";
 import Title from "./Title";
 import Hud from "./Hud";
 import Dialogue from "./Dialogue";
+import { Alert, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  memoryKey,
+  mergeTurns,
+  type NpcMemoryMap,
+  type NpcTurn,
+} from "@/lib/game/npc-memory";
 
 export default function GameShell() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -13,24 +38,27 @@ export default function GameShell() {
 
   const [district, setDistrict] = useState<District | null>(null);
   const [tel, setTel] = useState<Telemetry | null>(null);
-  const [talking, setTalking] = useState<Npc | null>(null);
+  const [talking, setTalking] = useState<StreetTask | null>(null);
   const [cash, setCash] = useState(0);
   const [xp, setXp] = useState(0);
   const [completed, setCompleted] = useState<Set<string>>(new Set());
-  const [clues, setClues] = useState<string[]>([]);
+  const [artifacts, setArtifacts] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [phrasesOpen, setPhrasesOpen] = useState(false);
   const [heat, setHeat] = useState(0);
   const [busted, setBusted] = useState(false);
-  const [card, setCard] = useState<Npc | null>(null);
+  const [card, setCard] = useState<StreetTask | null>(null);
+  const [npcMemory, setNpcMemory] = useState<NpcMemoryMap>({});
 
-  // The engine emits telemetry every frame. Refs let the key handler read the
-  // latest values without re-binding the listener on each one.
+  const tasks = useMemo(
+    () => (district ? tasksForDistrict(district.id) : []),
+    [district]
+  );
+
   const nearbyRef = useRef<string | null>(null);
-  const talkingRef = useRef<Npc | null>(null);
+  const talkingRef = useRef<StreetTask | null>(null);
   const menuRef = useRef(false);
-  /** NPCs already introduced, so the mission card only plays once each. */
   const metRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -39,24 +67,17 @@ export default function GameShell() {
 
     const g = gameRef.current;
     if (!g) return;
-    // Any overlay freezes the world so keys don't drive the player behind it.
     const frozen = talking !== null || menuOpen || busted || card !== null;
     g.paused = frozen;
     if (frozen) g.releasePointer();
   }, [talking, menuOpen, busted, card]);
 
   useEffect(() => {
-    if (gameRef.current) gameRef.current.clues = clues.length;
-  }, [clues]);
-
-  // The street forgets. One star cools off every 40 seconds of good behaviour.
-  useEffect(() => {
     if (heat <= 0 || busted) return;
     const t = setTimeout(() => setHeat((h) => Math.max(0, h - 1)), 40000);
     return () => clearTimeout(t);
   }, [heat, busted]);
 
-  // Five stars and the chowk constable picks you up.
   useEffect(() => {
     if (heat < 5 || busted) return;
     setBusted(true);
@@ -72,7 +93,6 @@ export default function GameShell() {
       setTel(t);
     });
     gameRef.current = game;
-    // Dev-only handle so the headless end-to-end checks can drive the player.
     if (process.env.NODE_ENV !== "production") {
       (window as unknown as Record<string, unknown>).__game = game;
     }
@@ -86,29 +106,21 @@ export default function GameShell() {
 
   const openTalk = useCallback(() => {
     if (!district || talkingRef.current) return;
-    const npc = district.npcs.find((n) => n.id === nearbyRef.current);
-    if (!npc) return;
+    const task = taskById(nearbyRef.current ?? "");
+    if (!task || task.districtId !== district.id) return;
 
-    if (npc.requiresClues && clues.length < npc.requiresClues) {
-      setToast(`${npc.name} needs ${npc.requiresClues} clues, you have ${clues.length}`);
-      setTimeout(() => setToast(null), 3000);
-      return;
-    }
-
-    // First approach gets a mission card before the conversation opens.
-    if (!metRef.current.has(npc.id)) {
-      metRef.current.add(npc.id);
-      setCard(npc);
+    if (!metRef.current.has(task.id)) {
+      metRef.current.add(task.id);
+      setCard(task);
       setTimeout(() => {
         setCard(null);
-        setTalking(npc);
+        setTalking(task);
       }, 2200);
       return;
     }
-    setTalking(npc);
-  }, [district, clues.length]);
+    setTalking(task);
+  }, [district]);
 
-  // Escape backs out one layer at a time: conversation, then pause menu.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code === "Escape") {
@@ -119,8 +131,6 @@ export default function GameShell() {
       if (talkingRef.current || menuRef.current) return;
 
       if (e.code === "KeyE") {
-        // The dialogue input focuses itself on open; without this the same
-        // keystroke lands in it and the box starts with a stray "e".
         e.preventDefault();
         openTalk();
       }
@@ -130,32 +140,42 @@ export default function GameShell() {
     return () => window.removeEventListener("keydown", onKey);
   }, [openTalk]);
 
-  const onAnger = useCallback((amount: number) => {
-    if (amount <= 0) return;
-    setHeat((h) => Math.min(5, h + amount));
-  }, []);
-
   const onPoints = useCallback((points: number) => {
     setXp((x) => x + points);
   }, []);
 
-  const onComplete = useCallback(
-    (npcId: string, reward: number, clue: string | null) => {
-      if (!district) return;
-
-      setCompleted((prev) => {
-        if (prev.has(npcId)) return prev;
-        return new Set(prev).add(npcId);
-      });
-      setCash((c) => c + reward);
-      if (clue) setClues((prev) => (prev.includes(clue) ? prev : [...prev, clue]));
-      gameRef.current?.markDone(npcId);
-
-      const npc = district.npcs.find((n) => n.id === npcId);
-      setToast(npc ? `Mission passed: ${npc.mission.title}` : "Mission passed");
-      setTimeout(() => setToast(null), 4000);
+  const mergeNpcMemory = useCallback(
+    (taskId: string, turns: NpcTurn[]) => {
+      if (!district || !turns.length) return;
+      const key = memoryKey(district.id, taskId);
+      setNpcMemory((prev) => ({
+        ...prev,
+        [key]: mergeTurns(prev[key] ?? [], turns),
+      }));
     },
     [district]
+  );
+
+  const onComplete = useCallback(
+    (taskId: string, reward: number) => {
+      const task = taskById(taskId);
+      if (!task) return;
+
+      setCompleted((prev) => {
+        if (prev.has(taskId)) return prev;
+        return new Set(prev).add(taskId);
+      });
+      setCash((c) => c + reward);
+      setArtifacts((prev) =>
+        prev.includes(task.completionNote) ? prev : [...prev, task.completionNote]
+      );
+      gameRef.current?.markDone(taskId);
+
+      setToast(`Done: ${task.title}`);
+      setTimeout(() => setToast(null), 4000);
+      setTalking(null);
+    },
+    []
   );
 
   const leaveDistrict = useCallback(() => {
@@ -165,7 +185,7 @@ export default function GameShell() {
     setCash(0);
     setXp(0);
     setCompleted(new Set());
-    setClues([]);
+    setArtifacts([]);
     setToast(null);
     setMenuOpen(false);
     setPhrasesOpen(false);
@@ -173,9 +193,9 @@ export default function GameShell() {
     setBusted(false);
     setCard(null);
     metRef.current = new Set();
+    setNpcMemory({});
   }, []);
 
-  /** Released from the chowk lockup: heat cleared, progress kept, cash halved. */
   const release = useCallback(() => {
     setBusted(false);
     setHeat(0);
@@ -183,18 +203,20 @@ export default function GameShell() {
 
   if (!district) return <Title onEnter={setDistrict} />;
 
-  const allDone = completed.size === district.npcs.length;
+  const allDone = tasks.length > 0 && completed.size === tasks.length;
+  const finale = taskFinaleForDistrict(district.id);
 
   return (
-    <div className="stage">
+    <div className="relative h-screen w-screen overflow-hidden">
       <canvas ref={canvasRef} className="scene" />
 
       <Hud
         district={district}
+        tasks={tasks}
         tel={tel}
         cash={cash}
         xp={xp}
-        clues={clues}
+        artifacts={artifacts}
         completed={completed}
         heat={heat}
         onOpen={openTalk}
@@ -203,71 +225,91 @@ export default function GameShell() {
         onMenu={() => setMenuOpen(true)}
       />
 
-      {toast && <div className="toast">{toast}</div>}
+      {toast && (
+        <Alert className="pointer-events-none absolute top-[20%] left-1/2 z-50 w-max max-w-[min(90vw,32rem)] -translate-x-1/2">
+          <AlertTitle>{toast}</AlertTitle>
+        </Alert>
+      )}
 
       {card && (
-        <div className="mission-card">
-          <p className="mission-card-kicker">{card.role}</p>
-          <h2>{card.mission.title}</h2>
-          <p className="mission-card-brief">{card.mission.brief}</p>
-        </div>
+        <Card className="absolute bottom-[22%] left-1/2 z-40 w-[min(30rem,calc(100vw-3rem))] -translate-x-1/2 gap-2 border-l-4 border-l-main py-5">
+          <CardHeader className="px-6 pb-0">
+            <p className="text-xs font-base uppercase tracking-widest text-main">
+              {card.kind.toUpperCase()} · {card.role}
+            </p>
+            <CardTitle className="text-2xl">{card.title}</CardTitle>
+          </CardHeader>
+          <CardContent className="px-6 text-sm leading-relaxed text-foreground/80">
+            {card.brief}
+          </CardContent>
+        </Card>
       )}
 
-      {busted && (
-        <div className="busted">
-          <h2>BUSTED</h2>
-          <p>
-            Havaldar Singh had heard enough. A night in the chowk lockup, and half
-            of what you were carrying is gone.
-          </p>
-          <button className="menu-primary" onClick={release}>
-            Back to the street
-          </button>
-        </div>
-      )}
+      <Dialog open={busted} onOpenChange={(open) => !open && release()}>
+        <DialogContent className="text-center sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-4xl tracking-wide">BUSTED</DialogTitle>
+            <DialogDescription className="text-base leading-relaxed">
+              Havaldar Singh had heard enough. A night in the chowk lockup, and half of what you
+              were carrying is gone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="justify-center sm:justify-center">
+            <Button onClick={release}>Back to the street</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {menuOpen && (
-        <div className="menu-backdrop" onMouseDown={() => setMenuOpen(false)}>
-          <div className="menu" onMouseDown={(e) => e.stopPropagation()}>
-            <h2>Paused</h2>
-            <p>
+      <Dialog open={menuOpen} onOpenChange={setMenuOpen}>
+        <DialogContent className="text-center sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Paused</DialogTitle>
+            <DialogDescription>
               {district.name}, {district.city}
-            </p>
-            <button className="menu-primary" onClick={() => setMenuOpen(false)}>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button className="w-full" onClick={() => setMenuOpen(false)}>
               Resume
-            </button>
-            <button className="menu-secondary" onClick={leaveDistrict}>
+            </Button>
+            <Button variant="neutral" className="w-full" onClick={leaveDistrict}>
               Leave for another district
-            </button>
-            <p className="menu-note">
-              Progress in this district is not saved.
-            </p>
-          </div>
-        </div>
-      )}
+            </Button>
+            <p className="text-xs text-foreground/70">Progress in this district is not saved.</p>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {allDone && (
-        <div className="finale">
-          <h2>{district.finale.title}</h2>
-          <p>{district.finale.text}</p>
-          <p className="cta-note">
-            ₹{totalReward(district).toLocaleString("en-IN")} earned in {district.name}
-          </p>
-          <button className="again" onClick={leaveDistrict}>
-            Choose another district
-          </button>
-        </div>
+      {allDone && finale && (
+        <Dialog open onOpenChange={(open) => !open && leaveDistrict()}>
+          <DialogContent className="text-center sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-3xl leading-tight">{finale.title}</DialogTitle>
+              <DialogDescription className="text-base leading-relaxed">
+                {finale.text}
+              </DialogDescription>
+            </DialogHeader>
+            <p className="text-sm text-foreground/80">
+              ₹{totalTaskReward(district.id).toLocaleString("en-IN")} earned in {district.name}
+            </p>
+            <DialogFooter className="justify-center sm:justify-center">
+              <Button variant="neutral" onClick={leaveDistrict}>
+                Choose another district
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
 
       {talking && (
         <Dialogue
           key={talking.id}
           district={district}
-          npc={talking}
-          clues={clues}
+          target={taskAsLessonTarget(talking)}
+          priorMemory={npcMemory[memoryKey(district.id, talking.id)] ?? []}
+          onMemoryUpdate={(turns) => mergeNpcMemory(talking.id, turns)}
           onClose={() => setTalking(null)}
           onComplete={onComplete}
-          onAnger={onAnger}
           onPoints={onPoints}
         />
       )}
