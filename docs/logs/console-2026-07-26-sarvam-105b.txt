@@ -1,0 +1,39 @@
+# Console session log — sarvam-105b — 2026-07-26 ~13:39–13:42
+# Command: python agent.py console
+# Use with docs/HANDOVER.md for latency analysis.
+
+    Agents   Starting console mode 🚀
+    13:39:32.757 INFO     voice-agent        User connected to room: console
+    13:39:33.498 INFO     livekit STT WebSocket connected (saaras:v3, transcribe, unknown)
+    13:39:38.748 DEBUG    received user transcript "क्या हाल है दोस्तों, कैसे हो रहे हो?" hi-IN
+    13:39:38.821 DEBUG    user turn committed
+    13:39:40.139 INFO     Starting TTS WebSocket session (bulbul:v3, shubh, en-IN)
+    13:39:42.743 INFO     TTS Generation complete
+    13:39:45.861 DEBUG    assistant "नमस्ते! मैं ठीक हूँ, पूछने के लिए शुक्रिया! …"
+
+    13:39:50.669 DEBUG    received user transcript "And I have subscribed to my channel." en-IN
+    13:39:50.672 WARNING  stt end of speech received while vad is still in a speech segment
+    13:39:58.667 INFO     Starting TTS WebSocket session
+    13:40:01.392 INFO     TTS Generation complete
+    13:40:05.061 DEBUG    assistant (Hindi, channel subscribe reply)
+
+    13:40:12.626 DEBUG    received user transcript "क्या आपको मेरे बारे में पता है?" hi-IN
+    13:40:20.520 INFO     Starting TTS WebSocket session
+    13:40:26.315 INFO     TTS Generation complete
+
+    13:40:29.751 DEBUG    received user transcript "मेरी आवाज़ आ रही है कि नहीं?" hi-IN
+    13:40:36.836 INFO     Starting TTS WebSocket session
+    13:40:42.038 INFO     TTS Generation complete
+    13:40:47.960 DEBUG    assistant claims text-only / cannot hear voice (LLM prompt bug)
+
+    13:40:57.428 DEBUG    received user transcript "Noise" (merged with other fragments)
+    13:40:57.504 DEBUG    user text "ऐसे जल के होता है क्या? बहुत ही। Noise"
+
+    13:41:14.160 INFO     Starting TTS WebSocket session (noise turn reply)
+    13:41:17.754 INFO     TTS Generation complete
+
+    13:41:27.971 DEBUG    user "सबसे अच्छा डोसा खाना लगता है।"
+    13:41:33.249 INFO     Starting TTS WebSocket session
+    13:41:36.202 INFO     TTS Generation complete
+
+    13:42:00.132 INFO     shutting down worker (user exit)
