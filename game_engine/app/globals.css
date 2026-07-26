@@ -114,7 +114,13 @@
   }
 
   .scene {
-    @apply block h-full w-full cursor-crosshair;
+    @apply block h-full w-full cursor-crosshair touch-none;
+  }
+
+  @media (pointer: coarse) {
+    .scene {
+      @apply cursor-default;
+    }
   }
 
   .word-green {

@@ -164,6 +164,11 @@ export class Game {
   private tasks: StreetTask[] = [];
 
   private keys = new Set<string>();
+  /** Normalized -1..1 from an on-screen joystick (mobile). */
+  private virtualFwd = 0;
+  private virtualStrafe = 0;
+  private touchLookId: number | null = null;
+  private touchLookLastX = 0;
   private raf = 0;
   private disposed = false;
   private dragging = false;
@@ -437,7 +442,35 @@ export class Game {
     this.canvas.addEventListener("mousedown", this.onMouseDown);
     window.addEventListener("mouseup", this.onMouseUp);
     document.addEventListener("mousemove", this.onMouseMove);
+    this.canvas.addEventListener("touchstart", this.onTouchStart, { passive: false });
+    this.canvas.addEventListener("touchmove", this.onTouchMove, { passive: false });
+    this.canvas.addEventListener("touchend", this.onTouchEnd);
+    this.canvas.addEventListener("touchcancel", this.onTouchEnd);
     window.addEventListener("resize", this.onResize);
+  }
+
+  /** Drive movement from a virtual joystick (values in roughly -1..1). */
+  public setVirtualMove(fwd: number, strafe: number) {
+    this.virtualFwd = fwd;
+    this.virtualStrafe = strafe;
+  }
+
+  /** One-finger drag on the canvas (mobile look). */
+  public setTouchLook(id: number | null, clientX?: number) {
+    if (id === null) {
+      this.touchLookId = null;
+      return;
+    }
+    if (this.touchLookId === null && clientX !== undefined) {
+      this.touchLookId = id;
+      this.touchLookLastX = clientX;
+      return;
+    }
+    if (this.touchLookId === id && clientX !== undefined) {
+      const dx = clientX - this.touchLookLastX;
+      this.touchLookLastX = clientX;
+      this.yaw -= dx * 0.004;
+    }
   }
 
   /**
@@ -475,7 +508,37 @@ export class Game {
   private onMouseDown = () => {
     if (this.paused) return;
     this.dragging = true;
-    this.canvas.requestPointerLock?.();
+    if (!Game.prefersTouch()) this.canvas.requestPointerLock?.();
+  };
+
+  private static prefersTouch(): boolean {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(pointer: coarse)").matches;
+  }
+
+  private onTouchStart = (e: TouchEvent) => {
+    if (this.paused || Game.prefersTouch() === false) return;
+    if (e.touches.length !== 1) return;
+    const t = e.touches[0];
+    this.setTouchLook(t.identifier, t.clientX);
+  };
+
+  private onTouchMove = (e: TouchEvent) => {
+    if (this.paused || this.touchLookId === null) return;
+    for (let i = 0; i < e.touches.length; i++) {
+      const t = e.touches[i];
+      if (t.identifier === this.touchLookId) {
+        e.preventDefault();
+        this.setTouchLook(t.identifier, t.clientX);
+        break;
+      }
+    }
+  };
+
+  private onTouchEnd = (e: TouchEvent) => {
+    if (this.touchLookId === null) return;
+    const stillDown = Array.from(e.touches).some((t) => t.identifier === this.touchLookId);
+    if (!stillDown) this.setTouchLook(null);
   };
 
   private onMouseUp = () => {
@@ -592,12 +655,18 @@ export class Game {
     const sprint = this.keys.has("ShiftLeft") || this.keys.has("ShiftRight");
     const speed = sprint ? 11 : 5.2;
 
-    let fwd = 0;
-    let strafe = 0;
+    let fwd = this.virtualFwd;
+    let strafe = this.virtualStrafe;
     if (this.keys.has("KeyW") || this.keys.has("ArrowUp")) fwd += 1;
     if (this.keys.has("KeyS") || this.keys.has("ArrowDown")) fwd -= 1;
     if (this.keys.has("KeyA")) strafe -= 1;
     if (this.keys.has("KeyD")) strafe += 1;
+
+    const mag = Math.hypot(fwd, strafe);
+    if (mag > 1) {
+      fwd /= mag;
+      strafe /= mag;
+    }
 
     // forward = (sin yaw, 0, cos yaw); right = cross(forward, up) = (-cos yaw, 0, sin yaw).
     const dir = new THREE.Vector3(
@@ -787,6 +856,8 @@ export class Game {
 
   public releasePointer() {
     this.dragging = false;
+    this.setTouchLook(null);
+    this.setVirtualMove(0, 0);
     document.exitPointerLock?.();
   }
 
@@ -799,6 +870,10 @@ export class Game {
     this.canvas.removeEventListener("mousedown", this.onMouseDown);
     window.removeEventListener("mouseup", this.onMouseUp);
     document.removeEventListener("mousemove", this.onMouseMove);
+    this.canvas.removeEventListener("touchstart", this.onTouchStart);
+    this.canvas.removeEventListener("touchmove", this.onTouchMove);
+    this.canvas.removeEventListener("touchend", this.onTouchEnd);
+    this.canvas.removeEventListener("touchcancel", this.onTouchEnd);
     window.removeEventListener("resize", this.onResize);
 
     // Instanced clutter owns its own geometry/material lifetimes; let it clean
