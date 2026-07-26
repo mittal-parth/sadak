@@ -4,7 +4,7 @@ Production is two services from this repo:
 
 | Service | Path | Host |
 | --- | --- | --- |
-| Game (Next.js) | `game_engine/` | [Vercel](https://vercel.com) — set **Root Directory** to `game_engine` |
+| Game (Next.js) | `game_engine/` | [Vercel](https://vercel.com) — repo root `vercel.json` sets **Root Directory** to `game_engine` (or set it manually in Project Settings) |
 | Voice worker | `agent.py` | [LiveKit Cloud Agents](https://docs.livekit.io/deploy/agents/) |
 
 ## Environment variables
