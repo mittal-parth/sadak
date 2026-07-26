@@ -18,6 +18,9 @@ import { errandLevelNumber, lessonTierFor } from "@/lib/game/levels";
 import Title from "./Title";
 import Hud from "./Hud";
 import Dialogue from "./Dialogue";
+import VirtualJoystick from "./VirtualJoystick";
+import LandscapeGate from "./LandscapeGate";
+import { useMobilePlay } from "@/lib/useMobilePlay";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,6 +58,8 @@ export default function GameShell() {
   const [busted, setBusted] = useState(false);
   const [card, setCard] = useState<StreetTask | null>(null);
   const [npcMemory, setNpcMemory] = useState<NpcMemoryMap>({});
+  const [hudPanelsOpen, setHudPanelsOpen] = useState(false);
+  const { mobilePlay, portrait } = useMobilePlay();
 
   const tasks = useMemo(
     () => (district ? tasksForDistrict(district.id) : []),
@@ -83,10 +88,15 @@ export default function GameShell() {
 
     const g = gameRef.current;
     if (!g) return;
-    const frozen = talking !== null || menuOpen || busted || card !== null;
+    const frozen =
+      talking !== null ||
+      menuOpen ||
+      busted ||
+      card !== null ||
+      (mobilePlay && portrait);
     g.paused = frozen;
     if (frozen) g.releasePointer();
-  }, [talking, menuOpen, busted, card]);
+  }, [talking, menuOpen, busted, card, mobilePlay, portrait]);
 
   useEffect(() => {
     if (heat <= 0 || busted) return;
@@ -218,6 +228,17 @@ export default function GameShell() {
     setHeat(0);
   }, []);
 
+  const onJoystickMove = useCallback((fwd: number, strafe: number) => {
+    gameRef.current?.setVirtualMove(fwd, strafe);
+  }, []);
+
+  const gameplayFrozen =
+    talking !== null ||
+    menuOpen ||
+    busted ||
+    card !== null ||
+    (mobilePlay && portrait);
+
   if (!district) {
     return (
       <Title
@@ -250,7 +271,20 @@ export default function GameShell() {
         phrasesOpen={phrasesOpen}
         onTogglePhrases={() => setPhrasesOpen((p) => !p)}
         onMenu={() => setMenuOpen(true)}
+        mobilePlay={mobilePlay}
+        panelsOpen={hudPanelsOpen}
+        onTogglePanels={() => setHudPanelsOpen((o) => !o)}
       />
+
+      {mobilePlay && !portrait && (
+        <VirtualJoystick
+          className="absolute right-4 bottom-4 z-30"
+          onMove={onJoystickMove}
+          disabled={gameplayFrozen}
+        />
+      )}
+
+      {mobilePlay && portrait && <LandscapeGate />}
 
       {toast && (
         <Alert className="pointer-events-none absolute top-[20%] left-1/2 z-50 w-max max-w-[min(90vw,32rem)] -translate-x-1/2">

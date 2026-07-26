@@ -354,12 +354,20 @@ export default function Dialogue({
               type="button"
               size="icon"
               className={cn(
-                "size-16 text-2xl",
+                "size-16 text-2xl touch-none select-none",
                 voice.recording && "bg-chart-2 hover:bg-chart-2",
               )}
               onMouseDown={voice.start}
               onMouseUp={onMicUp}
               onMouseLeave={onMicUp}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                voice.start();
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                void onMicUp();
+              }}
               disabled={voice.transcribing}
               aria-label="Hold to speak"
             >
