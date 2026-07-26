@@ -1,4 +1,6 @@
 import type { District, Npc } from "@/lib/game/districts";
+import type { NpcTurn } from "@/lib/game/npc-memory";
+import type { StreetTask } from "@/lib/game/tasks";
 
 /**
  * THE PROMPTS
@@ -19,6 +21,17 @@ import type { District, Npc } from "@/lib/game/districts";
  * max_tokens, leaving the object unterminated. json_object closes cleanly.
  */
 export const JSON_SHAPE = `{"reply": "<your line>", "mission_complete": false, "anger": 0}`;
+
+export const RECALL_JSON_SHAPE = `{"reply": "<your line>"}`;
+
+/** Prior exchanges with this NPC during the current district visit. */
+export function memoryBlock(turns: NpcTurn[]): string {
+  if (!turns.length) return "";
+  const lines = turns
+    .map((t) => `${t.role === "user" ? "PLAYER" : "YOU"}: ${t.content}`)
+    .join("\n");
+  return `\nEARLIER TODAY WITH THIS PLAYER (you remember this):\n${lines}`;
+}
 
 /** Clues the player already holds, so the NPC can react when they are raised. */
 function knownBlock(clues: string[]): string {
@@ -134,6 +147,40 @@ React in character when the player crosses that line. Never punish them for
 speaking your language badly, only for contempt.
 
 ${scriptBlock(district)}`;
+}
+
+/**
+ * One in-character reopening line for a street-task NPC, after the player has
+ * talked to them before in this district visit.
+ */
+export function recallSystemPrompt(
+  district: District,
+  task: StreetTask,
+  turns: NpcTurn[]
+): string {
+  return `You are ${task.name}, ${task.role}, on the street in ${district.city}.
+${district.premise.trim()}
+
+CONTEXT
+${task.brief}
+${memoryBlock(turns)}
+
+The player has walked up to you again. Open with ONE short spoken sentence in
+character that shows you remember something specific they told you earlier.
+Do not pretend this is the first time you have met. Do not repeat your full
+lesson script — just a natural callback, then the lesson will continue.
+
+RULES
+- Reply ONLY in ${district.languageLabel}, written in the ${district.script}
+  script. Never reply in English or Latin letters.
+- One or two short sentences at most. This will be read aloud.
+- Stay in character. Never mention being an AI.
+
+${scriptBlock(district)}
+
+OUTPUT
+Reply with a single JSON object and nothing else:
+${RECALL_JSON_SHAPE}`;
 }
 
 /** The line the NPC opens on when the player walks up. */

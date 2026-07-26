@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sarvamTTS, type LangCode } from "@/lib/sarvam";
 import { districtById } from "@/lib/game/districts";
+import { taskById } from "@/lib/game/tasks";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -19,14 +20,19 @@ export async function POST(req: Request) {
   }
 
   const district = districtById(body.districtId);
+  const task = taskById(body.npcId);
   const npc = district.npcs.find((n) => n.id === body.npcId);
-  if (!npc) {
-    return NextResponse.json({ error: `Unknown NPC "${body.npcId}".` }, { status: 404 });
+  const speaker = task?.speaker ?? npc?.speaker;
+  if (!speaker) {
+    return NextResponse.json({ error: `Unknown voice "${body.npcId}".` }, { status: 404 });
+  }
+  if (task && task.districtId !== district.id) {
+    return NextResponse.json({ error: `Task not in this district.` }, { status: 404 });
   }
   if (!body.text?.trim()) {
     return NextResponse.json({ audio: null });
   }
 
-  const audio = await sarvamTTS(body.text, district.language as LangCode, npc.speaker);
+  const audio = await sarvamTTS(body.text, district.language as LangCode, speaker);
   return NextResponse.json({ audio });
 }
