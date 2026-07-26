@@ -1,0 +1,20 @@
+node_modules/
+
+# Build output
+dist/
+playable-snapshot/
+perf-candidate/
+perf-cand2/
+
+# Capture output — 780 MB of PNGs. Regenerate with tools/baseline.mjs.
+shots/
+
+# Agent scratch
+demo/
+.tmp-demo/
+.tmp-rend/
+revcrops/
+
+# screenshot harness output
+shots/
+dist/
