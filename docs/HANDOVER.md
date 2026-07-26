@@ -16,8 +16,8 @@ Use this doc when picking up the project in Cursor Cloud (or locally). It captur
 - **livekit-agents** 1.6.7 (console + dev tested on Python 3.14.6 Homebrew)
 - **STT:** Saaras v3, `language="unknown"`, `mode="transcribe"`, `flush_signal=True`
 - **LLM:** `sarvam-105b` (user switched from `sarvam-30b` for latency experiments)
-- **TTS:** Bulbul v3, `target_language_code="en-IN"`, speaker `shubh`
-- **Session:** `turn_detection="stt"`, `min_endpointing_delay=0.07` (deprecated in LK 1.6 → migrate to `TurnHandlingOptions` in v2)
+- **TTS:** Bulbul v3, `target_language_code="hi-IN"`, speaker `simran` (aligned with Hindi/Indian-language replies)
+- **Session:** `turn_handling` with STT turn detection and `endpointing.min_delay=0.07` (replaces deprecated `turn_detection` / `min_endpointing_delay` kwargs)
 
 ## Environment gotcha (fixed once, easy to regress)
 
