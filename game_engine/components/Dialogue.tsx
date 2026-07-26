@@ -1,11 +1,25 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { District, Npc } from "@/lib/game/districts";
 import { useVoice } from "@/lib/useVoice";
+import { useLiveVoice, type LiveTurn } from "@/lib/useLiveVoice";
 
-type Turn = { role: "user" | "assistant"; content: string };
+type Turn = LiveTurn;
 
+/**
+ * Two ways to have the same conversation:
+ *
+ *  - LIVE (default). The player is in a LiveKit room with the NPC worker
+ *    (agent.py): the mic stays open, the NPC hears them and answers over the
+ *    wire, and lines arrive here as subtitles.
+ *  - PUSH-TO-TALK (fallback). No LiveKit config, or no worker running: hold
+ *    Space, the clip goes to /api/stt, the reply to /api/talk, the voice to
+ *    /api/speak. Slower and turn-based, but it needs nothing but a Sarvam key.
+ *
+ * Falling back mid-conversation keeps whatever has been said so far, so the
+ * scene carries on instead of restarting.
+ */
 export default function Dialogue({
   district,
   npc,
@@ -21,7 +35,7 @@ export default function Dialogue({
   onComplete: (npcId: string, reward: number, clue: string | null) => void;
   onAnger: (amount: number) => void;
 }) {
-  const [history, setHistory] = useState<Turn[]>([]);
+  const [restHistory, setRestHistory] = useState<Turn[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -34,6 +48,44 @@ export default function Dialogue({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const voice = useVoice(district.language);
 
+  // Grading is one path for both modes: the live agent scores the conversation
+  // and pushes a verdict, /api/talk returns one inline.
+  const passedRef = useRef(false);
+  const award = useCallback(
+    (grade: { missionComplete: boolean; anger: number }) => {
+      if (grade.anger > 0) {
+        onAnger(grade.anger);
+        setAngered(grade.anger);
+        setTimeout(() => setAngered(0), 2600);
+      }
+      if (grade.missionComplete && !passedRef.current) {
+        passedRef.current = true;
+        setPassed(true);
+        onComplete(npc.id, npc.mission.reward, npc.clue);
+      }
+    },
+    [npc, onAnger, onComplete]
+  );
+
+  const live = useLiveVoice({
+    districtId: district.id,
+    npcId: npc.id,
+    clues,
+    onGrade: award,
+  });
+
+  const liveMode = live.status !== "unavailable";
+  const history = liveMode ? live.history : restHistory;
+
+  // Dropping to push-to-talk should not lose the conversation: /api/talk takes
+  // the same history shape the agent has been narrating.
+  const handedOver = useRef(false);
+  useEffect(() => {
+    if (liveMode || handedOver.current) return;
+    handedOver.current = true;
+    if (live.history.length) setRestHistory(live.history);
+  }, [liveMode, live.history]);
+
   useEffect(() => {
     inputRef.current?.focus();
     return () => audioRef.current?.pause();
@@ -41,8 +93,9 @@ export default function Dialogue({
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [history, busy]);
+  }, [history, busy, live.partial]);
 
+  /** The push-to-talk path: one round trip per turn. */
   async function send(text: string) {
     const clean = text.trim();
     if (!clean || busy) return;
@@ -51,8 +104,8 @@ export default function Dialogue({
     setErr(null);
     setBusy(true);
 
-    const next: Turn[] = [...history, { role: "user", content: clean }];
-    setHistory(next);
+    const next: Turn[] = [...restHistory, { role: "user", content: clean }];
+    setRestHistory(next);
 
     try {
       const res = await fetch("/api/talk", {
@@ -62,7 +115,7 @@ export default function Dialogue({
           districtId: district.id,
           npcId: npc.id,
           playerText: clean,
-          history,
+          history: restHistory,
           clues,
         }),
       });
@@ -73,18 +126,8 @@ export default function Dialogue({
         return;
       }
 
-      setHistory([...next, { role: "assistant", content: json.reply }]);
-
-      if (json.anger > 0) {
-        onAnger(json.anger);
-        setAngered(json.anger);
-        setTimeout(() => setAngered(0), 2600);
-      }
-
-      if (json.missionComplete && !passed) {
-        setPassed(true);
-        onComplete(npc.id, json.reward, json.clue ?? null);
-      }
+      setRestHistory([...next, { role: "assistant", content: json.reply }]);
+      award({ missionComplete: json.missionComplete === true, anger: json.anger ?? 0 });
 
       // The subtitle is already on screen; fetch and play the voice behind it.
       speak(json.reply);
@@ -118,14 +161,26 @@ export default function Dialogue({
     }
   }
 
-  // Hold SPACE to talk. The input is focused on open, so gating purely on focus
-  // would mean Space never records; instead it records while the box is empty
-  // (a leading space is meaningless) and types normally once there is text.
-  const micRef = useRef({ busy, voice, send, input });
-  micRef.current = { busy, voice, send, input };
+  function submit(text: string) {
+    const clean = text.trim();
+    if (!clean) return;
+    if (liveMode) {
+      if (live.sendText(clean)) setInput("");
+      return;
+    }
+    send(clean);
+  }
+
+  // Hold SPACE to talk, on the push-to-talk path only: in live mode the mic is
+  // already open and Space is just a space. The input is focused on open, so
+  // gating purely on focus would mean Space never records; instead it records
+  // while the box is empty and types normally once there is text.
+  const micRef = useRef({ busy, voice, send, input, liveMode });
+  micRef.current = { busy, voice, send, input, liveMode };
 
   useEffect(() => {
-    const canRecord = () => micRef.current.input.length === 0;
+    const canRecord = () =>
+      !micRef.current.liveMode && micRef.current.input.length === 0;
 
     const down = (e: KeyboardEvent) => {
       if (e.code !== "Space" || e.repeat || !canRecord()) return;
@@ -158,6 +213,11 @@ export default function Dialogue({
     if (transcript) send(transcript);
   }
 
+  const connecting = live.status === "connecting";
+  const thinking = liveMode ? live.npcState === "thinking" : busy;
+  const talking = liveMode ? live.npcState === "speaking" : speaking && !busy;
+  const problem = err ?? live.error ?? voice.error;
+
   return (
     <div className="dlg-backdrop" onMouseDown={onClose}>
       <div className="dlg" onMouseDown={(e) => e.stopPropagation()}>
@@ -172,6 +232,9 @@ export default function Dialogue({
               {npc.role} · speaks <strong>{district.native}</strong>
             </p>
           </div>
+          <span className={`dlg-link ${liveMode ? (connecting ? "wait" : "on") : "off"}`}>
+            {connecting ? "connecting" : liveMode ? "live" : "push to talk"}
+          </span>
           <button className="dlg-x" onClick={onClose} aria-label="Leave conversation">
             ✕
           </button>
@@ -206,7 +269,17 @@ export default function Dialogue({
             <p className="dlg-hint">
               Say something in {district.native}.
               <br />
-              Hold <kbd>Space</kbd> to speak, or start typing.
+              {connecting ? (
+                <>Opening the line to {npc.name}…</>
+              ) : liveMode ? (
+                <>
+                  The mic is <strong>open</strong>. Just talk, or type instead.
+                </>
+              ) : (
+                <>
+                  Hold <kbd>Space</kbd> to speak, or start typing.
+                </>
+              )}
             </p>
           )}
 
@@ -216,8 +289,16 @@ export default function Dialogue({
             </div>
           ))}
 
-          {busy && <div className="bubble assistant thinking">···</div>}
-          {speaking && !busy && <p className="speaking">🔊 {npc.name} is speaking…</p>}
+          {/* What the NPC is hearing right now, before the turn is committed. */}
+          {liveMode && live.partial && !thinking && (
+            <div className="bubble user partial">{live.partial}</div>
+          )}
+
+          {thinking && <div className="bubble assistant thinking">···</div>}
+          {talking && <p className="speaking">🔊 {npc.name} is speaking…</p>}
+          {liveMode && !thinking && !talking && live.npcState === "listening" && (
+            <p className="speaking">🎙 {npc.name} is listening…</p>
+          )}
         </div>
 
         {angered > 0 && (
@@ -234,42 +315,57 @@ export default function Dialogue({
           </div>
         )}
 
-        {(err || voice.error) && <div className="dlg-err">{err ?? voice.error}</div>}
+        {problem && <div className="dlg-err">{problem}</div>}
 
         <form
           className="dlg-input"
           onSubmit={(e) => {
             e.preventDefault();
-            send(input);
+            submit(input);
           }}
         >
-          <button
-            type="button"
-            className={`mic ${voice.recording ? "live" : ""}`}
-            onMouseDown={voice.start}
-            onMouseUp={onMicUp}
-            onMouseLeave={onMicUp}
-            disabled={busy || voice.transcribing}
-            aria-label="Hold to speak"
-          >
-            {voice.transcribing ? "···" : voice.recording ? "◉" : "🎙"}
-          </button>
+          {liveMode ? (
+            <button
+              type="button"
+              className={`mic ${live.muted || live.micDenied ? "" : "live"}`}
+              onClick={live.toggleMute}
+              disabled={live.micDenied || connecting}
+              aria-label={live.muted ? "Unmute the microphone" : "Mute the microphone"}
+              title={live.muted ? "Mic muted" : "Mic open"}
+            >
+              {live.micDenied ? "🚫" : live.muted ? "🔇" : "🎙"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={`mic ${voice.recording ? "live" : ""}`}
+              onMouseDown={voice.start}
+              onMouseUp={onMicUp}
+              onMouseLeave={onMicUp}
+              disabled={busy || voice.transcribing}
+              aria-label="Hold to speak"
+            >
+              {voice.transcribing ? "···" : voice.recording ? "◉" : "🎙"}
+            </button>
+          )}
 
           <input
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={
-              voice.recording
+              connecting
+                ? "Connecting…"
+                : voice.recording
                 ? "Listening…"
                 : voice.transcribing
                 ? "Transcribing…"
                 : `Reply in ${district.native}…`
             }
-            disabled={busy}
+            disabled={!liveMode && busy}
           />
 
-          <button type="submit" disabled={busy || !input.trim()}>
+          <button type="submit" disabled={connecting || (!liveMode && busy) || !input.trim()}>
             Send
           </button>
         </form>

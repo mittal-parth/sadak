@@ -900,6 +900,37 @@ kbd {
 }
 .dlg-x:hover { background: var(--color-warn); color: var(--color-ink); }
 
+/* Which pipe the conversation is running on: live room, or push-to-talk. */
+.dlg-link {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.125rem var(--space-xs);
+  border-radius: var(--radius-sm);
+  background: var(--color-paper-3);
+  color: var(--color-ink-3);
+  font-size: 0.625rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.dlg-link::before {
+  content: "";
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+.dlg-link.on { color: var(--color-pass); }
+.dlg-link.on::before { animation: pulse-dot 2s infinite; }
+.dlg-link.wait { color: var(--color-ink-3); }
+.dlg-link.wait::before { animation: pulse-dot 0.9s infinite; }
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.25; }
+}
+
 .dlg-objective {
   padding: var(--space-xs) var(--space-md);
   border-bottom: var(--rule);
@@ -984,6 +1015,8 @@ kbd {
   background: linear-gradient(170deg, oklch(52% 0.12 250), oklch(44% 0.12 252));
 }
 .bubble.thinking { color: var(--color-ink-3); letter-spacing: 3px; }
+/* The live transcript of what the player is saying, before the turn commits. */
+.bubble.partial { opacity: 0.55; font-style: italic; }
 
 .speaking {
   align-self: flex-start;
