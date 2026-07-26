@@ -74,13 +74,34 @@ sentences you did not know before.
 ## The pipeline
 
 ```
-mic → saaras:v3 (STT) → sarvam-105b (in-character reply + mission grading) → bulbul:v3 (TTS) → audio + subtitles
+mic → saaras:v3 (STT) → sarvam-105b (in-character reply) → bulbul:v3 (TTS) → audio + subtitles
 ```
 
-Dialogue and voice are **separate** round trips: `/api/talk` returns the line in
-about a second so the subtitle appears immediately, and `/api/speak` renders the
-audio behind it. Folding TTS into the dialogue call made every line take five or
-six seconds to show up.
+There are two ways to run that pipeline, and the game picks at the moment you
+walk up to someone.
+
+**Live (default).** Walking up to an NPC puts you in a LiveKit room with them.
+The mic stays open, the character is a Python worker ([`../agent.py`](../README.md))
+holding the whole conversation, and lines land as subtitles while they are being
+spoken. There is no send button in the loop: you talk, they answer, you interrupt
+them if you want. The worker is briefed per conversation from
+`app/api/voice/token/route.ts`, which hands it the persona, the language, the
+speaker and the mission rubric out of `lib/game/districts.ts`, so the bible has
+exactly one copy.
+
+Mission grading rides the same room on a data channel, scored by a **second**
+model call after the NPC has spoken. Asking the live model for JSON would mean
+Bulbul reading the JSON out loud.
+
+**Push-to-talk (fallback).** No LiveKit keys, or no worker running, and the same
+conversation runs turn-based over REST: hold Space, `/api/stt` transcribes,
+`/api/talk` returns the line in about a second so the subtitle appears
+immediately, and `/api/speak` renders the audio behind it. Folding TTS into the
+dialogue call made every line take five or six seconds to show up.
+
+The fallback is automatic and it is not a dead end: if the room drops mid-scene
+the conversation carries on, keeping everything said so far. The header of the
+dialogue box says which one you are on.
 
 Two things had to be right for this to work at all:
 
@@ -124,8 +145,19 @@ npm run dev
 
 Open http://localhost:3000.
 
-The key is read server-side only; the browser never sees it. Without a key the
-world still loads and is fully walkable. Only conversation returns an error.
+For live voice, add your LiveKit project keys to the same `.env` and run the NPC
+worker from the repo root in a second terminal:
+
+```bash
+source .venv/bin/activate && python agent.py dev
+```
+
+Both processes are needed for the open-mic conversations. Skip them and the game
+runs push-to-talk instead, which needs nothing but the Sarvam key.
+
+Keys are read server-side only; the browser only ever sees a short-lived LiveKit
+token for the one room it is joining. Without a key the world still loads and is
+fully walkable. Only conversation returns an error.
 
 > **Two build gotchas on this machine:**
 >
@@ -147,17 +179,20 @@ world still loads and is fully walkable. Only conversation returns an error.
 | `←` `→` | Turn the camera (mouse also works, click to capture, or drag) |
 | `Shift` | Run |
 | `E` | Talk to a nearby NPC |
-| `Space` *(held)* | Speak, release to send |
+| `Space` *(held)* | Speak, release to send — push-to-talk only |
 | `P` | Phrasebook for this district |
 | `Esc` | Back out: conversation, then pause menu (resume or leave district) |
 
-Holding `Space` records only while the message box is empty; once you start
-typing it is an ordinary space.
+In a live conversation the mic is already open, so there is nothing to hold:
+just talk, and use the mic button to mute yourself. On the push-to-talk
+fallback, holding `Space` records only while the message box is empty; once you
+start typing it is an ordinary space. Typing works in both.
 
 ## Layout
 
 ```
 app/
+  api/voice/token/      LiveKit token + the NPC brief the worker plays from
   api/talk/route.ts     in-character reply + mission grading (~1s)
   api/speak/route.ts    text → Bulbul audio, fetched behind the subtitle
   api/stt/route.ts      mic audio → transcript
@@ -165,8 +200,10 @@ lib/
   sarvam.ts             Sarvam client (chat / TTS / STT)
   retry.ts              backoff for transient failures
   useVoice.ts           push-to-talk recording hook
+  useLiveVoice.ts       the live room: mic, subtitles, grading over LiveKit
   game/
     districts.ts        THE BIBLE: themes, personas, missions, clues, finales
+    prompt.ts           the prompts both paths share, built from the bible
     city.ts             procedural city layout + colliders
     props.ts            autos, cows, buildings, stalls, characters
     engine.ts           three.js scene, controller, camera, traffic

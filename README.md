@@ -2,6 +2,22 @@
 
 Real-time voice agent using [LiveKit](https://docs.livekit.io) and [Sarvam AI](https://docs.sarvam.ai) (STT, LLM, TTS). Supports 11 languages (10 Indian + English).
 
+`agent.py` is the voice worker for **SADAK**, the game in [`game_engine/`](game_engine/README.md). One LiveKit room is one conversation with one NPC: the game mints the token, ships the character brief in the player's participant metadata, and this worker plays that character — reading its persona, language, voice and mission rubric off the wire. Run it with no game attached (`python agent.py console`) and it falls back to a plain voice assistant, which is the fastest way to check keys and audio.
+
+```
+browser mic → LiveKit room → saaras:v3 → sarvam-105b → bulbul:v3 → browser speakers
+                                  ↘ subtitles + mission grading (data channel) ↗
+```
+
+To play the game with live voice you need **both** processes running:
+
+```bash
+python agent.py dev                      # this repo: the NPC worker
+cd game_engine && npm run dev            # the game, on http://localhost:3000
+```
+
+Both need the same LiveKit project (`LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET`) and a `SARVAM_API_KEY`. Without the worker, or without LiveKit keys in `game_engine/.env`, conversations fall back to the game's push-to-talk REST path on their own.
+
 ### Prerequisites
 
 - Python **3.10+** (`livekit-agents` needs 3.10+; create the venv with the same `python3` you use day to day)
@@ -41,7 +57,29 @@ Output is **audio on speakers/headphones**, not a chat UI. Use **headphones** fo
 python agent.py dev
 ```
 
-Registers with LiveKit Cloud and stays idle until a client joins a room. `console` does not use the `dev` worker process.
+Registers with LiveKit Cloud and stays idle until a client joins a room. `console` does not use the `dev` worker process. This is the mode the game needs: the worker has no `agent_name`, so LiveKit dispatches it into every room the game opens.
+
+### What the game sends the worker
+
+The player's participant metadata (minted in `game_engine/app/api/voice/token/route.ts`) carries one JSON brief:
+
+| Field | Used for |
+|---|---|
+| `instructions` | The NPC's system prompt, built from the game bible |
+| `greeting` | The line the NPC opens on when the player walks up |
+| `voice.language`, `voice.speaker` | Bulbul target language and speaker for this character |
+| `grader.system`, `grader.minUserTurns` | Mission and anger rubric, scored after every NPC line |
+
+The worker republishes everything on the room's `sadak` data topic, which is what the browser draws:
+
+| Packet | Meaning |
+|---|---|
+| `{"t":"line","role":…,"text":…}` | A committed turn, player or NPC: the subtitle |
+| `{"t":"partial","text":…}` | Interim transcript of the player, still being spoken |
+| `{"t":"state","state":…}` | `listening` / `thinking` / `speaking` |
+| `{"t":"grade","missionComplete":…,"anger":…}` | Mission passed, and wanted-level damage |
+
+Grading is a **separate** Sarvam call after the NPC has already spoken, so it never delays the voice, and the spoken model is never asked for JSON it would otherwise read aloud.
 
 ### Docs
 

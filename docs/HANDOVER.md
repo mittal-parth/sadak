@@ -6,10 +6,46 @@ Use this doc when picking up the project in Cursor Cloud (or locally). It captur
 
 | Path | Purpose |
 |------|---------|
-| `agent.py` | Voice agent entrypoint (STT / LLM / TTS + `AgentSession`) |
+| `agent.py` | Voice worker: plays the game's NPCs, falls back to a plain assistant |
 | `requirements.txt` | `livekit-agents[sarvam,silero]`, `python-dotenv` |
 | `.env.example` | LiveKit + Sarvam key template (copy to `.env`, never commit `.env`) |
 | `README.md` | Setup and run commands |
+| `game_engine/` | SADAK, the three.js game the worker speaks for |
+
+## The game integration (2026-07-26)
+
+`agent.py` is no longer a standalone demo: it is the voice layer of the game in
+`game_engine/`. Nothing about the character lives in Python.
+
+1. The player walks up to an NPC. `game_engine/components/Dialogue.tsx` calls
+   `POST /api/voice/token`.
+2. That route builds the persona, greeting, TTS language/speaker and grading
+   rubric from `lib/game/districts.ts` via `lib/game/prompt.ts`, and puts the
+   whole brief in the token's **participant metadata**.
+3. The browser joins the room with `lib/useLiveVoice.ts`. LiveKit dispatches the
+   worker (no `agent_name`, so every room gets it), which reads the metadata off
+   the joining participant and configures Saaras / sarvam-105b / Bulbul from it.
+4. The worker republishes turns, interim transcripts, its own state and mission
+   verdicts on the `sadak` data topic. The browser draws them as subtitles and
+   feeds `mission_complete` / `anger` back into the game's cash, clues and
+   wanted level.
+5. Typed messages go the other way on LiveKit's `lk.chat` topic, which the
+   agent's default text input handler turns into a normal spoken turn.
+
+**Grading is a separate call.** The live model only ever produces the spoken
+line: anything else it emits would be read aloud by Bulbul. After each NPC line
+the worker runs one `sarvam-105b` call against the rubric
+(`response_format: json_object`, `reasoning_effort: null`) and publishes the
+verdict. It measured ~0.4s and lands well after the audio has started.
+
+**Fallbacks are deliberate.** No LiveKit keys → the token route answers 503; no
+worker running → the browser waits 12s for an agent participant and gives up.
+Either way the dialogue silently switches to the old push-to-talk REST path and
+keeps the conversation so far. Nothing on stage depends on the worker being up.
+
+**Watch out:** `conversation_item_added` also fires for non-speech items
+(`AgentHandoff`), which have no `role` and no `text_content`. Read both with
+`getattr` or the event handler raises on every session.
 
 ## Current stack (as committed)
 
