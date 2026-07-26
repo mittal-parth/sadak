@@ -27,15 +27,21 @@ rm -rf .venv && python3 -m venv .venv && source .venv/bin/activate && pip instal
 
 ### Run
 
-```bash
-python agent.py dev
-```
-
-In another terminal:
+**Local voice test (mock job, no separate worker):**
 
 ```bash
 python agent.py console
 ```
+
+Output is **audio on speakers/headphones**, not a chat UI. Use **headphones** for console tests so the mic does not pick up the agent’s TTS (echo, false transcripts, and `resumed false interrupted speech` in logs).
+
+**Cloud worker (LiveKit rooms / frontend):**
+
+```bash
+python agent.py dev
+```
+
+Registers with LiveKit Cloud and stays idle until a client joins a room. `console` does not use the `dev` worker process.
 
 ### Docs
 
