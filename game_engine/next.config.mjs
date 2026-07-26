@@ -1,6 +1,14 @@
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false,
+  // Repo root is one level up (agent.py + game_engine). Required for correct
+  // serverless tracing when Vercel Root Directory is `game_engine`.
+  outputFileTracingRoot: path.join(__dirname, ".."),
 
   webpack: (config, { dev }) => {
     // This repo lives inside a OneDrive folder, which syncs `.next` while

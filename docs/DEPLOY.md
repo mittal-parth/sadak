@@ -4,7 +4,7 @@ Production is two services from this repo:
 
 | Service | Path | Host |
 | --- | --- | --- |
-| Game (Next.js) | `game_engine/` | [Vercel](https://vercel.com) — repo root `vercel.json` sets **Root Directory** to `game_engine` (or set it manually in Project Settings) |
+| Game (Next.js) | `game_engine/` | [Vercel](https://vercel.com) — set **Root Directory** to `game_engine` (see below) |
 | Voice worker | `agent.py` | [LiveKit Cloud Agents](https://docs.livekit.io/deploy/agents/) |
 
 ## Environment variables
@@ -24,6 +24,19 @@ Never commit `.env`. Use the Vercel dashboard and `lk agent update-secrets`.
 
 ## Vercel (game)
 
+### GitHub → Vercel (required once)
+
+`vercel.json` cannot set Root Directory (Vercel rejects that field). After connecting the repo:
+
+1. Open the **sadak** project → **Settings** → **Build and Deployment**.
+2. Set **Root Directory** to `game_engine` and save.
+3. Leave **Install Command** / **Build Command** empty so `game_engine/vercel.json` applies (`npm ci`, `npm run build`).
+4. **Redeploy** the latest `main` commit.
+
+If Root Directory is left blank, the repo-root `vercel.json` runs install/build under `game_engine/` as a fallback, but setting Root Directory is the supported setup for Next.js.
+
+### CLI
+
 ```bash
 cd game_engine
 npm ci && npm run build   # verify before first deploy
@@ -31,8 +44,6 @@ vercel link               # once, pick team/project
 vercel env pull .env.local # optional, for local production preview
 vercel --prod
 ```
-
-Import from GitHub with root directory `game_engine`, or use the CLI from `game_engine/`.
 
 ## LiveKit agent (worker)
 
