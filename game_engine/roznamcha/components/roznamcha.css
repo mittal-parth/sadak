@@ -1,0 +1,357 @@
+/* Hallmark · macrostructure: Workbench · genre: modern-minimal
+ * theme: Field (light paper · humanist sans · indigo accent)
+ * Scoped under .roz so it cannot collide with the game's dark tokens.
+ * Designed for one-handed outdoor phone use: large targets, high contrast.
+ */
+
+.roz {
+  --paper: oklch(98.5% 0.004 250);
+  --paper-2: oklch(100% 0 0);
+  --paper-3: oklch(95.5% 0.006 250);
+  --ink: oklch(22% 0.012 260);
+  --ink-2: oklch(45% 0.012 260);
+  --ink-3: oklch(62% 0.014 260);
+  --line: oklch(89% 0.008 260);
+  --accent: oklch(52% 0.15 268);
+  --accent-soft: oklch(94% 0.03 268);
+  --ok: oklch(58% 0.14 152);
+  --ok-soft: oklch(94% 0.05 152);
+  --warn: oklch(62% 0.16 55);
+  --warn-soft: oklch(95% 0.05 55);
+  --live: oklch(58% 0.2 25);
+
+  --r-sm: 0.5rem;
+  --r-md: 0.875rem;
+  --r-lg: 1.25rem;
+
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  min-height: 100vh;
+  padding: clamp(1rem, 2.5vw, 2rem);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Instrument Sans", system-ui, sans-serif;
+  font-size: 1rem;
+}
+
+.roz-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 0.9fr);
+  gap: 1rem;
+  max-width: 84rem;
+  margin: 0 auto;
+  align-items: start;
+}
+
+.roz-head {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.875rem;
+  margin-bottom: 0.25rem;
+  border-bottom: 1px solid var(--line);
+}
+.roz-brand { display: flex; align-items: baseline; gap: 0.5rem; }
+.roz-brand b { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; }
+.roz-brand span {
+  font-family: "Noto Sans Devanagari", sans-serif;
+  color: var(--ink-3);
+  font-size: 1.05rem;
+}
+.roz-sub { color: var(--ink-3); font-size: 0.8125rem; }
+
+.card-kicker {
+  color: var(--ink-3);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* ---------------- record ---------------- */
+
+.card {
+  padding: 1rem 1.125rem 1.125rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--paper-2);
+}
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.875rem;
+}
+.card-head h2 {
+  font-size: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.chip {
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  background: var(--paper-3);
+  color: var(--ink-2);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.chip-ok { background: var(--ok-soft); color: var(--ok); }
+
+.fields { display: grid; gap: 1px; background: var(--line); border-radius: var(--r-md); overflow: hidden; }
+.field {
+  display: grid;
+  grid-template-columns: 8.5rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: baseline;
+  padding: 0.5rem 0.75rem;
+  background: var(--paper-2);
+  transition: background 160ms var(--ease);
+}
+.field dt { color: var(--ink-3); font-size: 0.8125rem; }
+.field dd { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem; min-width: 0; }
+.field .val { font-size: 1rem; font-weight: 500; overflow-wrap: anywhere; }
+.field .empty { color: oklch(80% 0.01 260); }
+.field.has-value { background: var(--paper-2); }
+
+/* The field currently being read aloud. Interrupting targets this one. */
+.field.reading {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.field.corrected .val { color: var(--warn); }
+.field .was {
+  padding: 0.0625rem 0.375rem;
+  border-radius: 999px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: 0.6875rem;
+  text-decoration: line-through;
+}
+.field .tag-carried,
+.field .tag-low {
+  padding: 0.0625rem 0.375rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+}
+.field .tag-carried { background: var(--accent-soft); color: var(--accent); }
+.field .tag-low { background: var(--paper-3); color: var(--ink-3); }
+
+.needs {
+  margin-top: 0.75rem;
+  color: var(--ink-3);
+  font-size: 0.8125rem;
+}
+
+/* ---------------- voice ---------------- */
+
+.voice-col { display: grid; gap: 1rem; }
+
+.orb-wrap {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  padding: 1.5rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--paper-2);
+}
+.orb {
+  position: relative;
+  width: 7rem;
+  height: 7rem;
+  border: 0;
+  border-radius: 50%;
+  background: var(--paper-3);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background 200ms var(--ease), transform 120ms var(--ease);
+}
+.orb:active { transform: scale(0.97); }
+.orb-core {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  background: var(--ink-3);
+  transition: background 200ms var(--ease), transform 200ms var(--ease);
+}
+.orb.listening { background: oklch(95% 0.05 25); }
+.orb.listening .orb-core { background: var(--live); }
+.orb.thinking .orb-core { background: var(--accent); animation: roz-pulse 1.1s infinite; }
+.orb.speaking { background: var(--accent-soft); }
+.orb.speaking .orb-core { background: var(--accent); transform: scale(0.7); }
+.orb.error .orb-core { background: var(--warn); }
+
+.orb-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--live);
+  animation: roz-ring 1.4s infinite;
+}
+@keyframes roz-ring {
+  0%   { transform: scale(1);    opacity: 0.65; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+@keyframes roz-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+
+.orb-bars { position: absolute; display: flex; gap: 3px; align-items: center; height: 1.5rem; }
+.orb-bars i {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: roz-bar 0.9s infinite ease-in-out;
+}
+.orb-bars i:nth-child(2) { animation-delay: 0.12s; }
+.orb-bars i:nth-child(3) { animation-delay: 0.24s; }
+.orb-bars i:nth-child(4) { animation-delay: 0.36s; }
+@keyframes roz-bar {
+  0%, 100% { transform: scaleY(0.35); }
+  50%      { transform: scaleY(1); }
+}
+
+.orb-label { font-size: 0.9375rem; font-weight: 500; text-align: center; }
+.orb-metric {
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  background: var(--ok-soft);
+  color: var(--ok);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.transcript {
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--paper-2);
+  min-height: 7rem;
+  display: grid;
+  gap: 0.5rem;
+  align-content: start;
+}
+.t-line { font-size: 0.9375rem; line-height: 1.55; overflow-wrap: anywhere; }
+.t-line.me { color: var(--ink); }
+.t-line.me::before { content: "You  "; color: var(--ink-3); font-size: 0.75rem; }
+.t-line.agent { color: var(--accent); }
+.t-line.agent::before { content: "Roznamcha  "; color: var(--ink-3); font-size: 0.75rem; }
+.t-partial { color: var(--ink-3); font-style: italic; }
+
+.ask {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  background: var(--accent-soft);
+  font-size: 0.9375rem;
+}
+
+.roz-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.btn {
+  padding: 0.75rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-2);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 160ms var(--ease);
+}
+.btn:hover { background: var(--paper-3); }
+.btn-primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: oklch(99% 0 0);
+}
+.btn-primary:hover { background: oklch(46% 0.15 268); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.roz-error {
+  padding: 0.625rem 0.875rem;
+  border-radius: var(--r-md);
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: 0.875rem;
+}
+
+/* ---------------- memory ---------------- */
+
+.memory { display: grid; gap: 0.75rem; }
+.mem-block {
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--paper-2);
+}
+.mem-block h3 { margin-top: 0.25rem; font-size: 1rem; font-weight: 600; }
+.mem-empty { color: var(--ink-3); font-size: 0.8125rem; margin-top: 0.25rem; }
+.mem-note { margin-top: 0.5rem; color: var(--ink-3); font-size: 0.75rem; }
+
+.members, .prior { list-style: none; display: grid; gap: 0.25rem; margin-top: 0.5rem; }
+.members li, .prior li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+.members em, .prior em { color: var(--ink-3); font-style: normal; }
+
+.corrections { list-style: none; display: grid; gap: 0.5rem; margin-top: 0.5rem; }
+.corrections li {
+  display: grid;
+  gap: 0.125rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: var(--r-sm);
+  background: var(--warn-soft);
+}
+.c-field { font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--warn); }
+.c-change { font-size: 0.875rem; }
+.c-change s { color: var(--ink-3); }
+.c-heard { color: var(--ink-3); font-size: 0.75rem; overflow-wrap: anywhere; }
+
+/* ---------------- filed artifact ---------------- */
+
+.filed {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  border: 1px solid var(--ok);
+  border-radius: var(--r-lg);
+  background: var(--ok-soft);
+}
+.filed h2 { font-size: 1.25rem; font-weight: 600; }
+.filed pre {
+  padding: 0.875rem;
+  border-radius: var(--r-md);
+  background: var(--paper-2);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1080px) {
+  .roz-shell { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roz *, .roz *::before, .roz *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

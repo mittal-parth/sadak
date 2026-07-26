@@ -1,0 +1,139 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>voice harness</title>
+  </head>
+  <body>
+    <p>voice barge-in harness — see window.__harnessResult</p>
+    <script type="module">
+      import { createMicStream, createPlayer } from "./audio.js";
+
+      const RELAY_URL = "ws://localhost:8788";
+      const SPEECH_START_TO_SILENCE_WINDOW_MS = 500;
+      const MIC_CAPTURE_MS = 600;
+
+      window.__harnessResult = { ok: false, done: false };
+
+      async function runMicCheck() {
+        const frames = [];
+        let method = null;
+        let error = null;
+        try {
+          const mic = await createMicStream((b64) => frames.push(b64));
+          method = mic.method;
+          await new Promise((r) => setTimeout(r, MIC_CAPTURE_MS));
+          mic.stop();
+        } catch (err) {
+          error = String((err && err.message) || err);
+        }
+        let totalBytes = 0;
+        for (const f of frames) totalBytes += atob(f).length;
+        const totalSamples = totalBytes / 2; // s16le mono
+        const expectedSamples = (MIC_CAPTURE_MS / 1000) * 16000;
+        return {
+          error,
+          method,
+          frameCount: frames.length,
+          totalSamples,
+          expectedSamples,
+          ratio: expectedSamples > 0 ? totalSamples / expectedSamples : null,
+        };
+      }
+
+      const levelSamples = []; // { rms, t: performance.now() }
+      let bargeInT0 = null;
+      let callLatencyMs = null;
+
+      const player = createPlayer({
+        onLevel: (rms) => {
+          levelSamples.push({ rms, t: performance.now() });
+        },
+        onDrain: () => {
+          window.__harnessResult.drainedNaturally = true;
+        },
+      });
+
+      let micResult = null;
+
+      function finish() {
+        if (bargeInT0 == null) {
+          window.__harnessResult = {
+            ok: false,
+            done: true,
+            mic: micResult,
+            error: "speech_start was never received by the page",
+          };
+          return;
+        }
+        // First sample after t0 where RMS has dropped to near-silence and
+        // stays there (avoid catching a single zero-crossing sample).
+        const SILENCE_RMS = 0.01;
+        let silenceAtMs = null;
+        const after = levelSamples.filter((s) => s.t >= bargeInT0);
+        for (let i = 0; i < after.length; i++) {
+          if (after[i].rms < SILENCE_RMS) {
+            const restStayQuiet = after.slice(i, i + 3).every((s) => s.rms < SILENCE_RMS);
+            if (restStayQuiet) {
+              silenceAtMs = after[i].t;
+              break;
+            }
+          }
+        }
+        window.__harnessResult = {
+          ok: silenceAtMs != null,
+          done: true,
+          mic: micResult,
+          callLatencyMs,
+          silenceLatencyMs: silenceAtMs != null ? silenceAtMs - bargeInT0 : null,
+          sampleCountAfterT0: after.length,
+        };
+      }
+
+      async function main() {
+        // Mic capture check first (uses the fake getUserMedia device), then
+        // the WS-driven player barge-in test — sequential so both results
+        // land on window.__harnessResult without a race.
+        micResult = await runMicCheck();
+
+        const ws = new WebSocket(RELAY_URL);
+
+        ws.onopen = () => {
+          ws.send(JSON.stringify({ t: "start", language: "hi-IN", sampleRate: 16000 }));
+        };
+
+        ws.onmessage = (ev) => {
+          const msg = JSON.parse(ev.data);
+          switch (msg.t) {
+            case "ready":
+              ws.send(
+                JSON.stringify({ t: "say", text: "barge-in test", speaker: "anushka", language: "hi-IN" })
+              );
+              break;
+            case "tts_chunk":
+              player.push({ b64: msg.b64, codec: msg.codec, sampleRate: msg.sampleRate });
+              break;
+            case "speech_start": {
+              // ---- THE MEASURED PATH: mirrors useVoiceTurn's onmessage handler ----
+              const t0 = performance.now();
+              player.stopNow();
+              callLatencyMs = performance.now() - t0;
+              bargeInT0 = t0;
+              ws.send(JSON.stringify({ t: "shutup" }));
+              setTimeout(finish, SPEECH_START_TO_SILENCE_WINDOW_MS);
+              break;
+            }
+            default:
+              break;
+          }
+        };
+
+        ws.onerror = () => {
+          window.__harnessResult = { ok: false, done: true, mic: micResult, error: "relay websocket error" };
+        };
+      }
+
+      main();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,120 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html,body{margin:0;background:#151515;font-family:sans-serif;}
+  .row{position:relative;}
+  canvas{display:block;}
+  .rowlabel{position:absolute;top:6px;left:10px;color:#fff;font-size:20px;background:rgba(0,0,0,0.5);padding:2px 10px;border-radius:4px;}
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "/three/three.module.js",
+    "three/examples/jsm/utils/BufferGeometryUtils.js": "/three/BufferGeometryUtils.js"
+  }
+}
+</script>
+</head>
+<body>
+<div class="row" id="row1"><div class="rowlabel">All presets (walking, 3/4 front)</div></div>
+<div class="row" id="row2"><div class="rowlabel">salwar_kameez — 6 random seeds (variation)</div></div>
+<script type="module">
+import * as THREE from "three";
+import { makePerson, PERSON_PRESETS, setWalkPhase, __resetTriCounter, __getTriCounter } from "/people.mjs";
+
+const W = 1900, ROW_H = 620;
+
+function addLabel(scene, text, x, y, z) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 300; canvas.height = 70;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "rgba(0,0,0,0.72)";
+  ctx.fillRect(0, 0, 300, 70);
+  ctx.fillStyle = "#fff";
+  ctx.font = "26px sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(text, 150, 44);
+  const tex = new THREE.CanvasTexture(canvas);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false }));
+  sprite.scale.set(1.1, 0.26, 1);
+  sprite.position.set(x, y, z);
+  scene.add(sprite);
+}
+
+function makeScene() {
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xcfe6ef);
+
+  const key = new THREE.DirectionalLight(0xfff2df, 2.6);
+  key.position.set(4, 8, 6);
+  key.castShadow = true;
+  scene.add(key);
+  const fill = new THREE.DirectionalLight(0xdfeeff, 1.0);
+  fill.position.set(-6, 4, 4);
+  scene.add(fill);
+  const rim = new THREE.DirectionalLight(0xffffff, 1.2);
+  rim.position.set(0, 5, -7);
+  scene.add(rim);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(200, 200),
+    new THREE.MeshStandardMaterial({ color: 0x9a9284 })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+  return scene;
+}
+
+function renderRow(containerId, count, spacing, camDist, buildFn) {
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(W, ROW_H);
+  renderer.shadowMap.enabled = true;
+  document.getElementById(containerId).appendChild(renderer.domElement);
+
+  const scene = makeScene();
+  const camera = new THREE.PerspectiveCamera(32, W / ROW_H, 0.1, 100);
+
+  const startX = -((count - 1) * spacing) / 2;
+  for (let i = 0; i < count; i++) {
+    const x = startX + i * spacing;
+    buildFn(scene, i, x);
+  }
+
+  camera.position.set(1.6, 2.05, -camDist);
+  camera.lookAt(0, 1.0, 0);
+  renderer.render(scene, camera);
+  return renderer;
+}
+
+__resetTriCounter();
+const triByPreset = {};
+
+renderRow("row1", PERSON_PRESETS.length, 1.95, 9.6, (scene, i, x) => {
+  const preset = PERSON_PRESETS[i];
+  __resetTriCounter();
+  const p = makePerson({ preset, seed: 1000 + i * 7 });
+  setWalkPhase(p, 1.1);
+  p.position.set(x, 0, 0);
+  scene.add(p);
+  triByPreset[preset] = __getTriCounter();
+  addLabel(scene, preset, x, 2.05, 0.75);
+});
+
+renderRow("row2", 6, 1.85, 8.4, (scene, i, x) => {
+  const seed = 5000 + i * 91;
+  const p = makePerson({ preset: "salwar_kameez", seed });
+  setWalkPhase(p, 0.4 + i * 0.3);
+  p.position.set(x, 0, 0);
+  scene.add(p);
+  addLabel(scene, `seed ${seed}`, x, 2.05, 0.75);
+});
+
+window.__triByPreset = triByPreset;
+window.__rendered = true;
+</script>
+</body>
+</html>
