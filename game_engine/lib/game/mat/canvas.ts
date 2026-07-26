@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { clamp01 } from "./noise";
+import { ditherByte } from "./dither";
 
 /** A height/roughness/AO scalar field, row-major, values nominally in [0,1]. */
 export type Field = Float32Array;
@@ -59,31 +60,48 @@ export function heightToNormalCanvas(height: Field, size: number, strength = 2.2
   return canvas;
 }
 
+/**
+ * Scalar field -> 8-bit greyscale canvas, with ordered dithering.
+ *
+ * Roughness and AO fields are mostly slow gradients, which is precisely what
+ * bands when rounded to 256 levels. See mat/dither.ts.
+ */
 export function grayscaleCanvas(values: Field, size: number): HTMLCanvasElement {
   const { canvas, ctx } = makeCanvas(size);
   const img = ctx.createImageData(size, size);
-  for (let i = 0; i < size * size; i++) {
-    const v = Math.round(clamp01(values[i]) * 255);
-    const idx = i * 4;
-    img.data[idx] = v;
-    img.data[idx + 1] = v;
-    img.data[idx + 2] = v;
-    img.data[idx + 3] = 255;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const i = y * size + x;
+      const v = ditherByte(clamp01(values[i]), x, y);
+      const idx = i * 4;
+      img.data[idx] = v;
+      img.data[idx + 1] = v;
+      img.data[idx + 2] = v;
+      img.data[idx + 3] = 255;
+    }
   }
   ctx.putImageData(img, 0, 0);
   return canvas;
 }
 
-/** RGB triple fields -> an 8-bit colour canvas. */
+/**
+ * RGB triple fields -> an 8-bit colour canvas, with ordered dithering.
+ *
+ * Each channel is offset by a different phase of the same matrix, so the
+ * pattern does not correlate across channels into visible coloured checkers.
+ */
 export function rgbCanvas(r: Field, g: Field, b: Field, size: number): HTMLCanvasElement {
   const { canvas, ctx } = makeCanvas(size);
   const img = ctx.createImageData(size, size);
-  for (let i = 0; i < size * size; i++) {
-    const idx = i * 4;
-    img.data[idx] = Math.round(clamp01(r[i]) * 255);
-    img.data[idx + 1] = Math.round(clamp01(g[i]) * 255);
-    img.data[idx + 2] = Math.round(clamp01(b[i]) * 255);
-    img.data[idx + 3] = 255;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const i = y * size + x;
+      const idx = i * 4;
+      img.data[idx] = ditherByte(clamp01(r[i]), x, y);
+      img.data[idx + 1] = ditherByte(clamp01(g[i]), x + 3, y + 5);
+      img.data[idx + 2] = ditherByte(clamp01(b[i]), x + 5, y + 3);
+      img.data[idx + 3] = 255;
+    }
   }
   ctx.putImageData(img, 0, 0);
   return canvas;

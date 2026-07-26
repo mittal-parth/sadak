@@ -32,6 +32,13 @@ import type { Box } from "./city";
 export type ClutterOpts = {
   /** Building/tree/etc colliders already in the scene — never spawn inside these. */
   colliders: Box[];
+  /**
+   * The subset of `colliders` that are actual building footprints. Anything
+   * that mounts on a wall (posters, signboards, hoardings, a leaning bicycle)
+   * is placed against these, so a poster never ends up pasted to a parked car
+   * or floating in a tree. Defaults to `colliders`.
+   */
+  facades?: Box[];
   /** Coordinates of every road centreline, used for BOTH axes (matches city.ts's grid). */
   roadLines: number[];
   /** Full road width. */
@@ -51,6 +58,13 @@ export type ClutterOpts = {
    * covers, puddles) end up buried under the pavement slab and invisible.
    */
   pavementY?: number;
+  /**
+   * Global multiplier on every prop count. The per-type weights are tuned for
+   * a maximally busy street; anything below 1 thins the whole scatter evenly,
+   * which is what you want when the street should read as lived-in rather than
+   * as a jumble sale. Defaults to 1.
+   */
+  density?: number;
   /** Deterministic seed so the street looks the same on every reload. */
   seed?: number;
 };
@@ -659,7 +673,7 @@ function spawn(
  * ------------------------------------------------------------------ */
 
 export function createClutter(
-  scene: THREE.Scene,
+  scene: THREE.Object3D,
   theme: Theme,
   mats: MaterialLibrary | undefined,
   opts: ClutterOpts
@@ -670,9 +684,15 @@ export function createClutter(
   const r = rng(opts.seed ?? 20260726);
   const P = makePlacer(opts);
   const W = districtWeights(theme.landmark);
+  // Scaling the weights rather than each call site keeps `density` honest: it
+  // thins every prop type by the same proportion, so the district's character
+  // (Bengaluru's scooters, Kolkata's wires) survives at any density.
+  const density = opts.density ?? 1;
+  if (density !== 1) for (const k of Object.keys(W)) W[k] *= density;
   const squares = pavementSquares(opts);
   const runs = kerbRuns(opts);
   const nodes = intersections(opts);
+  const facades = opts.facades ?? opts.colliders;
 
   let instanceCount = 0;
   let drawCalls = 0;
@@ -963,9 +983,9 @@ export function createClutter(
 
   {
     const geo = track_(buildSignboardGeo());
-    const wanted = Math.round(opts.colliders.length * 0.9 * W.signboard);
+    const wanted = Math.round(facades.length * 0.9 * W.signboard);
     const n = spawn(group, geo, ownMat(0.6), wanted, r, (i, d, rr) => {
-      const b = opts.colliders[Math.floor(rr() * opts.colliders.length)];
+      const b = facades[Math.floor(rr() * facades.length)];
       const p = facadePoint(b, rr);
       d.position.set(p.x, GY + 3.4 + rr() * 1.2, p.z);
       d.rotation.y = p.ny;
@@ -978,9 +998,9 @@ export function createClutter(
 
   {
     const geo = track_(buildPosterGeo());
-    const wanted = Math.round(opts.colliders.length * 1.6 * W.poster);
+    const wanted = Math.round(facades.length * 1.6 * W.poster);
     const n = spawn(group, geo, ownMat(0.9), wanted, r, (i, d, rr) => {
-      const b = opts.colliders[Math.floor(rr() * opts.colliders.length)];
+      const b = facades[Math.floor(rr() * facades.length)];
       const p = facadePoint(b, rr);
       d.position.set(p.x, GY + 1.4 + rr() * 1.4, p.z);
       d.rotation.y = p.ny;
@@ -995,9 +1015,9 @@ export function createClutter(
 
   {
     const geo = track_(buildBarberPoleGeo());
-    const wanted = Math.max(1, Math.round(opts.colliders.length * 0.06 * W.barberPole));
+    const wanted = Math.max(1, Math.round(facades.length * 0.06 * W.barberPole));
     const n = spawn(group, geo, ownMat(0.5), wanted, r, (i, d, rr) => {
-      const b = opts.colliders[Math.floor(rr() * opts.colliders.length)];
+      const b = facades[Math.floor(rr() * facades.length)];
       const p = facadePoint(b, rr);
       d.position.set(p.x, GY, p.z);
       d.rotation.y = rr() * Math.PI * 2;
@@ -1008,9 +1028,9 @@ export function createClutter(
 
   {
     const geo = track_(buildHoardingGeo());
-    const wanted = Math.max(1, Math.round(opts.colliders.length * 0.1 * W.hoarding));
+    const wanted = Math.max(1, Math.round(facades.length * 0.1 * W.hoarding));
     const n = spawn(group, geo, ownMat(0.4), wanted, r, (i, d, rr) => {
-      const b = opts.colliders[Math.floor(rr() * opts.colliders.length)];
+      const b = facades[Math.floor(rr() * facades.length)];
       const p = facadePoint(b, rr);
       // approximate roof height from footprint; real height isn't passed in
       const roofY = GY + 8 + rr() * 8;
@@ -1081,9 +1101,9 @@ export function createClutter(
 
   {
     const geo = track_(buildBicycleGeo());
-    const wanted = Math.round(opts.colliders.length * 0.4 * W.bicycle);
+    const wanted = Math.round(facades.length * 0.4 * W.bicycle);
     const n = spawn(group, geo, ownMat(0.5), wanted, r, (i, d, rr) => {
-      const b = opts.colliders[Math.floor(rr() * opts.colliders.length)];
+      const b = facades[Math.floor(rr() * facades.length)];
       const p = facadePoint(b, rr);
       d.position.set(p.x, GY, p.z);
       d.rotation.y = p.ny + (rr() - 0.5) * 0.4;

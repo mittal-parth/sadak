@@ -1,7 +1,16 @@
 import * as THREE from "three";
-import { buildCity, roadLines, CHOWK, WORLD_LIMIT, ROAD_W, type Box } from "./city";
-import { makeAuto, makeCow, makeCharacter, mulberry32 } from "./props";
-import type { District } from "./districts";
+import {
+  buildCity, roadLines, CHOWK, WORLD_LIMIT, ROAD_W,
+  type Box, type SignalMast,
+} from "./city";
+import type { Clutter } from "./clutter";
+import { makeAuto, setSignalPhase, mulberry32 } from "./props";
+import { makePerson, makeIdlePose, setWalkPhase, type PersonPreset } from "./people";
+import {
+  createVehicleMaterials, makeCar, TRAFFIC_KINDS,
+  type CarKind, type VehicleMaterials,
+} from "./vehicles";
+import type { District, Npc } from "./districts";
 import { createMaterialLibrary, type MaterialLibrary } from "./materials";
 import { createRenderPipeline, type RenderPipeline } from "./render";
 
@@ -22,40 +31,87 @@ const TALK_RADIUS = 4.5;
 const PLAYER_RADIUS = 0.55;
 const TURN_SPEED = 2.1; // radians/sec for keyboard camera turn
 
-/** GTA-style sky: a vertical gradient painted onto an inward-facing sphere. */
+/**
+ * GTA-style sky: a vertical gradient painted onto an inward-facing sphere.
+ *
+ * Resolution matters more than it looks: this strip is stretched over a
+ * kilometre-wide dome, so every texel is metres tall on screen and a 256-step
+ * ramp shows its steps. The grade pass dithers the final frame (see
+ * fx/gradeShader.ts) which removes the rest of the banding.
+ */
 function makeSky(stops: readonly string[]): THREE.Mesh {
+  const H = 1024;
   const canvas = document.createElement("canvas");
   canvas.width = 4;
-  canvas.height = 256;
+  canvas.height = H;
   const ctx = canvas.getContext("2d")!;
 
-  const grad = ctx.createLinearGradient(0, 0, 0, 256);
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
   stops.forEach((c, i) => grad.addColorStop(i / (stops.length - 1), c));
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 4, 256);
+  ctx.fillRect(0, 0, 4, H);
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
+  tex.minFilter = THREE.LinearFilter;
+  tex.generateMipmaps = false;
 
   return new THREE.Mesh(
-    new THREE.SphereGeometry(WORLD_LIMIT * 2.2, 24, 16),
+    new THREE.SphereGeometry(WORLD_LIMIT * 2.2, 32, 24),
     new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, depthWrite: false, fog: false })
   );
 }
+
+/**
+ * Dresses each mission NPC to their job. A constable in a shirt and trousers
+ * is just another pedestrian; the uniform is how the player finds them.
+ */
+function presetForRole(role: string): PersonPreset {
+  const r = role.toLowerCase();
+  if (r.includes("constable") || r.includes("police") || r.includes("officer")) return "uniform";
+  if (r.includes("delivery") || r.includes("rider")) return "delivery_rider";
+  if (r.includes("seller") || r.includes("amma") || r.includes("akka")) return "sari";
+  if (r.includes("driver") || r.includes("wallah") || r.includes("vendor")) return "lungi";
+  return "kurta_pyjama";
+}
+
+/** Stable numeric seed from an NPC id, so a character looks the same every run. */
+function hashId(id: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+/**
+ * Traffic lane offset from the road centreline. Sits inboard of the parking
+ * strip (city.ts parks at ROAD_W/2 - 1.1) with a couple of metres of clearance,
+ * so moving traffic never clips a parked car.
+ */
+const LANE_OFF = ROAD_W * 0.22;
+
+/** Minimum bumper-to-bumper gap traffic will close to before it slows. */
+const FOLLOW_GAP = 7;
+
+/** Signal cycle, in seconds: z green, z amber, x green, x amber. */
+const SIGNAL_CYCLE = [13, 2, 13, 2];
 
 type Vehicle = {
   mesh: THREE.Group;
   line: number;
   axis: "x" | "z";
   dir: 1 | -1;
+  /** Lane identity, so following logic only compares vehicles sharing tarmac. */
+  laneKey: string;
+  /** Free-flow speed, m/s. */
+  cruise: number;
+  /** Current speed, eased toward whatever the road ahead allows. */
   speed: number;
-};
-
-type Wanderer = {
-  mesh: THREE.Group;
-  heading: number;
-  speed: number;
-  turnIn: number;
+  halfLength: number;
+  wheels: THREE.Object3D[];
+  wheelRadius: number;
 };
 
 export class Game {
@@ -74,7 +130,9 @@ export class Game {
 
   private colliders: Box[] = [];
   private vehicles: Vehicle[] = [];
-  private cows: Wanderer[] = [];
+  private lanes = new Map<string, Vehicle[]>();
+  private signals: SignalMast[] = [];
+  private clutter: Clutter | null = null;
   private npcMeshes = new Map<string, THREE.Group>();
   private markers = new Map<string, THREE.Mesh>();
 
@@ -92,6 +150,7 @@ export class Game {
 
   private onTelemetry: (t: Telemetry) => void;
   private materials!: MaterialLibrary;
+  private vehicleMats = createVehicleMaterials();
   private pipeline: RenderPipeline | null = null;
   private sun!: THREE.DirectionalLight;
 
@@ -160,60 +219,26 @@ export class Game {
   private buildWorld() {
     const theme = this.district.theme;
 
-    const city = buildCity(theme, this.materials);
+    const city = buildCity(theme, this.materials, this.vehicleMats);
     this.scene.add(city.group);
     this.colliders = city.colliders;
+    this.signals = city.signals;
+    this.clutter = city.clutter;
 
     const rand = mulberry32(77);
-    const lines = roadLines();
-
-    for (let i = 0; i < theme.autos; i++) {
-      const axis: "x" | "z" = rand() > 0.5 ? "x" : "z";
-      const line = lines[Math.floor(rand() * lines.length)];
-      const dir: 1 | -1 = rand() > 0.5 ? 1 : -1;
-      // Keep left, like actual Indian traffic.
-      const lane = dir === 1 ? -ROAD_W / 4 : ROAD_W / 4;
-
-      const mesh = makeAuto(theme.autoCanopy);
-      const along = (rand() - 0.5) * WORLD_LIMIT * 2;
-
-      if (axis === "z") {
-        mesh.position.set(line + lane, 0.02, along);
-        mesh.rotation.y = dir === 1 ? 0 : Math.PI;
-      } else {
-        mesh.position.set(along, 0.02, line - lane);
-        mesh.rotation.y = dir === 1 ? Math.PI / 2 : -Math.PI / 2;
-      }
-
-      this.scene.add(mesh);
-      this.vehicles.push({ mesh, line, axis, dir, speed: 7 + rand() * 6 });
-    }
-
-    // Cows wander near the chowk, ignore traffic, and are generally in the way.
-    for (let i = 0; i < theme.cows; i++) {
-      const mesh = makeCow();
-      mesh.position.set(
-        CHOWK.x + (rand() - 0.5) * 90,
-        0.22,
-        CHOWK.z + (rand() - 0.5) * 90
-      );
-      mesh.rotation.y = rand() * Math.PI * 2;
-      this.scene.add(mesh);
-      this.cows.push({
-        mesh,
-        heading: rand() * Math.PI * 2,
-        speed: 0.4 + rand() * 0.5,
-        turnIn: rand() * 5,
-      });
-    }
+    this.buildTraffic(rand);
 
     // Mission NPCs plus their floating markers. Positions are chowk offsets.
     for (const npc of this.district.npcs) {
       const x = CHOWK.x + npc.pos[0];
       const z = CHOWK.z + npc.pos[1];
 
-      const mesh = makeCharacter(npc.colour);
-      mesh.position.set(x, 0.24, z);
+      const mesh = makePerson(
+        { preset: presetForRole(npc.role), seed: hashId(npc.id), cloth1: npc.colour },
+        this.materials
+      );
+      makeIdlePose(mesh);
+      mesh.position.set(x, 0.26, z);
       this.scene.add(mesh);
       this.npcMeshes.set(npc.id, mesh);
 
@@ -228,8 +253,96 @@ export class Game {
     }
   }
 
+  /**
+   * Traffic is placed into LANE SLOTS rather than scattered at random points on
+   * the grid. There are 28 lanes (7 road lines x 2 axes x 2 directions) and
+   * only a dozen or so vehicles, so dealing one vehicle per lane before
+   * doubling up guarantees they start spread across the whole city instead of
+   * clumping three-deep on one street — which is what the old random placement
+   * did, and why the road felt simultaneously empty and congested.
+   */
+  private buildTraffic(rand: () => number) {
+    const theme = this.district.theme;
+    const lines = roadLines();
+
+    type Lane = { line: number; axis: "x" | "z"; dir: 1 | -1 };
+    const lanes: Lane[] = [];
+    for (const line of lines) {
+      for (const axis of ["x", "z"] as const) {
+        for (const dir of [1, -1] as const) lanes.push({ line, axis, dir });
+      }
+    }
+    // Fisher-Yates on the seeded PRNG, so the layout is stable per reload.
+    for (let i = lanes.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [lanes[i], lanes[j]] = [lanes[j], lanes[i]];
+    }
+
+    const fleet: ("auto" | CarKind)[] = [];
+    for (let i = 0; i < theme.autos; i++) fleet.push("auto");
+    for (let i = 0; i < theme.cars; i++) {
+      fleet.push(TRAFFIC_KINDS[Math.floor(rand() * TRAFFIC_KINDS.length)]);
+    }
+    for (let i = fleet.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [fleet[i], fleet[j]] = [fleet[j], fleet[i]];
+    }
+
+    const span = WORLD_LIMIT * 2;
+    const perLane = new Map<string, number>();
+
+    fleet.forEach((kind, i) => {
+      const lane = lanes[i % lanes.length];
+      const key = `${lane.axis}:${lane.line}:${lane.dir}`;
+      const nth = perLane.get(key) ?? 0;
+      perLane.set(key, nth + 1);
+
+      const mesh =
+        kind === "auto"
+          ? makeAuto(theme.autoCanopy)
+          : makeCar(this.vehicleMats, { kind, seed: Math.floor(rand() * 1e6) });
+
+      // Second and later vehicles in a lane start half a world away from the
+      // first, so even a doubled-up lane is never a convoy.
+      const along = -WORLD_LIMIT + ((nth * 0.5 + rand() * 0.4) % 1) * span;
+      // Keep left, like actual Indian traffic.
+      const off = lane.dir === 1 ? -LANE_OFF : LANE_OFF;
+
+      if (lane.axis === "z") {
+        mesh.position.set(lane.line + off, 0.02, along);
+        mesh.rotation.y = lane.dir === 1 ? 0 : Math.PI;
+      } else {
+        mesh.position.set(along, 0.02, lane.line - off);
+        mesh.rotation.y = lane.dir === 1 ? Math.PI / 2 : -Math.PI / 2;
+      }
+
+      const cruise = (kind === "auto" ? 6.5 : 8.5) + rand() * 4;
+      const v: Vehicle = {
+        mesh,
+        line: lane.line,
+        axis: lane.axis,
+        dir: lane.dir,
+        laneKey: key,
+        cruise,
+        speed: cruise,
+        halfLength: (mesh.userData.halfLength as number) ?? 2,
+        wheels: (mesh.userData.wheels as THREE.Object3D[]) ?? [],
+        wheelRadius: (mesh.userData.wheelRadius as number) ?? 0.33,
+      };
+
+      this.scene.add(mesh);
+      this.vehicles.push(v);
+      if (!this.lanes.has(key)) this.lanes.set(key, []);
+      this.lanes.get(key)!.push(v);
+    });
+  }
+
   private buildPlayer() {
-    this.player = makeCharacter(0x2980b9, 0xa0673b);
+    this.player = makePerson(
+      { preset: "shirt_trousers", seed: 4242, cloth1: 0x2980b9, skin: 0xa0673b },
+      this.materials
+    );
+    makeIdlePose(this.player);
     this.player.position.copy(this.playerPos);
     this.scene.add(this.player);
   }
@@ -361,8 +474,8 @@ export class Game {
       this.updatePlayer(dt);
     }
     this.updateCamera(dt);
+    this.updateSignals();
     this.updateTraffic(dt);
-    this.updateCows(dt);
 
     for (const [id, m] of this.markers) {
       m.rotation.z = t * 1.6;
@@ -427,15 +540,17 @@ export class Game {
     const nz = this.playerPos.z + this.velocity.z * dt;
     if (!this.blocked(this.playerPos.x, nz)) this.playerPos.z = nz;
 
-    this.player.position.set(this.playerPos.x, 0.24, this.playerPos.z);
+    this.player.position.set(this.playerPos.x, 0.26, this.playerPos.z);
 
     if (moving) {
       this.player.rotation.y = Math.atan2(this.velocity.x, this.velocity.z);
-      this.walkPhase += dt * (sprint ? 14 : 9);
-      // Cheap bob so the blocky character reads as walking.
-      this.player.position.y = 0.24 + Math.abs(Math.sin(this.walkPhase)) * 0.08;
-    } else {
+      // Stride rate follows actual ground speed, so a sprint does not look like
+      // a walk played fast.
+      this.walkPhase += dt * (this.velocity.length() * 1.7 + 1.2);
+      setWalkPhase(this.player, this.walkPhase);
+    } else if (this.walkPhase !== 0) {
       this.walkPhase = 0;
+      makeIdlePose(this.player);
     }
   }
 
@@ -455,46 +570,97 @@ export class Game {
     this.camera.lookAt(this.playerPos.x, 2.3, this.playerPos.z);
   }
 
-  private updateTraffic(dt: number) {
-    for (const v of this.vehicles) {
-      const move = v.speed * dt * v.dir;
-
-      if (v.axis === "z") {
-        v.mesh.position.z += move;
-        if (v.mesh.position.z > WORLD_LIMIT) v.mesh.position.z = -WORLD_LIMIT;
-        if (v.mesh.position.z < -WORLD_LIMIT) v.mesh.position.z = WORLD_LIMIT;
-      } else {
-        v.mesh.position.x += move;
-        if (v.mesh.position.x > WORLD_LIMIT) v.mesh.position.x = -WORLD_LIMIT;
-        if (v.mesh.position.x < -WORLD_LIMIT) v.mesh.position.x = WORLD_LIMIT;
-      }
-
-      // Suspension jitter, Indian roads are not smooth.
-      v.mesh.position.y = 0.02 + Math.sin(this.clock.elapsedTime * 11 + v.line) * 0.022;
+  /**
+   * Which aspect each axis of travel is showing right now. One global cycle
+   * drives every junction: with a grid this regular, per-junction phases would
+   * only mean a vehicle clearing one green straight into a red at the next.
+   */
+  private signalPhase(axis: "x" | "z"): 0 | 1 | 2 {
+    const total = SIGNAL_CYCLE.reduce((a, b) => a + b, 0);
+    let t = this.clock.elapsedTime % total;
+    let stage = 0;
+    while (t >= SIGNAL_CYCLE[stage]) {
+      t -= SIGNAL_CYCLE[stage];
+      stage++;
     }
+    // stage: 0 z-green, 1 z-amber, 2 x-green, 3 x-amber.
+    if (axis === "z") return stage === 0 ? 2 : stage === 1 ? 1 : 0;
+    return stage === 2 ? 2 : stage === 3 ? 1 : 0;
   }
 
-  private updateCows(dt: number) {
-    for (const c of this.cows) {
-      c.turnIn -= dt;
-      if (c.turnIn <= 0) {
-        c.heading += (Math.random() - 0.5) * 2.2;
-        c.turnIn = 2 + Math.random() * 5;
+  private updateSignals() {
+    for (const s of this.signals) setSignalPhase(s.group, this.signalPhase(s.axis));
+  }
+
+  /**
+   * Traffic drives its lane, stops for its signal, and does not drive through
+   * the vehicle in front. That last rule is why lanes are indexed: comparing
+   * every vehicle against every other is quadratic for no benefit, since only
+   * vehicles sharing a lane can ever conflict.
+   */
+  private updateTraffic(dt: number) {
+    const lines = roadLines();
+    const along = (v: Vehicle) => (v.axis === "z" ? v.mesh.position.z : v.mesh.position.x);
+
+    for (const [, lane] of this.lanes) {
+      // Sorted in the direction of travel, so index i+1 is always the vehicle
+      // in front of index i.
+      lane.sort((a, b) => (along(a) - along(b)) * a.dir);
+
+      for (let i = 0; i < lane.length; i++) {
+        const v = lane[i];
+        const pos = along(v);
+        let target = v.cruise;
+
+        // --- signal ahead
+        if (this.signalPhase(v.axis) !== 2) {
+          let nearest = Infinity;
+          for (const L of lines) {
+            const d = (L - pos) * v.dir;
+            if (d > 0 && d < nearest) nearest = d;
+          }
+          const stopDist = nearest - (ROAD_W / 2 + 0.9 + v.halfLength);
+          if (stopDist > -0.2 && stopDist < 26) {
+            target = Math.min(target, v.cruise * THREE.MathUtils.clamp(stopDist / 12, 0, 1));
+            if (stopDist < 0.4) target = 0;
+          }
+        }
+
+        // --- vehicle in front
+        const lead = lane[i + 1];
+        if (lead) {
+          const gap = (along(lead) - pos) * v.dir - (v.halfLength + lead.halfLength);
+          if (gap < FOLLOW_GAP) {
+            target = Math.min(target, lead.speed * THREE.MathUtils.clamp(gap / FOLLOW_GAP, 0, 1));
+          }
+        }
+
+        // Ease rather than snap: an instant stop reads as a glitch, and the
+        // nose-dive of a car easing off is most of what sells traffic as
+        // physical.
+        const rate = target < v.speed ? 6 : 2.2;
+        v.speed += (target - v.speed) * (1 - Math.exp(-rate * dt));
+
+        const move = v.speed * dt * v.dir;
+        if (v.axis === "z") {
+          v.mesh.position.z += move;
+          if (v.mesh.position.z > WORLD_LIMIT) v.mesh.position.z = -WORLD_LIMIT;
+          if (v.mesh.position.z < -WORLD_LIMIT) v.mesh.position.z = WORLD_LIMIT;
+        } else {
+          v.mesh.position.x += move;
+          if (v.mesh.position.x > WORLD_LIMIT) v.mesh.position.x = -WORLD_LIMIT;
+          if (v.mesh.position.x < -WORLD_LIMIT) v.mesh.position.x = WORLD_LIMIT;
+        }
+
+        // Wheels roll at the speed the body is actually travelling.
+        const spin = (v.speed * dt) / v.wheelRadius;
+        for (const w of v.wheels) w.rotation.x -= spin;
+
+        // Suspension jitter, scaled by speed so a stopped vehicle sits still.
+        const jitter = Math.min(1, v.speed / v.cruise);
+        v.mesh.position.y =
+          0.02 + Math.sin(this.clock.elapsedTime * 11 + v.line) * 0.018 * jitter;
       }
-
-      const nx = c.mesh.position.x + Math.sin(c.heading) * c.speed * dt;
-      const nz = c.mesh.position.z + Math.cos(c.heading) * c.speed * dt;
-
-      // Cows are content to stand in the road, but not inside a wall.
-      if (!this.blocked(nx, nz)) {
-        c.mesh.position.x = nx;
-        c.mesh.position.z = nz;
-      } else {
-        c.heading += Math.PI * 0.6;
-      }
-
-      c.mesh.rotation.y = c.heading;
-      c.mesh.position.y = 0.22 + Math.sin(this.clock.elapsedTime * 1.5 + c.speed * 10) * 0.02;
     }
   }
 
@@ -554,6 +720,11 @@ export class Game {
     window.removeEventListener("mouseup", this.onMouseUp);
     document.removeEventListener("mousemove", this.onMouseMove);
     window.removeEventListener("resize", this.onResize);
+
+    // Instanced clutter owns its own geometry/material lifetimes; let it clean
+    // up before the scene walk, which does not understand InstancedMesh.
+    this.clutter?.dispose();
+    this.vehicleMats.dispose();
 
     this.scene.traverse((o) => {
       const m = o as THREE.Mesh;

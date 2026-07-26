@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 
 /** Deterministic PRNG so the city looks identical on every reload. */
 export function mulberry32(seed: number) {
@@ -14,6 +15,21 @@ export function mulberry32(seed: number) {
 
 const flat = (color: number, opts: THREE.MeshLambertMaterialParameters = {}) =>
   new THREE.MeshLambertMaterial({ color, ...opts });
+
+/** Physically-lit prop material. Anything the player walks right up to gets
+ *  this rather than `flat`, so it responds to the sun the way the buildings
+ *  and vehicles around it do. */
+const std = (color: number, roughness = 0.7, metalness = 0.1) =>
+  new THREE.MeshStandardMaterial({ color, roughness, metalness });
+
+/** Self-lit lamp lens. `intensity` is what the bloom pass keys off. */
+const glow = (color: number, intensity = 1) =>
+  new THREE.MeshStandardMaterial({
+    color,
+    emissive: color,
+    emissiveIntensity: intensity,
+    roughness: 0.25,
+  });
 
 /* ------------------------------------------------------------------ *
  * Facade textures
@@ -160,137 +176,128 @@ export function makeBuilding(
  * Auto rickshaw
  * ------------------------------------------------------------------ */
 
+/**
+ * Three wheels, a curved shell and a canvas roof. The shape that matters is the
+ * *taper*: an auto is wide and heavy at the rear axle and narrows to a single
+ * front wheel under a rounded cowl, and the roof sits proud of the body on
+ * visible posts with open sides between them. A plain box misses all three.
+ */
 export function makeAuto(canopyColour = 0xf5c518): THREE.Group {
   const g = new THREE.Group();
 
-  const black = flat(0x111318);
-  const yellow = flat(canopyColour);
+  const skirt = std(0x14161b, 0.55, 0.25);
+  const shell = std(canopyColour, 0.42, 0.2);
+  const canvasRoof = std(0x1c1e22, 0.9, 0);
+  const chrome = std(0xc2c6ca, 0.22, 0.9);
 
-  // Lower body: the black skirt.
-  const lower = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.7, 2.4), black);
-  lower.position.y = 0.65;
+  // Lower body, tapering in toward the single front wheel.
+  const lower = new THREE.Mesh(new RoundedBoxGeometry(1.42, 0.72, 2.3, 3, 0.16), skirt);
+  lower.position.set(0, 0.62, -0.1);
   lower.castShadow = true;
   g.add(lower);
 
-  // Yellow canopy.
-  const canopy = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.9, 1.7), yellow);
-  canopy.position.set(0, 1.5, -0.2);
-  canopy.castShadow = true;
-  g.add(canopy);
+  // Yellow shell over the passenger bay.
+  const bay = new THREE.Mesh(new RoundedBoxGeometry(1.5, 0.86, 1.62, 3, 0.18), shell);
+  bay.position.set(0, 1.42, -0.32);
+  bay.castShadow = true;
+  g.add(bay);
 
-  // Rounded front cowl.
-  const cowl = new THREE.Mesh(new THREE.SphereGeometry(0.72, 12, 10), yellow);
-  cowl.scale.set(1, 0.95, 0.85);
-  cowl.position.set(0, 1.25, 1.05);
+  // Rounded front cowl, squashed into a nose rather than left a sphere.
+  const cowl = new THREE.Mesh(new THREE.SphereGeometry(0.66, 16, 12), shell);
+  cowl.scale.set(0.94, 1.0, 1.05);
+  cowl.position.set(0, 1.16, 0.86);
+  cowl.castShadow = true;
   g.add(cowl);
 
-  // Roof.
-  const roof = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.12, 2.0), yellow);
-  roof.position.set(0, 2.0, -0.1);
+  // Canvas roof on four posts, with the sides left open.
+  const roof = new THREE.Mesh(new RoundedBoxGeometry(1.56, 0.1, 1.94, 2, 0.05), canvasRoof);
+  roof.position.set(0, 1.98, -0.24);
+  roof.castShadow = true;
   g.add(roof);
 
-  // Windscreen.
+  const postGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.62, 6);
+  for (const [px, pz] of [[-0.72, 0.5], [0.72, 0.5], [-0.72, -1.14], [0.72, -1.14]]) {
+    const post = new THREE.Mesh(postGeo, chrome);
+    post.position.set(px, 1.66, pz);
+    g.add(post);
+  }
+
+  // Mudguard over each rear wheel: the detail that stops the body looking
+  // like it is floating over the axle.
+  const guardGeo = new THREE.TorusGeometry(0.4, 0.055, 6, 12, Math.PI);
+  for (const sx of [-1, 1]) {
+    const guard = new THREE.Mesh(guardGeo, shell);
+    guard.rotation.y = Math.PI / 2;
+    guard.position.set(sx * 0.74, 0.36, -0.9);
+    g.add(guard);
+  }
+
+  // Windscreen, raked back over the cowl.
   const glass = new THREE.Mesh(
-    new THREE.BoxGeometry(1.3, 0.6, 0.06),
-    new THREE.MeshLambertMaterial({ color: 0x89c4d8, transparent: true, opacity: 0.55 })
+    new THREE.BoxGeometry(1.24, 0.62, 0.05),
+    new THREE.MeshPhysicalMaterial({
+      color: 0x9fc6d4,
+      transparent: true,
+      opacity: 0.42,
+      roughness: 0.08,
+      metalness: 0.1,
+    })
   );
-  glass.position.set(0, 1.6, 0.68);
+  glass.rotation.x = -0.24;
+  glass.position.set(0, 1.58, 0.53);
   g.add(glass);
 
-  // Headlight.
-  const lamp = new THREE.Mesh(
-    new THREE.SphereGeometry(0.16, 10, 8),
-    new THREE.MeshBasicMaterial({ color: 0xfff3c4 })
-  );
-  lamp.position.set(0, 1.3, 1.45);
+  // Handlebar and the driver's bench, visible through the open sides.
+  const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.62, 6), chrome);
+  bar.rotation.z = Math.PI / 2;
+  bar.position.set(0, 1.16, 0.42);
+  g.add(bar);
+  const bench = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.12, 0.5), std(0x2a2622, 0.9));
+  bench.position.set(0, 1.02, -0.66);
+  g.add(bench);
+
+  // Headlight in a chrome ring, and the rear number plate.
+  const lampRing = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.035, 6, 14), chrome);
+  lampRing.position.set(0, 1.14, 1.44);
+  g.add(lampRing);
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10), glow(0xfff3c4, 1.3));
+  lamp.position.set(0, 1.14, 1.44);
   g.add(lamp);
 
-  const wheelGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.22, 12);
-  const wheelMat = flat(0x0b0b0d);
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.13, 0.03), std(0xe4e2d6, 0.9));
+  plate.position.set(0, 0.72, -1.27);
+  g.add(plate);
+
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.04), glow(0xff2a18, 0.8));
+  tail.position.set(0.5, 0.95, -1.26);
+  g.add(tail);
+
+  const tyre = std(0x0d0e10, 0.96, 0);
+  const wheelGeo = new THREE.CylinderGeometry(0.33, 0.33, 0.2, 14);
+  const hubGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.23, 10);
+  const wheels: THREE.Object3D[] = [];
   const wheelAt = (x: number, z: number) => {
-    const w = new THREE.Mesh(wheelGeo, wheelMat);
-    w.rotation.z = Math.PI / 2;
-    w.position.set(x, 0.34, z);
-    w.castShadow = true;
+    const w = new THREE.Group();
+    const t = new THREE.Mesh(wheelGeo, tyre);
+    t.rotation.z = Math.PI / 2;
+    t.castShadow = true;
+    w.add(t);
+    const h = new THREE.Mesh(hubGeo, chrome);
+    h.rotation.z = Math.PI / 2;
+    w.add(h);
+    w.position.set(x, 0.33, z);
     g.add(w);
-    return w;
+    wheels.push(w);
   };
   // Three wheels: one at the front, two at the back.
-  wheelAt(0, 1.15);
-  wheelAt(-0.78, -0.85);
-  wheelAt(0.78, -0.85);
+  wheelAt(0, 1.05);
+  wheelAt(-0.76, -0.9);
+  wheelAt(0.76, -0.9);
 
-  return g;
-}
-
-/* ------------------------------------------------------------------ *
- * Cow
- * ------------------------------------------------------------------ */
-
-export function makeCow(): THREE.Group {
-  const g = new THREE.Group();
-  const hide = flat(0xf2ece3);
-  const dark = flat(0x8a7f72);
-
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.95, 1.85), hide);
-  body.position.y = 1.05;
-  body.castShadow = true;
-  g.add(body);
-
-  // Brahman shoulder hump: what makes it read as an Indian cow.
-  const hump = new THREE.Mesh(new THREE.SphereGeometry(0.34, 10, 8), hide);
-  hump.scale.set(1, 0.85, 1.2);
-  hump.position.set(0, 1.62, 0.42);
-  g.add(hump);
-
-  const neck = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), hide);
-  neck.position.set(0, 1.2, 1.0);
-  g.add(neck);
-
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.46, 0.72), hide);
-  head.position.set(0, 1.08, 1.42);
-  g.add(head);
-
-  const snout = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.3, 0.2), dark);
-  snout.position.set(0, 0.99, 1.8);
-  g.add(snout);
-
-  // Horns.
-  const hornGeo = new THREE.ConeGeometry(0.075, 0.42, 7);
-  const hornMat = flat(0xd8cbb4);
-  [-0.17, 0.17].forEach((x) => {
-    const horn = new THREE.Mesh(hornGeo, hornMat);
-    horn.position.set(x, 1.42, 1.3);
-    horn.rotation.z = x > 0 ? -0.5 : 0.5;
-    g.add(horn);
-  });
-
-  // Ears.
-  [-0.3, 0.3].forEach((x) => {
-    const ear = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.1, 0.16), hide);
-    ear.position.set(x, 1.2, 1.28);
-    g.add(ear);
-  });
-
-  // Dewlap.
-  const dewlap = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.42, 0.5), hide);
-  dewlap.position.set(0, 0.92, 0.95);
-  g.add(dewlap);
-
-  const legGeo = new THREE.CylinderGeometry(0.11, 0.09, 0.62, 7);
-  [
-    [-0.32, 0.62], [0.32, 0.62],
-    [-0.32, -0.6], [0.32, -0.6],
-  ].forEach(([x, z]) => {
-    const leg = new THREE.Mesh(legGeo, dark);
-    leg.position.set(x, 0.31, z);
-    g.add(leg);
-  });
-
-  const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.03, 0.85, 6), hide);
-  tail.position.set(0, 1.05, -0.95);
-  tail.rotation.x = 0.32;
-  g.add(tail);
+  g.userData.wheels = wheels;
+  g.userData.wheelRadius = 0.33;
+  g.userData.halfLength = 1.35;
+  g.userData.kind = "auto";
 
   return g;
 }
@@ -328,46 +335,213 @@ export function makeStall(canopyColour: number): THREE.Group {
   return g;
 }
 
+/**
+ * Tall tapered mast with a curved gooseneck arm, reaching out over the
+ * carriageway. The curve is the whole silhouette: a straight arm at right
+ * angles reads as scaffolding, the sweep reads as a street light.
+ */
 export function makeStreetLight(): THREE.Group {
   const g = new THREE.Group();
-  const pole = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.09, 0.13, 6, 7),
-    flat(0x4c5157)
-  );
-  pole.position.y = 3;
+  const steel = std(0x565b62, 0.55, 0.7);
+
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.19, 8, 10), steel);
+  pole.position.y = 4;
+  pole.castShadow = true;
   g.add(pole);
 
-  const arm = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.1, 0.1), flat(0x4c5157));
-  arm.position.set(0.6, 5.95, 0);
+  // Base flange, so it meets the pavement instead of piercing it.
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.3, 0.36, 10), steel);
+  base.position.y = 0.18;
+  g.add(base);
+
+  // Gooseneck: a quarter torus tipping the mast over into the horizontal.
+  const bend = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.075, 6, 12, Math.PI / 2), steel);
+  bend.rotation.y = Math.PI / 2;
+  bend.rotation.z = Math.PI / 2;
+  bend.position.set(1.05, 7.95, 0);
+  bend.castShadow = true;
+  g.add(bend);
+
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.075, 1.1, 8), steel);
+  arm.rotation.z = Math.PI / 2;
+  arm.position.set(1.6, 9.0, 0);
   g.add(arm);
 
-  const lamp = new THREE.Mesh(
-    new THREE.BoxGeometry(0.5, 0.16, 0.3),
-    new THREE.MeshBasicMaterial({ color: 0xffe6a8 })
-  );
-  lamp.position.set(1.2, 5.85, 0);
-  g.add(lamp);
+  // Lamp housing, tilted down the road, with the lens as a separate emissive
+  // face so bloom picks up the lens and not the whole casing.
+  const housing = new THREE.Mesh(new THREE.BoxGeometry(0.86, 0.2, 0.42), steel);
+  housing.rotation.z = 0.1;
+  housing.position.set(2.35, 8.95, 0);
+  housing.castShadow = true;
+  g.add(housing);
+
+  const lens = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.06, 0.32), glow(0xffe6a8, 1.6));
+  lens.rotation.z = 0.1;
+  lens.position.set(2.35, 8.83, 0);
+  g.add(lens);
 
   return g;
 }
 
-/** Roadside peepal-ish tree. */
+/**
+ * Junction signal on a long mast arm, the way it hangs over the stop line in
+ * the reference: pole, boom out over the carriageway, one signal head on the
+ * boom and a pedestrian head down on the pole.
+ *
+ * `phase` picks which aspect is lit (0 red, 1 amber, 2 green) so a junction can
+ * show a consistent state across its four corners.
+ */
+export const ASPECT_COLOURS = [0xff2e1f, 0xffb020, 0x2fdd58] as const;
+
+export function makeTrafficLight(phase: 0 | 1 | 2 = 0): THREE.Group {
+  const g = new THREE.Group();
+  const steel = std(0x4a4f55, 0.5, 0.75);
+  const casing = std(0x1e2126, 0.8, 0.1);
+  /** Every lens on this mast, in red/amber/green order per head. */
+  const lenses: THREE.Mesh[] = [];
+
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.17, 7.2, 10), steel);
+  pole.position.y = 3.6;
+  pole.castShadow = true;
+  g.add(pole);
+
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.3, 0.4, 10), steel);
+  base.position.y = 0.2;
+  g.add(base);
+
+  // Boom out over the road, braced back to the mast.
+  const boom = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.1, 5.4, 8), steel);
+  boom.rotation.z = Math.PI / 2;
+  boom.position.set(2.7, 7.1, 0);
+  boom.castShadow = true;
+  g.add(boom);
+
+  const brace = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.2, 6), steel);
+  brace.rotation.z = Math.PI / 4;
+  brace.position.set(0.78, 6.3, 0);
+  g.add(brace);
+
+  /** A three-aspect head hanging from `y` at `x`, facing -Z. */
+  const head = (x: number, y: number, scale: number) => {
+    const h = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.42, 1.12, 0.34), casing);
+    body.castShadow = true;
+    h.add(body);
+
+    const lensGeo = new THREE.CylinderGeometry(0.13, 0.13, 0.06, 12);
+    ASPECT_COLOURS.forEach((c, i) => {
+      const lens = new THREE.Mesh(lensGeo, glow(c, 0));
+      lens.rotation.x = Math.PI / 2;
+      lens.position.set(0, 0.36 - i * 0.36, -0.18);
+      lenses.push(lens);
+      h.add(lens);
+
+      // Hood over each aspect: real signals are unreadable without them and
+      // they are most of what you actually see of the head from below.
+      const hood = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.17, 0.17, 0.16, 12, 1, true, Math.PI, Math.PI),
+        casing
+      );
+      hood.rotation.x = Math.PI / 2;
+      hood.position.set(0, 0.36 - i * 0.36, -0.26);
+      h.add(hood);
+    });
+
+    h.position.set(x, y, 0);
+    h.scale.setScalar(scale);
+    g.add(h);
+    return h;
+  };
+
+  head(4.6, 6.4, 1);
+  head(0.34, 3.4, 0.62); // pedestrian head, down at eye level on the mast
+
+  g.userData.lenses = lenses;
+  setSignalPhase(g, phase);
+  return g;
+}
+
+/**
+ * Lights the given aspect (0 red, 1 amber, 2 green) on every head of a mast
+ * built by `makeTrafficLight`. Unlit aspects are darkened rather than hidden:
+ * a real signal head still shows three dull coloured discs.
+ */
+export function setSignalPhase(light: THREE.Group, phase: 0 | 1 | 2): void {
+  if (light.userData.phase === phase) return;
+  const lenses = light.userData.lenses as THREE.Mesh[] | undefined;
+  if (!lenses) return;
+
+  lenses.forEach((lens, i) => {
+    const aspect = i % ASPECT_COLOURS.length;
+    const lit = aspect === phase;
+    const m = lens.material as THREE.MeshStandardMaterial;
+    m.emissiveIntensity = lit ? 2.2 : 0;
+    m.color.setHex(ASPECT_COLOURS[aspect]);
+    if (!lit) m.color.multiplyScalar(0.22);
+  });
+  light.userData.phase = phase;
+}
+
+/**
+ * Roadside peepal-ish tree.
+ *
+ * Two things do the work here. Branches: a canopy floating above a bare pole
+ * reads as a lollipop, and a few forked limbs disappearing into the leaves fix
+ * it for four extra meshes. And tonal variation between the foliage clumps —
+ * a single flat green is the giveaway of a procedural tree, because real
+ * canopies are self-shadowing and the underside clumps are much darker.
+ */
 export function makeTree(seed: number, leaf = 0x2f6b34, trunkColour = 0x5b4632): THREE.Group {
   const g = new THREE.Group();
   const rand = mulberry32(seed);
 
+  const height = 3.0 + rand() * 1.4;
+  const bark = std(trunkColour, 0.95, 0);
+
   const trunk = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.22, 0.34, 2.6, 7),
-    flat(trunkColour)
+    new THREE.CylinderGeometry(0.19, 0.36, height, 8),
+    bark
   );
-  trunk.position.y = 1.3;
+  trunk.position.y = height / 2;
   trunk.castShadow = true;
   g.add(trunk);
 
-  const leafMat = flat(leaf);
-  for (let i = 0; i < 4; i++) {
-    const blob = new THREE.Mesh(new THREE.SphereGeometry(0.9 + rand() * 0.6, 9, 7), leafMat);
-    blob.position.set((rand() - 0.5) * 1.5, 2.9 + rand() * 1.0, (rand() - 0.5) * 1.5);
+  // Root flare, so the trunk sits into the ground rather than on it.
+  const flare = new THREE.Mesh(new THREE.ConeGeometry(0.52, 0.7, 8), bark);
+  flare.position.y = 0.28;
+  g.add(flare);
+
+  const limbGeo = new THREE.CylinderGeometry(0.06, 0.13, 1.5, 5);
+  const limbs = 3 + Math.floor(rand() * 2);
+  for (let i = 0; i < limbs; i++) {
+    const a = (i / limbs) * Math.PI * 2 + rand();
+    const limb = new THREE.Mesh(limbGeo, bark);
+    limb.position.set(Math.cos(a) * 0.5, height - 0.15, Math.sin(a) * 0.5);
+    limb.rotation.set(Math.sin(a) * 0.6, 0, -Math.cos(a) * 0.6);
+    limb.castShadow = true;
+    g.add(limb);
+  }
+
+  const base = new THREE.Color(leaf);
+  const clumps = 6 + Math.floor(rand() * 3);
+  for (let i = 0; i < clumps; i++) {
+    // Lower clumps sit in the canopy's own shade; upper ones catch the sun.
+    const t = i / (clumps - 1);
+    const shade = base.clone().multiplyScalar(0.66 + t * 0.5);
+    const r = 0.75 + rand() * 0.55;
+    const blob = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(r, 1),
+      std(shade.getHex(), 0.95, 0)
+    );
+    const a = rand() * Math.PI * 2;
+    const spread = 0.5 + rand() * 1.05;
+    blob.position.set(
+      Math.cos(a) * spread,
+      height + 0.4 + t * 1.5 + rand() * 0.3,
+      Math.sin(a) * spread
+    );
+    blob.scale.set(1, 0.82, 1);
+    blob.rotation.set(rand(), rand(), rand());
     blob.castShadow = true;
     g.add(blob);
   }
@@ -506,40 +680,6 @@ export function makeArch(): THREE.Group {
   );
   dome.position.y = 8.6;
   g.add(dome);
-
-  return g;
-}
-
-/** Simple blocky pedestrian / NPC body. */
-export function makeCharacter(shirt: number, skin = 0x8d5524): THREE.Group {
-  const g = new THREE.Group();
-
-  const legs = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.85, 0.32), flat(0x2c3e50));
-  legs.position.y = 0.43;
-  legs.castShadow = true;
-  g.add(legs);
-
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.8, 0.38), flat(shirt));
-  torso.position.y = 1.25;
-  torso.castShadow = true;
-  g.add(torso);
-
-  const armGeo = new THREE.BoxGeometry(0.17, 0.72, 0.19);
-  const skinMat = flat(skin);
-  [-0.4, 0.4].forEach((x) => {
-    const arm = new THREE.Mesh(armGeo, skinMat);
-    arm.position.set(x, 1.25, 0);
-    g.add(arm);
-  });
-
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.44, 0.42), skinMat);
-  head.position.y = 1.9;
-  head.castShadow = true;
-  g.add(head);
-
-  const hair = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.14, 0.45), flat(0x14100c));
-  hair.position.y = 2.14;
-  g.add(hair);
 
   return g;
 }

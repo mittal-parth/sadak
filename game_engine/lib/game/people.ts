@@ -259,7 +259,14 @@ function mergeAndMesh(
   castShadow = true
 ): THREE.Mesh | null {
   if (!parts.length) return null;
-  const merged = BufferGeometryUtils.mergeGeometries(parts, false);
+  // A body mixes indexed primitives (boxes, cylinders) with non-indexed ones
+  // (anything that has been through .toNonIndexed(), e.g. a draped pallu), and
+  // mergeGeometries refuses to mix the two. Flatten to non-indexed first.
+  const flat = parts.map((p) => (p.getIndex() ? p.toNonIndexed() : p));
+  const merged = BufferGeometryUtils.mergeGeometries(flat, false);
+  flat.forEach((f, i) => {
+    if (f !== parts[i]) f.dispose();
+  });
   parts.forEach((p) => p.dispose());
   const mesh = new THREE.Mesh(merged, material);
   mesh.castShadow = castShadow;
