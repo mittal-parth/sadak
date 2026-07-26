@@ -15,6 +15,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
 const MAP_PX = 168;
 const MAP_PX_MOBILE = 80;
@@ -281,12 +282,17 @@ export default function Hud({
               {statsRow}
               <Button
                 variant="neutral"
-                size="sm"
-                className="h-8 px-2.5 text-xs"
+                size="icon"
+                className="size-8 shrink-0"
                 onClick={onTogglePanels}
                 aria-expanded={panelsOpen}
+                aria-label={panelsOpen ? "Hide game panels" : "Show game panels"}
               >
-                {panelsOpen ? "Hide" : "HUD"}
+                {panelsOpen ? (
+                  <PanelLeftClose className="size-4" aria-hidden />
+                ) : (
+                  <PanelLeftOpen className="size-4" aria-hidden />
+                )}
               </Button>
             </div>
             {tel && (
