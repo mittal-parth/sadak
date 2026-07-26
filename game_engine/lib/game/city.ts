@@ -244,8 +244,10 @@ export function buildCity(
 
   // Sized to meet the road edge exactly (SPACING/2 - ROAD_W/2 === BLOCK/2), so
   // the kerb line is where the tarmac stops rather than 2.5m out over it.
-  const kerbMat = mats
-    ? mats.tint("kerb_stone", theme.pavement, 14)
+  // Footpath slabs are metres across; kerb_stone's hazard stripes are for
+  // narrow kerb lips only — tiling that texture on a 40 m block reads as noise.
+  const paveMat = mats
+    ? mats.tint("concrete", theme.pavement, 8)
     : new THREE.MeshLambertMaterial({ color: theme.pavement });
 
   const kerbCaps: THREE.BufferGeometry[] = [];
@@ -254,7 +256,7 @@ export function buildCity(
       const cx = i * SPACING + SPACING / 2;
       const cz = j * SPACING + SPACING / 2;
 
-      const pave = new THREE.Mesh(new THREE.BoxGeometry(BLOCK, 0.26, BLOCK), kerbMat);
+      const pave = new THREE.Mesh(new THREE.BoxGeometry(BLOCK, 0.26, BLOCK), paveMat);
       pave.position.set(cx, 0.13, cz);
       pave.receiveShadow = true;
       group.add(pave);
@@ -276,7 +278,7 @@ export function buildCity(
     const geo = BufferGeometryUtils.mergeGeometries(kerbCaps, false)!;
     kerbCaps.forEach((k) => k.dispose());
     const capMat = mats
-      ? mats.tint("concrete", 0xcfc9bb, 6)
+      ? mats.tint("kerb_stone", 0xe8e4dc, 3)
       : new THREE.MeshLambertMaterial({ color: 0xcfc9bb });
     const caps = new THREE.Mesh(geo, capMat);
     caps.receiveShadow = true;

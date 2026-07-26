@@ -325,54 +325,51 @@ export function makePerson(o: PersonOpts = {}): THREE.Group {
     g.add(skirt);
     torsoY = 1.15;
   } else {
-    [-0.13, 0.13].forEach((x) => {
-      const leg = box(0.18, 0.85, 0.2, lowerMat);
+    [-0.15, 0.15].forEach((x) => {
+      const leg = box(0.22, 0.85, 0.24, lowerMat);
       leg.position.set(x, 0.43, 0);
       g.add(leg);
     });
   }
 
-  const torso = box(0.55, 0.78, 0.34, shirtMat);
+  const torso = box(0.62, 0.78, 0.4, shirtMat);
   torso.position.y = torsoY;
   g.add(torso);
 
-  [-0.37, 0.37].forEach((x) => {
-    const arm = box(0.15, 0.64, 0.17, skin);
+  [-0.4, 0.4].forEach((x) => {
+    const arm = box(0.18, 0.64, 0.2, skin);
     arm.position.set(x, torsoY, 0);
     g.add(arm);
   });
 
-  const headY = torsoY + 0.6;
-  const head = box(0.36, 0.4, 0.36, skin);
+  const headY = torsoY + 0.52;
+  const head = box(0.4, 0.42, 0.38, skin);
   head.position.y = headY;
   g.add(head);
 
   switch (o.headgear) {
     case "turban": {
-      const t = sphere(0.25, hairMat);
-      t.scale.y = 0.75;
-      t.position.y = headY + 0.2;
+      const t = sphere(0.24, hairMat);
+      t.scale.y = 0.72;
+      t.position.y = headY + 0.18;
       g.add(t);
       break;
     }
     case "cap": {
-      const c = cyl(0.2, 0.16, hairMat, G.cyl6);
-      c.position.y = headY + 0.24;
+      const c = cyl(0.21, 0.17, hairMat, G.cyl6);
+      c.position.y = headY + 0.22;
       g.add(c);
       break;
     }
     case "bun": {
-      const hair = box(0.38, 0.1, 0.38, hairMat);
-      hair.position.y = headY + 0.23;
-      g.add(hair);
-      const bun = ico(0.1, hairMat);
-      bun.position.set(0, headY + 0.32, -0.18);
+      const bun = ico(0.11, hairMat);
+      bun.position.set(0, headY + 0.18, -0.18);
       g.add(bun);
       break;
     }
     default: {
-      const hair = box(0.38, 0.12, 0.38, hairMat);
-      hair.position.y = headY + 0.24;
+      const hair = box(0.42, 0.07, 0.4, hairMat);
+      hair.position.y = headY + 0.22;
       g.add(hair);
     }
   }
@@ -380,7 +377,7 @@ export function makePerson(o: PersonOpts = {}): THREE.Group {
   switch (o.accessory) {
     case "basket": {
       const b = cyl(0.22, 0.26, stdMat(0xc9a26a, { roughness: 0.95 }, materials), G.cyl6);
-      b.position.y = headY + 0.42;
+      b.position.y = headY + 0.38;
       g.add(b);
       break;
     }

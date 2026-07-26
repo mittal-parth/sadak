@@ -16,6 +16,7 @@ import {
   bakedTorus,
   mergeByMaterial,
   mulberry32,
+  jitter,
   stdMat,
   type AssetMaterialLib,
   type Part,
@@ -273,5 +274,115 @@ export function makeTiffinCart(mats?: AssetMaterialLib, seed = 13): THREE.Group 
     mergeByMaterial(coffeeParts)
   );
   g.name = "chennai-tiffin-cart";
+  return g;
+}
+
+/* ------------------------------------------------------------------ *
+ * Mission stall: South Indian tiffin counter — dosa tawa, idli stack,
+ * vada, sambar/chutney, filter coffee, tiffin carriers, menu board.
+ * Sized to match makeStall() so task anchors line up.
+ * ------------------------------------------------------------------ */
+export function makeTiffinStall(
+  mats?: AssetMaterialLib,
+  seed = 13,
+  canopyColour = 0xf1c40f
+): THREE.Group {
+  const rand = mulberry32(seed);
+  const wood = stdMat(0x7a5230, { roughness: 0.88 }, mats);
+  const steel = stdMat(0xc9ccd0, { roughness: 0.3, metalness: 0.8 }, mats);
+  const steelDk = stdMat(0x8a8f94, { roughness: 0.35, metalness: 0.75 }, mats);
+  const canopyMat = stdMat(canopyColour, { roughness: 0.85 }, mats);
+  const post = stdMat(0x4a3a2a, { roughness: 0.9 }, mats);
+  const dosa = stdMat(0xd4a017, { roughness: 0.65 }, mats);
+  const idli = stdMat(0xf5f0e6, { roughness: 0.7 }, mats);
+  const vada = stdMat(0x8b4513, { roughness: 0.75 }, mats);
+  const sambar = stdMat(0xc0392b, { roughness: 0.55 }, mats);
+  const chutneyG = stdMat(0x27ae60, { roughness: 0.6 }, mats);
+  const chutneyR = stdMat(0xe74c3c, { roughness: 0.6 }, mats);
+  const leaf = stdMat(0x2ecc71, { roughness: 0.8 }, mats);
+  const coffee = stdMat(0x3b2314, { roughness: 0.5 }, mats);
+  const board = stdMat(0x1a252f, { roughness: 0.9 }, mats);
+  const chalk = stdMat(0xfdfefe, { roughness: 0.95 }, mats);
+
+  const woodParts: Part[] = [];
+  const steelParts: Part[] = [];
+  const canopyParts: Part[] = [];
+  const foodParts: Part[] = [];
+  const miscParts: Part[] = [];
+
+  // Counter — same footprint as generic makeStall().
+  woodParts.push({ geo: bakedBox(2.6, 1.0, 1.4, 0, 0.5, 0), mat: wood });
+
+  // Canopy posts and roof.
+  for (const [x, z] of [
+    [-1.2, -0.6],
+    [1.2, -0.6],
+    [-1.2, 0.6],
+    [1.2, 0.6],
+  ]) {
+    canopyParts.push({ geo: bakedCyl(0.07, 0.07, 2.4, 6, x, 1.2, z), mat: post });
+  }
+  canopyParts.push({ geo: bakedBox(3.0, 0.1, 1.9, 0, 2.45, 0, 0.06), mat: canopyMat });
+
+  // Dosa tawa on a gas ring at the front-left of the counter.
+  steelParts.push({ geo: bakedCyl(0.2, 0.24, 0.12, 10, -0.85, 1.06, 0.35), mat: steelDk });
+  steelParts.push({ geo: bakedCyl(0.38, 0.4, 0.04, 12, -0.85, 1.14, 0.35), mat: steel });
+  foodParts.push({ geo: bakedCyl(0.34, 0.36, 0.02, 12, -0.85, 1.17, 0.35), mat: dosa });
+  // Rolled dosa waiting on a plate beside the tawa.
+  foodParts.push({ geo: bakedCyl(0.14, 0.08, 0.28, 8, -0.45, 1.12, 0.35, 0.4), mat: dosa });
+
+  // Idli stack (3 tiers) and medu vada.
+  for (let i = 0; i < 3; i++) {
+    foodParts.push({ geo: bakedCyl(0.11, 0.11, 0.06, 10, 0.15, 1.06 + i * 0.07, 0.1), mat: idli });
+  }
+  foodParts.push({ geo: bakedTorus(0.1, 0.04, 0.45, 1.08, 0.35), mat: vada });
+  foodParts.push({ geo: bakedTorus(0.09, 0.035, 0.55, 1.06, 0.15), mat: vada });
+
+  // Sambar bucket and chutney bowls.
+  steelParts.push({ geo: bakedCyl(0.22, 0.24, 0.32, 10, 0.75, 1.14, -0.15), mat: steel });
+  foodParts.push({ geo: bakedCyl(0.18, 0.18, 0.04, 10, 0.75, 1.32, -0.15), mat: sambar });
+  foodParts.push({ geo: bakedCyl(0.09, 0.07, 0.05, 8, 0.55, 1.08, -0.15), mat: chutneyG });
+  foodParts.push({ geo: bakedCyl(0.09, 0.07, 0.05, 8, 0.68, 1.08, -0.15), mat: chutneyR });
+
+  // Stacked tiffin carriers on the far side.
+  for (let i = 0; i < 3; i++) {
+    steelParts.push({ geo: bakedCyl(0.2, 0.22, 0.18, 12, -1.05, 1.06 + i * 0.2, -0.35), mat: steel });
+  }
+  steelParts.push({ geo: bakedCyl(0.02, 0.02, 0.26, 6, -1.05, 1.72, -0.35), mat: steelDk });
+
+  // Filter coffee: davara-tumbler set and boiling kettle on a small stove.
+  foodParts.push({ geo: bakedCyl(0.1, 0.08, 0.12, 8, 1.0, 1.1, -0.4), mat: steel });
+  foodParts.push({ geo: bakedCyl(0.12, 0.09, 0.05, 8, 1.0, 1.04, -0.4), mat: coffee });
+  steelParts.push({ geo: bakedCyl(0.14, 0.12, 0.2, 8, 1.25, 1.12, -0.4), mat: steel });
+  steelParts.push({ geo: bakedCyl(0.02, 0.02, 0.16, 6, 1.25, 1.28, -0.52, 0.55), mat: steelDk });
+  steelParts.push({ geo: bakedCyl(0.18, 0.22, 0.1, 10, 1.25, 1.02, -0.4), mat: steelDk });
+
+  // Banana-leaf stack and steel tumblers for service.
+  for (let i = 0; i < 4; i++) {
+    foodParts.push({
+      geo: bakedBox(0.32, 0.012, 0.22, 1.05, 1.04 + i * 0.014, 0.35 + jitter(rand, 0.02)),
+      mat: leaf,
+    });
+  }
+  for (let i = 0; i < 3; i++) {
+    steelParts.push({ geo: bakedCyl(0.05, 0.04, 0.14, 8, 1.05 + i * 0.08, 1.08, 0.05), mat: steel });
+  }
+
+  // Hand-written menu board behind the counter.
+  miscParts.push({ geo: bakedBox(0.9, 0.55, 0.06, 0, 1.65, -0.72), mat: board });
+  miscParts.push({ geo: bakedBox(0.75, 0.04, 0.02, -0.05, 1.78, -0.68), mat: chalk });
+  miscParts.push({ geo: bakedBox(0.6, 0.03, 0.02, 0.08, 1.68, -0.68), mat: chalk });
+  miscParts.push({ geo: bakedBox(0.5, 0.03, 0.02, -0.1, 1.58, -0.68), mat: chalk });
+
+  void rand;
+  const g = new THREE.Group();
+  g.add(
+    mergeByMaterial(woodParts),
+    mergeByMaterial(steelParts),
+    mergeByMaterial(canopyParts),
+    mergeByMaterial(foodParts),
+    mergeByMaterial(miscParts)
+  );
+  g.name = "chennai-tiffin-stall";
   return g;
 }

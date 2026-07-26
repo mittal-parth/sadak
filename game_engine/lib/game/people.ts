@@ -54,6 +54,8 @@ export type PersonOptions = {
   skin?: number;
   cloth1?: number;
   cloth2?: number;
+  /** When false, skips random shoulder bag / head bundle props. */
+  carryProp?: boolean;
 };
 
 /** Named pivots exposed on `group.userData.limbs` so callers can pose them. */
@@ -332,7 +334,7 @@ export function makePerson(
 
   // ---- Build variation from the seed --------------------------------
   const heightScale = opts.heightScale ?? 0.92 + rand() * 0.2; // ~0.92-1.12
-  const build = 0.85 + rand() * 0.3; // torso/limb girth multiplier
+  const build = 0.98 + rand() * 0.22; // torso/limb girth multiplier
   const female = preset === "sari" || preset === "salwar_kameez" ? rand() > 0.15 : rand() > 0.72;
 
   const skin = opts.skin ?? SKIN_TONES[Math.floor(rand() * SKIN_TONES.length)];
@@ -378,8 +380,8 @@ export function makePerson(
   const neckY = 1.52;
   const chinY = 1.58;
   const headTop = 1.74;
-  const shoulderW = (0.19 + (female ? -0.015 : 0.02)) * build;
-  const hipW = (0.16 + (female ? 0.02 : 0)) * build;
+  const shoulderW = (0.22 + (female ? -0.015 : 0.025)) * build;
+  const hipW = (0.19 + (female ? 0.02 : 0)) * build;
   const upperArmLen = 0.27;
   const forearmLen = 0.24;
 
@@ -449,12 +451,14 @@ export function makePerson(
   clothStatic.push(sphereAt(torsoTopR * 0.95, 0, shoulderY - hipY, 0, 1, 0.35, 0.75, 6, 4));
 
   // Neck + head.
-  skinStatic.push(limbCyl(0.045, 0.05, neckY - shoulderY + 0.05, 0, neckY - hipY + 0.03, 0, 6));
+  skinStatic.push(limbCyl(0.052, 0.058, neckY - shoulderY + 0.05, 0, neckY - hipY + 0.03, 0, 6));
   const headGroup = new THREE.Group();
-  headGroup.position.set(0, chinY - hipY + 0.02, 0);
-  const headGeo = headGeometry(1.0);
-  headGeo.translate(0, 0, 0);
-  skinStatic.push(xf(headGeo, 0, chinY - hipY + 0.02, 0));
+  const skullBaseY = chinY - hipY + 0.02;
+  const headH = headTop - chinY;
+  headGroup.position.set(0, skullBaseY, 0);
+  const headGeo = headGeometry(headH / 0.185);
+  skinStatic.push(xf(headGeo, 0, skullBaseY, 0));
+  const skullCrownY = skullBaseY + headH;
   // Ears.
   [-1, 1].forEach((s) => {
     skinStatic.push(boxAt(0.018, 0.03, 0.02, s * 0.088, chinY - hipY + 0.11, 0));
@@ -486,14 +490,15 @@ export function makePerson(
       ? "topi"
       : "short";
 
-  const crownY = headTop - hipY;
+  /** Sphere with its bottom resting on the skull crown (hip-local Y). */
+  const onCrown = (r: number, sy: number, sz = 1) =>
+    sphereAt(r, 0, skullCrownY + r * sy, 0, 1, sy, sz, 6, 4);
+
   if (hairStyle === "short") {
-    hairStatic.push(sphereAt(0.088, 0, crownY - 0.05, 0, 1, 0.75, 1, 7, 5));
+    // Skull reads as the head; no extra cap mesh stacked on top.
   } else if (hairStyle === "bun") {
-    hairStatic.push(sphereAt(0.075, 0, crownY - 0.06, -0.06, 1, 0.7, 0.9, 6, 5));
-    hairStatic.push(sphereAt(0.045, 0, crownY - 0.02, -0.11, 1, 1, 1, 6, 4));
+    hairStatic.push(sphereAt(0.05, 0, skullCrownY - 0.09, -0.11, 1, 0.85, 0.9, 6, 4));
   } else if (hairStyle === "braid") {
-    hairStatic.push(sphereAt(0.078, 0, crownY - 0.05, -0.03, 1, 0.7, 0.95, 6, 5));
     const braidLen = 0.5;
     for (let i = 0; i < 4; i++) {
       const t0 = i / 4;
@@ -504,7 +509,7 @@ export function makePerson(
           0.028 * (1 - t1 * 0.6),
           braidLen / 4,
           0,
-          crownY - 0.12 - t0 * braidLen,
+          skullCrownY - 0.08 - t0 * braidLen,
           -0.09 - t0 * 0.02,
           6
         )
@@ -512,23 +517,32 @@ export function makePerson(
     }
   } else if (hairStyle === "turban") {
     for (let i = 0; i < 2; i++) {
-      cloth2Static.push(torusAt(0.083 - i * 0.008, 0.03, 0, crownY - 0.01 + i * 0.05, 0));
+      cloth2Static.push(
+        torusAt(0.086 - i * 0.008, 0.028, 0, skullCrownY - 0.06 + i * 0.045, 0)
+      );
     }
-    cloth2Static.push(sphereAt(0.05, 0.02, crownY + 0.09, 0.01, 1, 0.8, 1, 6, 4));
+    cloth2Static.push(sphereAt(0.05, 0.02, skullCrownY + 0.04, 0.01, 1, 0.8, 1, 6, 4));
   } else if (hairStyle === "topi") {
-    hairStatic.push(sphereAt(0.086, 0, crownY - 0.06, 0, 1, 0.55, 1, 6, 5));
     accentStatic.push(
-      xf(new THREE.CylinderGeometry(0.078, 0.082, 0.05, 8), 0, crownY - 0.02, 0)
+      xf(new THREE.CylinderGeometry(0.082, 0.086, 0.05, 8), 0, skullCrownY + 0.025, 0)
     );
   } else if (hairStyle === "cap") {
     // Constable's peaked cap.
-    accentStatic.push(xf(new THREE.CylinderGeometry(0.086, 0.086, 0.07, 8), 0, crownY - 0.02, 0));
-    accentStatic.push(boxAt(0.16, 0.02, 0.09, 0, crownY - 0.06, 0.09));
-  } else if (hairStyle === "helmet") {
-    accentStatic.push(sphereAt(0.098, 0, crownY - 0.03, 0, 1, 0.95, 1, 8, 6));
-    accentStatic.push(boxAt(0.15, 0.03, 0.08, 0, crownY - 0.14, 0.1, -0.15));
     accentStatic.push(
-      xf(new THREE.SphereGeometry(0.05, 6, 4, 0, Math.PI * 2, 0, Math.PI / 2), 0, crownY - 0.16, 0.06, Math.PI)
+      xf(new THREE.CylinderGeometry(0.09, 0.09, 0.07, 8), 0, skullCrownY + 0.035, 0)
+    );
+    accentStatic.push(boxAt(0.16, 0.02, 0.09, 0, skullCrownY + 0.01, 0.09));
+  } else if (hairStyle === "helmet") {
+    accentStatic.push(sphereAt(0.1, 0, skullCrownY - 0.04, 0, 1, 0.92, 1, 8, 6));
+    accentStatic.push(boxAt(0.15, 0.03, 0.08, 0, skullCrownY - 0.14, 0.1, -0.15));
+    accentStatic.push(
+      xf(
+        new THREE.SphereGeometry(0.05, 6, 4, 0, Math.PI * 2, 0, Math.PI / 2),
+        0,
+        skullCrownY - 0.16,
+        0.06,
+        Math.PI
+      )
     );
   }
   // bald: nothing added.
@@ -556,7 +570,8 @@ export function makePerson(
 
   // ---- A fraction of pedestrians carry a bag or a head-bundle ----
   const carryRoll = rand();
-  if (preset !== "delivery_rider" && preset !== "uniform" && carryRoll < 0.3) {
+  const allowCarry = opts.carryProp !== false;
+  if (allowCarry && preset !== "delivery_rider" && preset !== "uniform" && carryRoll < 0.3) {
     if (carryRoll < 0.16) {
       // Side bag on a shoulder strap.
       const bagY = shoulderY - hipY - 0.3;
@@ -565,8 +580,8 @@ export function makePerson(
         boxAt(0.02, 0.5, 0.02, shoulderW * 0.6, shoulderY - hipY - 0.1, 0.06, 0, 0, -0.5)
       );
     } else {
-      // Cloth bundle balanced on the head.
-      cloth2Static.push(sphereAt(0.11, 0, crownY + 0.11, 0, 1, 0.55, 1, 6, 4));
+      // Cloth bundle balanced on the head — base on the crown, not floating above it.
+      cloth2Static.push(onCrown(0.1, 0.48));
     }
   }
 
@@ -604,8 +619,8 @@ export function makePerson(
     const thighCloth: THREE.BufferGeometry[] = [];
     const thighSkin: THREE.BufferGeometry[] = [];
     const bareLeg = preset === "sari" || preset === "lungi";
-    const thighTopR = 0.075 * build;
-    const thighBotR = 0.06 * build;
+    const thighTopR = 0.088 * build;
+    const thighBotR = 0.072 * build;
 
     if (bareLeg) {
       thighSkin.push(limbCyl(thighTopR, thighBotR, kneeDrop, 0, 0, 0, 6));
@@ -631,14 +646,14 @@ export function makePerson(
     const shinLen = ankleDrop - footH;
     const shinBareBelowKnee = preset === "lungi" || preset === "sari";
     if (shinBareBelowKnee) {
-      shinSkin.push(limbCyl(0.055 * build, 0.04 * build, shinLen, 0, 0, 0, 6));
+      shinSkin.push(limbCyl(0.065 * build, 0.048 * build, shinLen, 0, 0, 0, 6));
     } else {
       const bag = preset === "salwar_kameez" ? 1.35 : 1.0;
       const cuff = preset === "salwar_kameez" ? 0.032 : 0.045; // salwar cuffs in at the ankle
       shinCloth.push(limbCyl(thighBotR * bag, cuff * build, shinLen, 0, 0, 0, 6));
     }
     // Foot.
-    shinSkin.push(boxAt(0.055, footH, 0.13, 0, -shinLen - footH / 2, 0.03));
+    shinSkin.push(boxAt(0.065, footH, 0.14, 0, -shinLen - footH / 2, 0.03));
 
     const shinMesh = mergeAndMesh(shinCloth, legColourMat ?? mats.cloth);
     const shinSkinMesh = mergeAndMesh(shinSkin, mats.skin);
@@ -664,7 +679,7 @@ export function makePerson(
     const sleeved = preset !== "sari"; // sari blouse sleeves are short; keep simple: everyone else covered
     const upperCloth: THREE.BufferGeometry[] = [];
     const upperSkin: THREE.BufferGeometry[] = [];
-    const upperR = 0.05 * build;
+    const upperR = 0.058 * build;
     if (sleeved && preset !== "lungi") {
       upperCloth.push(limbCyl(upperR * 1.1, upperR, upperArmLen, 0, 0, 0, 6));
     } else {
@@ -683,8 +698,8 @@ export function makePerson(
     shoulderPivot.add(elbowPivot);
 
     const foreSkin: THREE.BufferGeometry[] = [];
-    foreSkin.push(limbCyl(0.038 * build, 0.03 * build, forearmLen, 0, 0, 0, 6));
-    foreSkin.push(boxAt(0.05, 0.07, 0.035, 0, -forearmLen - 0.03, 0)); // hand
+    foreSkin.push(limbCyl(0.044 * build, 0.036 * build, forearmLen, 0, 0, 0, 6));
+    foreSkin.push(boxAt(0.058, 0.07, 0.04, 0, -forearmLen - 0.03, 0)); // hand
     const foreMesh = mergeAndMesh(foreSkin, mats.skin);
     if (foreMesh) elbowPivot.add(foreMesh);
     countTris(foreMesh);

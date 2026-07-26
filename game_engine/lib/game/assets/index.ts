@@ -18,7 +18,8 @@ import * as THREE from "three";
 import type { MaterialLibrary } from "../materials";
 import type { AssetMaterialLib } from "./shared";
 import { makeBazaarGate, makeHaveliBalcony, makeCycleRickshaw, makeJalebiStall } from "./delhi";
-import { makeGopuram, makeCatamaran, makeCoconutPalm, makeTiffinCart } from "./chennai";
+import { makeGopuram, makeCatamaran, makeCoconutPalm, makeTiffinCart, makeTiffinStall } from "./chennai";
+import { makeStall } from "../props";
 import {
   makeTechParkSlab,
   makeScaffolding,
@@ -72,6 +73,24 @@ function nextSeed() {
   return seedCounter * 97 + 13;
 }
 
+/** Shop geometry at mission sites — district-specific when it helps readability. */
+export function makeMissionShopStall(
+  districtId: string,
+  role: string,
+  canopyColour: number,
+  seed: number,
+  mats?: MaterialLibrary
+): THREE.Group {
+  const al = adapt(mats);
+  if (role.includes("Tiffin")) {
+    return makeTiffinStall(al, seed, canopyColour);
+  }
+  if (districtId === "purani-sadak") {
+    return makeJalebiStall(al, seed);
+  }
+  return makeStall(canopyColour);
+}
+
 export function getDistrictKit(landmark: Landmark, mats?: MaterialLibrary): DistrictKit {
   const al = adapt(mats);
 
@@ -115,7 +134,7 @@ export {
   makeCycleRickshaw,
   makeJalebiStall,
 } from "./delhi";
-export { makeGopuram, makeCatamaran, makeCoconutPalm, makeTiffinCart } from "./chennai";
+export { makeGopuram, makeCatamaran, makeCoconutPalm, makeTiffinCart, makeTiffinStall } from "./chennai";
 export {
   makeTechParkSlab,
   makeScaffolding,

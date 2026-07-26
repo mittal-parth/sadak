@@ -332,6 +332,45 @@ export function makeStall(canopyColour: number): THREE.Group {
   canopy.castShadow = true;
   g.add(canopy);
 
+  const steel = std(0xc9ccd0, 0.3, 0.8);
+  const food = flat(0xd4a017);
+  const sack = flat(0xc4a574);
+
+  // Chai kettle and tumblers — reads as a food stall from a distance.
+  const kettle = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.12, 0.22, 8), steel);
+  kettle.position.set(0.5, 1.12, 0.2);
+  g.add(kettle);
+  for (let i = 0; i < 4; i++) {
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.04, 0.14, 8), steel);
+    t.position.set(-0.3 + i * 0.12, 1.08, 0.35);
+    g.add(t);
+  }
+
+  // Stacked paper plates and a snack tray.
+  for (let i = 0; i < 3; i++) {
+    const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.025, 10), flat(0xf5f0e6));
+    plate.position.set(-0.75, 1.03 + i * 0.03, -0.15);
+    g.add(plate);
+  }
+  const tray = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.04, 10), food);
+  tray.position.set(0.85, 1.06, -0.2);
+  g.add(tray);
+
+  // Jars and a flour sack at the back of the counter.
+  const jarGeo = new THREE.CylinderGeometry(0.1, 0.11, 0.28, 8);
+  for (const [x, col] of [
+    [-1.0, 0xe74c3c],
+    [-0.82, 0xf39c12],
+    [1.05, 0x5d4037],
+  ] as const) {
+    const jar = new THREE.Mesh(jarGeo, flat(col));
+    jar.position.set(x, 1.14, -0.35);
+    g.add(jar);
+  }
+  const sackMesh = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.4, 0.28), sack);
+  sackMesh.position.set(1.15, 1.2, 0.35);
+  g.add(sackMesh);
+
   return g;
 }
 

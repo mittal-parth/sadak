@@ -5,25 +5,33 @@ import {
 } from "./city";
 import type { Clutter } from "./clutter";
 import { makeAuto, setSignalPhase, mulberry32 } from "./props";
+import { makeMissionShopStall } from "./assets/index";
 import { makePerson, makeIdlePose, setWalkPhase, type PersonPreset } from "./people";
 import {
   createVehicleMaterials, makeCar, TRAFFIC_KINDS,
   type CarKind, type VehicleMaterials,
 } from "./vehicles";
-import type { District, Npc } from "./districts";
+import type { District } from "./districts";
+import { tasksForDistrict, type StreetTask, type TaskKind } from "./tasks";
 import { createMaterialLibrary, type MaterialLibrary } from "./materials";
 import { createRenderPipeline, type RenderPipeline } from "./render";
 
-export type NpcSnapshot = { id: string; x: number; z: number; done: boolean; locked: boolean };
+export type TaskSnapshot = {
+  id: string;
+  kind: TaskKind;
+  x: number;
+  z: number;
+  done: boolean;
+};
 
 export type Telemetry = {
-  /** NPC the player can talk to right now, if any. */
+  /** Task the player can interact with right now, if any. */
   nearby: string | null;
   playerX: number;
   playerZ: number;
   /** Camera yaw in radians. The minimap rotates with it. */
   heading: number;
-  npcs: NpcSnapshot[];
+  tasks: TaskSnapshot[];
   speed: number;
 };
 
@@ -73,6 +81,23 @@ function presetForRole(role: string): PersonPreset {
   if (r.includes("seller") || r.includes("amma") || r.includes("akka")) return "sari";
   if (r.includes("driver") || r.includes("wallah") || r.includes("vendor")) return "lungi";
   return "kurta_pyjama";
+}
+
+function markerColourForKind(kind: TaskKind): number {
+  switch (kind) {
+    case "auto":
+      return 0xf5c518;
+    case "shop":
+      return 0xe67e22;
+    case "temple":
+      return 0xe74c3c;
+    case "bus":
+      return 0x3498db;
+    default: {
+      const _exhaustive: never = kind;
+      return _exhaustive;
+    }
+  }
 }
 
 /** Stable numeric seed from an NPC id, so a character looks the same every run. */
@@ -133,8 +158,10 @@ export class Game {
   private lanes = new Map<string, Vehicle[]>();
   private signals: SignalMast[] = [];
   private clutter: Clutter | null = null;
-  private npcMeshes = new Map<string, THREE.Group>();
+  private taskAnchors = new Map<string, THREE.Group>();
+  private hostMeshes = new Map<string, THREE.Group>();
   private markers = new Map<string, THREE.Mesh>();
+  private tasks: StreetTask[] = [];
 
   private keys = new Set<string>();
   private raf = 0;
@@ -145,8 +172,6 @@ export class Game {
 
   /** Set while a dialogue overlay is open, so input is ignored. */
   public paused = false;
-  /** Clues collected so far. Gates the final NPC. */
-  public clues = 0;
 
   private onTelemetry: (t: Telemetry) => void;
   private materials!: MaterialLibrary;
@@ -162,6 +187,7 @@ export class Game {
     this.canvas = canvas;
     this.district = district;
     this.onTelemetry = onTelemetry;
+    this.tasks = tasksForDistrict(district.id);
 
     const theme = district.theme;
 
@@ -228,28 +254,80 @@ export class Game {
     const rand = mulberry32(77);
     this.buildTraffic(rand);
 
-    // Mission NPCs plus their floating markers. Positions are chowk offsets.
-    for (const npc of this.district.npcs) {
-      const x = CHOWK.x + npc.pos[0];
-      const z = CHOWK.z + npc.pos[1];
+    // Story NPCs stay out of the world; errands are the interactables.
+    this.buildTaskSites();
+  }
 
-      const mesh = makePerson(
-        { preset: presetForRole(npc.role), seed: hashId(npc.id), cloth1: npc.colour },
+  /** Parked autos, stalls, temple sellers, and bus stops — each is a mission. */
+  private buildTaskSites() {
+    const theme = this.district.theme;
+
+    for (const task of this.tasks) {
+      const x = CHOWK.x + task.pos[0];
+      const z = CHOWK.z + task.pos[1];
+      const anchor = new THREE.Group();
+      anchor.position.set(x, 0, z);
+
+      const preset = presetForRole(task.role);
+      const host = makePerson(
+        { preset, seed: hashId(task.id), cloth1: task.colour },
         this.materials
       );
-      makeIdlePose(mesh);
-      mesh.position.set(x, 0.26, z);
-      this.scene.add(mesh);
-      this.npcMeshes.set(npc.id, mesh);
+      makeIdlePose(host);
+      host.position.set(0, 0.26, 0);
+      anchor.add(host);
+      this.hostMeshes.set(task.id, host);
+
+      if (task.kind === "auto") {
+        const auto = makeAuto(theme.autoCanopy);
+        auto.rotation.y = -Math.PI / 5;
+        auto.position.set(-2.2, 0.02, 0.6);
+        anchor.add(auto);
+      } else if (task.kind === "shop") {
+        const canopy = theme.canopies[hashId(task.id) % theme.canopies.length];
+        const stall = makeMissionShopStall(
+          task.districtId,
+          task.role,
+          canopy,
+          hashId(task.id),
+          this.materials
+        );
+        stall.rotation.y = Math.PI / 6;
+        stall.position.set(-1.4, 0, -0.8);
+        anchor.add(stall);
+      } else if (task.kind === "temple") {
+        const arch = new THREE.Mesh(
+          new THREE.BoxGeometry(2.4, 2.8, 0.35),
+          new THREE.MeshLambertMaterial({ color: 0xc0392b })
+        );
+        arch.position.set(0, 1.4, -1.2);
+        anchor.add(arch);
+      } else if (task.kind === "bus") {
+        const pole = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.08, 0.08, 3.2, 8),
+          new THREE.MeshLambertMaterial({ color: 0x2c3e50 })
+        );
+        pole.position.set(-1.5, 1.6, 0);
+        anchor.add(pole);
+        const sign = new THREE.Mesh(
+          new THREE.BoxGeometry(1.6, 0.5, 0.08),
+          new THREE.MeshLambertMaterial({ color: 0x2980b9 })
+        );
+        sign.position.set(-1.5, 2.8, 0);
+        anchor.add(sign);
+      }
+
+      this.scene.add(anchor);
+      this.taskAnchors.set(task.id, anchor);
 
       const marker = new THREE.Mesh(
         new THREE.ConeGeometry(0.5, 1.1, 4),
-        new THREE.MeshBasicMaterial({ color: 0xffd23f })
+        new THREE.MeshBasicMaterial({ color: markerColourForKind(task.kind) })
       );
-      marker.rotation.x = Math.PI; // point down at the NPC
+      marker.rotation.x = Math.PI;
       marker.position.set(x, 3.6, z);
       this.scene.add(marker);
-      this.markers.set(npc.id, marker);
+      this.markers.set(task.id, marker);
     }
   }
 
@@ -339,7 +417,13 @@ export class Game {
 
   private buildPlayer() {
     this.player = makePerson(
-      { preset: "shirt_trousers", seed: 4242, cloth1: 0x2980b9, skin: 0xa0673b },
+      {
+        preset: "shirt_trousers",
+        seed: 4242,
+        cloth1: 0x2980b9,
+        skin: 0xa0673b,
+        carryProp: false,
+      },
       this.materials
     );
     makeIdlePose(this.player);
@@ -427,12 +511,6 @@ export class Game {
     );
   }
 
-  /** True when this NPC is still gated behind uncollected clues. */
-  private locked(npcId: string): boolean {
-    const npc = this.district.npcs.find((n) => n.id === npcId);
-    return !!npc?.requiresClues && this.clues < npc.requiresClues;
-  }
-
   /* ---------------- loop ---------------- */
 
   public start() {
@@ -481,18 +559,18 @@ export class Game {
       m.rotation.z = t * 1.6;
       m.position.y = 3.5 + Math.sin(t * 2.4) * 0.22;
       (m.material as THREE.MeshBasicMaterial).color.setHex(
-        this.done.has(id) ? 0x2ecc71 : this.locked(id) ? 0x7f8c8d : 0xffd23f
+        this.done.has(id) ? 0x2ecc71 : markerColourForKind(this.tasks.find((t) => t.id === id)?.kind ?? "auto")
       );
     }
 
-    // NPCs turn to face the player when they are close enough to talk.
-    for (const [, mesh] of this.npcMeshes) {
-      const d = Math.hypot(this.playerPos.x - mesh.position.x, this.playerPos.z - mesh.position.z);
+    // Errand hosts turn to face the player when they are close enough to talk.
+    for (const [id, mesh] of this.hostMeshes) {
+      const anchor = this.taskAnchors.get(id)!;
+      const wx = anchor.position.x;
+      const wz = anchor.position.z;
+      const d = Math.hypot(this.playerPos.x - wx, this.playerPos.z - wz);
       if (d < TALK_RADIUS * 2.2) {
-        mesh.rotation.y = Math.atan2(
-          this.playerPos.x - mesh.position.x,
-          this.playerPos.z - mesh.position.z
-        );
+        mesh.rotation.y = Math.atan2(this.playerPos.x - wx, this.playerPos.z - wz);
       }
     }
 
@@ -668,19 +746,21 @@ export class Game {
     let nearby: string | null = null;
     let best = TALK_RADIUS;
 
-    const npcs: NpcSnapshot[] = this.district.npcs.map((npc) => {
-      const m = this.npcMeshes.get(npc.id)!;
-      const d = Math.hypot(this.playerPos.x - m.position.x, this.playerPos.z - m.position.z);
-      if (d < best && !this.done.has(npc.id)) {
+    const tasks: TaskSnapshot[] = this.tasks.map((task) => {
+      const anchor = this.taskAnchors.get(task.id)!;
+      const wx = anchor.position.x;
+      const wz = anchor.position.z;
+      const d = Math.hypot(this.playerPos.x - wx, this.playerPos.z - wz);
+      if (d < best && !this.done.has(task.id)) {
         best = d;
-        nearby = npc.id;
+        nearby = task.id;
       }
       return {
-        id: npc.id,
-        x: m.position.x,
-        z: m.position.z,
-        done: this.done.has(npc.id),
-        locked: this.locked(npc.id),
+        id: task.id,
+        kind: task.kind,
+        x: wx,
+        z: wz,
+        done: this.done.has(task.id),
       };
     });
 
@@ -689,7 +769,7 @@ export class Game {
       playerX: this.playerPos.x,
       playerZ: this.playerPos.z,
       heading: this.yaw,
-      npcs,
+      tasks,
       speed: this.velocity.length(),
     });
   }
