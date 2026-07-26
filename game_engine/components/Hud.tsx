@@ -17,7 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const MAP_PX = 168;
-const MAP_PX_MOBILE = 112;
+const MAP_PX_MOBILE = 80;
 const MAP_RANGE = 90;
 
 function kindColour(kind: TaskKind, done: boolean): string {
@@ -71,6 +71,7 @@ function Minimap({ tel, size }: { tel: Telemetry; size: number }) {
 
     const R = size / 2;
     const scale = R / MAP_RANGE;
+    const ui = size / MAP_PX;
 
     ctx.save();
     ctx.beginPath();
@@ -102,7 +103,7 @@ function Minimap({ tel, size }: { tel: Telemetry; size: number }) {
     for (const t of tel.tasks) {
       ctx.fillStyle = kindColour(t.kind, t.done);
       ctx.beginPath();
-      ctx.arc(t.x * scale, t.z * scale, 4.5, 0, Math.PI * 2);
+      ctx.arc(t.x * scale, t.z * scale, 4.5 * ui, 0, Math.PI * 2);
       ctx.fill();
     }
 
@@ -110,14 +111,14 @@ function Minimap({ tel, size }: { tel: Telemetry; size: number }) {
 
     ctx.fillStyle = "#5ab0ff";
     ctx.beginPath();
-    ctx.moveTo(R, R - 7);
-    ctx.lineTo(R - 5, R + 5);
-    ctx.lineTo(R + 5, R + 5);
+    ctx.moveTo(R, R - 7 * ui);
+    ctx.lineTo(R - 5 * ui, R + 5 * ui);
+    ctx.lineTo(R + 5 * ui, R + 5 * ui);
     ctx.closePath();
     ctx.fill();
 
     ctx.strokeStyle = "rgba(255,255,255,0.32)";
-    ctx.lineWidth = 2;
+    ctx.lineWidth = Math.max(1, 2 * ui);
     ctx.beginPath();
     ctx.arc(R, R, R - 2, 0, Math.PI * 2);
     ctx.stroke();
@@ -289,7 +290,7 @@ export default function Hud({
               </Button>
             </div>
             {tel && (
-              <HudCard className="pointer-events-auto p-1.5">
+              <HudCard className="pointer-events-auto p-1">
                 <CardContent className="px-0 py-0">
                   <Minimap tel={tel} size={mapSize} />
                 </CardContent>

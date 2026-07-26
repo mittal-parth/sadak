@@ -3,8 +3,8 @@
 import { useCallback, useRef } from "react";
 import { cn } from "@/lib/utils";
 
-const RADIUS = 56;
-const KNOB = 26;
+const RADIUS = 40;
+const KNOB = 18;
 const DEAD = 0.12;
 
 type Props = {
@@ -113,7 +113,7 @@ export default function VirtualJoystick({ className, onMove, disabled }: Props) 
       >
         <div
           data-joystick-knob
-          className="absolute left-1/2 top-1/2 size-[52px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-border bg-main shadow-shadow"
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-border bg-main shadow-shadow"
           style={{ width: KNOB * 2, height: KNOB * 2 }}
         />
       </div>
