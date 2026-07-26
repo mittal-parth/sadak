@@ -1,0 +1,83 @@
+# Project tests
+test/
+tests/
+eval/
+evals/
+
+# Python bytecode and artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+
+# Caches and test output
+.cache/
+.pytest_cache/
+.ruff_cache/
+coverage/
+
+# Logs and temp files
+*.log
+*.gz
+*.tgz
+.tmp
+.cache
+
+# Environment variables
+.env
+.env.*
+
+# VCS, editor, OS
+.git
+.gitignore
+.gitattributes
+.github/
+.idea/
+.vscode/
+.DS_Store
+
+# Project docs and misc
+README.md
+CONTRIBUTING.md
+LICENSE
+
+# Coding agent files
+.claude/
+.codex/
+.cursor/
+.windsurf/
+.gemini/
+.cline/
+.clinerules
+.clinerules/
+.aider*
+.cursorrules
+.cursorignore
+.cursorindexingignore
+.clineignore
+.codeiumignore
+.geminiignore
+.windsurfrules
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+.github/copilot-instructions.md
+.github/personal-instructions.md
+.github/instructions/
+
+# Monorepo: game and assets not needed for the voice worker
+game_engine/node_modules/
+game_engine/.next/
+namma-nagara/node_modules/
+namma-nagara/dist/
+docs/
+scripts/
+judge.py
+token_server.py
