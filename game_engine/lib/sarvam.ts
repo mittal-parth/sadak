@@ -193,13 +193,15 @@ export async function sarvamSTT(
     retry?: boolean;
   } = {}
 ): Promise<string> {
-  const form = new FormData();
-  form.append("file", audio, "speech.webm");
-  form.append("model", "saaras:v3");
-  form.append("mode", opts.mode ?? "transcribe");
-  if (opts.language) form.append("language_code", opts.language);
-
+  // Rebuild FormData on every attempt — a spent body on retry can look like a
+  // corrupt file to Sarvam ("Failed to read the file") even when the Blob is fine.
   const call = async () => {
+    const form = new FormData();
+    form.append("file", audio, "speech.webm");
+    form.append("model", "saaras:v3");
+    form.append("mode", opts.mode ?? "transcribe");
+    if (opts.language) form.append("language_code", opts.language);
+
     const res = await fetch(`${BASE}/speech-to-text`, {
       method: "POST",
       headers: { "api-subscription-key": key() },
