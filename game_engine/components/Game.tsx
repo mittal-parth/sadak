@@ -42,6 +42,7 @@ import {
   type NpcMemoryMap,
   type NpcTurn,
 } from "@/lib/game/npc-memory";
+import { prefetchTtsUrls, revokeTtsPrefetchMap, type TtsPrefetchMap } from "@/lib/tts/prefetch-client";
 
 export default function GameShell() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -68,6 +69,7 @@ export default function GameShell() {
   const [card, setCard] = useState<StreetTask | null>(null);
   const [npcMemory, setNpcMemory] = useState<NpcMemoryMap>({});
   const [hudPanelsOpen, setHudPanelsOpen] = useState(false);
+  const ttsPrefetchRef = useRef<TtsPrefetchMap>(new Map());
   const { mobilePlay, portrait } = useMobilePlay();
   const audio = useGameAudio(district?.id);
 
@@ -175,6 +177,45 @@ export default function GameShell() {
     },
     [],
   );
+
+  useEffect(() => {
+    if (!district?.id || tasks.length === 0) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/speak/prefetch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ districtId: district.id, comfort }),
+        });
+        if (!res.ok || cancelled) return;
+        const { items } = (await res.json()) as {
+          items: Array<{ key: string; url: string }>;
+        };
+        const map = await prefetchTtsUrls(items);
+        if (cancelled) {
+          revokeTtsPrefetchMap(map);
+          return;
+        }
+        revokeTtsPrefetchMap(ttsPrefetchRef.current);
+        ttsPrefetchRef.current = map;
+      } catch {
+        /* live /api/speak fallback */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [district?.id, district?.language, tasks, comfort]);
+
+  useEffect(() => {
+    return () => {
+      revokeTtsPrefetchMap(ttsPrefetchRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     talkingRef.current = talking;
@@ -507,6 +548,7 @@ export default function GameShell() {
           onClose={() => setTalking(null)}
           onComplete={onComplete}
           onPoints={onPoints}
+          ttsPrefetchRef={ttsPrefetchRef}
         />
       )}
     </div>

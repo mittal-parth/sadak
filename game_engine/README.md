@@ -175,6 +175,14 @@ npm run generate:seed-districts   # rewrites 002_seed_districts.sql
 
 Then re-run `002` in the SQL editor (it upserts by district id).
 
+**Lesson NPC voice cache (optional, recommended):** run [`008_tts_storage_bucket.sql`](supabase/migrations/008_tts_storage_bucket.sql) in the SQL editor, then pre-generate static lesson TTS into Supabase Storage (local only — needs `SARVAM_API_KEY` and `SUPABASE_SECRET_KEY` (`sb_secret_…`) in `.env`, never in Vercel):
+
+```bash
+npm run warm-tts-cache
+```
+
+Re-run after lesson text or speaker changes. Players fetch public WAV URLs; `/api/speak` falls back to live Sarvam only on cache miss.
+
 For live voice, add your LiveKit project keys to the same `.env` and run the NPC
 worker from the repo root in a second terminal:
 

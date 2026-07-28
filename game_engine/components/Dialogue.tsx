@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Volume2, X } from "lucide-react";
 import type { District } from "@/lib/game/districts";
 import type { NpcTurn } from "@/lib/game/npc-memory";
@@ -23,6 +23,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { lessonTierLabel } from "@/lib/game/levels";
 import { cn } from "@/lib/utils";
 import posthog from "posthog-js";
+import { ttsLookupKey } from "@/lib/tts/cache-keys";
+import type { TtsPrefetchMap } from "@/lib/tts/prefetch-client";
 
 type Phase = "recall" | "npc" | "player" | "result" | "finished";
 
@@ -34,6 +36,7 @@ export default function Dialogue({
   onClose,
   onComplete,
   onPoints,
+  ttsPrefetchRef,
 }: {
   district: District;
   target: LessonTarget;
@@ -42,6 +45,7 @@ export default function Dialogue({
   onClose: () => void;
   onComplete: (id: string, reward: number) => void;
   onPoints: (points: number) => void;
+  ttsPrefetchRef?: RefObject<TtsPrefetchMap>;
 }) {
   const steps = target.lesson;
   const hasPrior = priorMemory.length > 0;
@@ -92,16 +96,29 @@ export default function Dialogue({
     async (text: string, onDone?: () => void) => {
       setTtsPlaying(true);
       try {
+        const lookupKey = ttsLookupKey(district.language, target.speaker, text);
+        const prefetched = ttsPrefetchRef?.current.get(lookupKey);
+        const finish = () => {
+          setTtsPlaying(false);
+          onDone?.();
+        };
+
+        if (prefetched) {
+          audioRef.current?.pause();
+          const a = new Audio(prefetched);
+          audioRef.current = a;
+          a.onended = finish;
+          a.onerror = finish;
+          await a.play().catch(finish);
+          return;
+        }
+
         const res = await fetch("/api/speak", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ districtId: district.id, npcId: target.id, text }),
         });
         const { audio } = await res.json();
-        const finish = () => {
-          setTtsPlaying(false);
-          onDone?.();
-        };
         if (!audio) {
           finish();
           return;
@@ -117,7 +134,7 @@ export default function Dialogue({
         onDone?.();
       }
     },
-    [district.id, target.id]
+    [district.id, district.language, target.id, target.speaker, ttsPrefetchRef]
   );
 
   const playNpcLine = useCallback(

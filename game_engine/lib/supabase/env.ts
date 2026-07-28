@@ -21,3 +21,17 @@ export function getSupabasePublishableKey(): string {
   }
   return key;
 }
+
+/**
+ * Elevated key for local scripts (Storage uploads). Secret key only (`sb_secret_…`).
+ * @see https://supabase.com/docs/guides/getting-started/api-keys
+ */
+export function getSupabaseSecretKey(): string {
+  const key = process.env.SUPABASE_SECRET_KEY;
+  if (!key) {
+    throw new Error(
+      "Missing SUPABASE_SECRET_KEY (Dashboard → Settings → API Keys → Secret keys).",
+    );
+  }
+  return key;
+}

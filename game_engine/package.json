@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "generate:seed-districts": "tsx scripts/generate-seed-districts.ts"
+    "generate:seed-districts": "tsx scripts/generate-seed-districts.ts",
+    "warm-tts-cache": "tsx scripts/warm-tts-cache.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -37,6 +38,7 @@
     "ws": "^8.21.1"
   },
   "devDependencies": {
+    "dotenv": "^16.4.7",
     "@types/node": "^22.10.7",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",
