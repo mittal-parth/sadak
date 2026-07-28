@@ -31,7 +31,7 @@ export default function SignOutButton({ className, fullWidth }: SignOutButtonPro
   return (
     <Button
       type="button"
-      variant="neutral"
+      variant="default"
       size="sm"
       className={cn(fullWidth && "w-full", className)}
       disabled={busy}
