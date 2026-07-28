@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sarvamTTS, type LangCode } from "@/lib/sarvam";
 import { findTaskInLoaded, loadDistrictById } from "@/lib/game/load-district";
+import { publicTtsUrl, ttsObjectExists } from "@/lib/tts/cache";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -9,6 +10,9 @@ export const maxDuration = 60;
  * Voice is a separate round trip from the dialogue so subtitles can appear in
  * well under a second while Bulbul renders the audio behind them. Folding TTS
  * into /api/talk made every line take five seconds to show up.
+ *
+ * Static lesson lines are served from Supabase Storage when warmed; cache
+ * misses still call Sarvam live (no upload — run warm-tts-cache to populate).
  */
 export async function POST(req: Request) {
   let body: { districtId: string; npcId: string; text: string };
@@ -36,6 +40,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ audio: null });
   }
 
-  const audio = await sarvamTTS(body.text, district.language as LangCode, speaker);
-  return NextResponse.json({ audio });
+  const lang = district.language as LangCode;
+  const cachedUrl = publicTtsUrl(lang, speaker, body.text);
+  if (await ttsObjectExists(cachedUrl)) {
+    return NextResponse.json({ audio: cachedUrl, cached: true });
+  }
+
+  const audio = await sarvamTTS(body.text, lang, speaker);
+  return NextResponse.json({ audio, cached: false });
 }

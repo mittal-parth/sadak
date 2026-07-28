@@ -44,6 +44,7 @@ export type LessonTarget = {
   title: string;
   brief: string;
   reward: number;
+  speaker: string;
   lesson: LessonStep[];
   completionNote: string;
   errandLevel?: number;
@@ -78,6 +79,7 @@ export function taskAsLessonTarget(
     title: task.title,
     brief: task.brief,
     reward: task.reward,
+    speaker: task.speaker,
     lesson,
     completionNote: task.completionNote,
     errandLevel: meta?.errandLevel,
