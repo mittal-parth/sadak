@@ -24,6 +24,7 @@ import VirtualJoystick from "./VirtualJoystick";
 import LandscapeGate from "./LandscapeGate";
 import SignOutButton from "@/components/auth/SignOutButton";
 import { useMobilePlay } from "@/lib/useMobilePlay";
+import posthog from "posthog-js";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -155,6 +156,16 @@ export default function GameShell() {
         setArtifacts([]);
         setNpcMemory({});
         metRef.current = new Set();
+        posthog.capture("district_entered", {
+          district_id: districtPayload.district.id,
+          district_name: districtPayload.district.name,
+          language: districtPayload.district.language,
+          comfort_level: pickedComfort,
+          task_count: districtPayload.tasks.length,
+          prior_cash: saved.cash,
+          prior_xp: saved.xp,
+          prior_completed_count: saved.completedTaskIds.length,
+        });
       } catch {
         setToast("Could not enter district");
         setTimeout(() => setToast(null), 4000);
@@ -213,6 +224,16 @@ export default function GameShell() {
     if (!district || talkingRef.current) return;
     const task = findTaskById(tasks, nearbyRef.current ?? "");
     if (!task || task.districtId !== district.id) return;
+
+    posthog.capture("errand_started", {
+      task_id: task.id,
+      task_title: task.title,
+      task_kind: task.kind,
+      district_id: district.id,
+      district_name: district.name,
+      language: district.language,
+      is_first_meeting: !metRef.current.has(task.id),
+    });
 
     if (!metRef.current.has(task.id)) {
       metRef.current.add(task.id);
@@ -281,6 +302,17 @@ export default function GameShell() {
       );
       gameRef.current?.markDone(taskId);
       playSfx("cash");
+      posthog.capture("errand_completed", {
+        task_id: task.id,
+        task_title: task.title,
+        task_kind: task.kind,
+        district_id: district.id,
+        district_name: district.name,
+        language: district.language,
+        reward,
+        total_cash: nextCash,
+        errands_completed_in_district: nextCompleted.size,
+      });
 
       void persistProgress({
         districtId: district.id,
@@ -301,6 +333,13 @@ export default function GameShell() {
     const snap = progressRef.current;
     if (snap.districtId) {
       void persistProgress(snap);
+      posthog.capture("district_left", {
+        district_id: snap.districtId,
+        comfort_level: snap.comfort,
+        cash_earned: snap.cash,
+        xp_earned: snap.xp,
+        tasks_completed: snap.completedTaskIds.length,
+      });
     }
     setDistrict(null);
     setTasks([]);

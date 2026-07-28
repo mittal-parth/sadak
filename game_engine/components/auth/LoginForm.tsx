@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import posthog from "posthog-js";
 import {
   Card,
   CardContent,
@@ -41,6 +42,7 @@ export default function LoginForm() {
     setFormError(null);
     setMessage(null);
     setBusy("google");
+    posthog.capture("sign_in_attempted", { method: "google" });
     const redirectTo = authRedirectPath(next);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -57,6 +59,7 @@ export default function LoginForm() {
     setFormError(null);
     setMessage(null);
     setBusy("magic");
+    posthog.capture("sign_in_attempted", { method: "magic_link" });
     const redirectTo = authRedirectPath(next);
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),

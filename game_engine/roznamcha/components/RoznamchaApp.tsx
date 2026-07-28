@@ -13,6 +13,7 @@ import RecordCard from "./RecordCard";
 import MemoryPanel from "./MemoryPanel";
 import VoiceOrb from "./VoiceOrb";
 import SignOutButton from "@/components/auth/SignOutButton";
+import posthog from "posthog-js";
 import "./roznamcha.css";
 
 const RELAY = process.env.NEXT_PUBLIC_RELAY_URL ?? "ws://localhost:8787";
@@ -121,6 +122,12 @@ export default function RoznamchaApp() {
       setLines((l) => [...l, { who: "me", text: utterance }]);
       setBusy(true);
       setErr(null);
+      posthog.capture("voice_utterance_submitted", {
+        household_id: recordRef.current?.householdId,
+        visit_ref: ref,
+        language: lang.code,
+        utterance_length: utterance.length,
+      });
 
       try {
         const res = await fetch("/api/roz/extract", {
@@ -230,6 +237,13 @@ export default function RoznamchaApp() {
       }
       setRecord(json.record);
       setSummary(json.summary);
+      posthog.capture("roz_visit_filed", {
+        visit_ref: json.record.ref,
+        household_id: json.record.householdId,
+        language: json.record.language,
+        fields_filled: Object.keys(json.record.fields ?? {}).length,
+        corrections_made: json.record.corrections?.length ?? 0,
+      });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not file.");
     } finally {

@@ -4,6 +4,7 @@ import { findTaskInLoaded, loadDistrictById } from "@/lib/game/load-district";
 import { taskTalkSystemPrompt } from "@/lib/game/task-conversation";
 import type { LessonStep } from "@/lib/game/districts";
 import type { NpcTurn } from "@/lib/game/npc-memory";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -132,6 +133,25 @@ export async function POST(req: Request) {
   const graded = parse(raw, checkCount);
   const playerTurns = transcript.filter((t) => t.who === "player").length + (playerText ? 1 : 0);
   const outcomeAchieved = graded.outcomeAchieved && playerTurns >= 1;
+
+  if (outcomeAchieved) {
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId: "anonymous",
+      event: "errand_outcome_achieved",
+      properties: {
+        district_id: body.districtId,
+        task_id: body.taskId,
+        player_turns: playerTurns,
+        checks_passed: graded.checks.filter(Boolean).length,
+        checks_total: checkCount,
+        phrases_used_count: graded.phrasesUsed.length,
+        reward: task.reward,
+        english_fallback: graded.englishFallback,
+      },
+    });
+    await posthog.flush();
+  }
 
   return NextResponse.json({
     reply: graded.reply,
