@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { sarvamChat, type ChatMessage } from "@/lib/sarvam";
 import { errandById, type Errand, type ErrandId } from "@/lib/game/errands";
-import { districtById } from "@/lib/game/districts";
+import { loadDistrictById } from "@/lib/game/load-district";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -81,8 +81,12 @@ function parse(raw: string, checkCount: number): Graded {
   };
 }
 
-function buildSystem(errand: Errand): string {
-  const district = districtById(errand.district);
+async function buildSystem(errand: Errand): Promise<string> {
+  const loaded = await loadDistrictById(errand.district);
+  if (!loaded) {
+    throw new Error(`Unknown district: ${errand.district}`);
+  }
+  const district = loaded.district;
   // The errand carries its own persona. The district bible's version of this
   // NPC belongs to a different story and bleeds into the negotiation.
   const persona = errand.persona;
@@ -163,10 +167,20 @@ export async function POST(req: Request) {
   }));
 
   let raw: string;
+  let system: string;
+  try {
+    system = await buildSystem(errand);
+  } catch (err) {
+    console.error("errand district load", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "District load failed." },
+      { status: 502 },
+    );
+  }
   try {
     raw = await sarvamChat(
       [
-        { role: "system", content: buildSystem(errand) },
+        { role: "system", content: system },
         ...history,
         { role: "user", content: body.playerText },
       ],

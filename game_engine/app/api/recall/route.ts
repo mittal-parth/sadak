@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { sarvamChat, type ChatMessage } from "@/lib/sarvam";
-import { districtById } from "@/lib/game/districts";
+import { findTaskInLoaded, loadDistrictById } from "@/lib/game/load-district";
 import type { NpcTurn } from "@/lib/game/npc-memory";
 import { looksLikeTargetScript, recallSystemPrompt } from "@/lib/game/prompt";
-import { taskById } from "@/lib/game/tasks";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -55,8 +54,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "memory is required and must be non-empty." }, { status: 400 });
   }
 
-  const district = districtById(body.districtId);
-  const task = taskById(body.taskId);
+  const loaded = await loadDistrictById(body.districtId);
+  if (!loaded) {
+    return NextResponse.json({ error: `Unknown district "${body.districtId}".` }, { status: 404 });
+  }
+  const district = loaded.district;
+  const task = findTaskInLoaded(loaded, body.taskId);
   if (!task) {
     return NextResponse.json({ error: `Unknown task "${body.taskId}".` }, { status: 404 });
   }

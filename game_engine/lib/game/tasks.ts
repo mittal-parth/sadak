@@ -48,14 +48,17 @@ export type LessonTarget = {
   lessonTier?: LessonTier;
 };
 
-export function errandIndexForTask(taskId: string, districtId: string): number {
-  const tasks = tasksForDistrict(districtId);
+export function errandIndexForTask(taskId: string, tasks: StreetTask[]): number {
   const idx = tasks.findIndex((t) => t.id === taskId);
   return idx >= 0 ? idx : 0;
 }
 
-export function resolveTaskLesson(task: StreetTask, comfort: ComfortLevel): LessonStep[] {
-  const index = errandIndexForTask(task.id, task.districtId);
+export function resolveTaskLesson(
+  task: StreetTask,
+  comfort: ComfortLevel,
+  tasks: StreetTask[],
+): LessonStep[] {
+  const index = errandIndexForTask(task.id, tasks);
   const tier = lessonTierFor(comfort, index);
   return task.lessons[tier];
 }
@@ -2472,24 +2475,21 @@ const parkGully: DistrictTaskPack = {
   ],
 };
 
-const PACKS: DistrictTaskPack[] = [puraniSadak, marinaNagar, majesticCross, parkGully];
+/** Authoring / seed only — runtime loads from Supabase. */
+export const SEED_TASK_PACKS: DistrictTaskPack[] = [
+  puraniSadak,
+  marinaNagar,
+  majesticCross,
+  parkGully,
+];
 
-export function tasksForDistrict(districtId: string): StreetTask[] {
-  return PACKS.find((p) => p.districtId === districtId)?.tasks ?? [];
+export function findTaskById(
+  tasks: StreetTask[],
+  taskId: string,
+): StreetTask | undefined {
+  return tasks.find((t) => t.id === taskId);
 }
 
-export function taskFinaleForDistrict(districtId: string): { title: string; text: string } | null {
-  return PACKS.find((p) => p.districtId === districtId)?.finale ?? null;
-}
-
-export function taskById(taskId: string): StreetTask | undefined {
-  for (const pack of PACKS) {
-    const hit = pack.tasks.find((t) => t.id === taskId);
-    if (hit) return hit;
-  }
-  return undefined;
-}
-
-export function totalTaskReward(districtId: string): number {
-  return tasksForDistrict(districtId).reduce((s, t) => s + t.reward, 0);
+export function totalTaskRewardForTasks(tasks: StreetTask[]): number {
+  return tasks.reduce((s, t) => s + t.reward, 0);
 }

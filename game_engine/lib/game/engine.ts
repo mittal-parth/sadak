@@ -12,7 +12,7 @@ import {
   type CarKind, type VehicleMaterials,
 } from "./vehicles";
 import type { District } from "./districts";
-import { tasksForDistrict, type StreetTask, type TaskKind } from "./tasks";
+import { type StreetTask, type TaskKind } from "./tasks";
 import { createMaterialLibrary, type MaterialLibrary } from "./materials";
 import { createRenderPipeline, type RenderPipeline } from "./render";
 
@@ -167,6 +167,8 @@ export class Game {
   /** Normalized -1..1 from an on-screen joystick (mobile). */
   private virtualFwd = 0;
   private virtualStrafe = 0;
+  /** -1, 0, or 1 from mobile turn buttons (unused when VirtualJoystick is active). */
+  private virtualTurn = 0;
   private touchLookId: number | null = null;
   private touchLookLastX = 0;
   private raf = 0;
@@ -187,12 +189,13 @@ export class Game {
   constructor(
     canvas: HTMLCanvasElement,
     district: District,
+    tasks: StreetTask[],
     onTelemetry: (t: Telemetry) => void
   ) {
     this.canvas = canvas;
     this.district = district;
     this.onTelemetry = onTelemetry;
-    this.tasks = tasksForDistrict(district.id);
+    this.tasks = tasks;
 
     const theme = district.theme;
 
@@ -455,6 +458,14 @@ export class Game {
     this.virtualStrafe = strafe;
   }
 
+  public setMobileTurn(dir: number) {
+    this.virtualTurn = dir;
+  }
+
+  public applyTouchLook(dx: number, _dy: number) {
+    this.yaw -= dx * 0.004;
+  }
+
   /** One-finger drag on the canvas (mobile look). */
   public setTouchLook(id: number | null, clientX?: number) {
     if (id === null) {
@@ -648,6 +659,7 @@ export class Game {
     let turn = 0;
     if (this.keys.has("ArrowLeft")) turn += 1;
     if (this.keys.has("ArrowRight")) turn -= 1;
+    if (this.virtualTurn !== 0) turn += this.virtualTurn;
     if (turn !== 0) this.yaw += turn * TURN_SPEED * dt;
   }
 

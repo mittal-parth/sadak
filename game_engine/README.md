@@ -156,6 +156,21 @@ The game and Roznamcha are behind Supabase Auth. Configure a project at [supabas
 
 Sign-in options on `/login`: **Continue with Google** or **Email me a magic link**.
 
+### District worlds & progress (database)
+
+District content and per-user progress live in Supabase Postgres (not in the client bundle). After auth is configured, run these once in **SQL Editor** (in order):
+
+1. [`supabase/migrations/001_worlds_and_progress.sql`](supabase/migrations/001_worlds_and_progress.sql) — tables + RLS
+2. [`supabase/migrations/002_seed_districts.sql`](supabase/migrations/002_seed_districts.sql) — four districts
+
+To refresh seed data after editing `lib/game/districts.ts` or `lib/game/tasks.ts`:
+
+```bash
+npm run generate:seed-districts   # rewrites 002_seed_districts.sql
+```
+
+Then re-run `002` in the SQL editor (it upserts by district id).
+
 For live voice, add your LiveKit project keys to the same `.env` and run the NPC
 worker from the repo root in a second terminal:
 

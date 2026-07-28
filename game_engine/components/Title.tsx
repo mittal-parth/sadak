@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
-import { DISTRICTS, type District } from "@/lib/game/districts";
+import type { District } from "@/lib/game/districts";
 import { DISTRICT_COVER_IMAGES } from "@/lib/game/district-covers";
-import { tasksForDistrict } from "@/lib/game/tasks";
 import type { ComfortLevel } from "@/lib/game/levels";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +13,18 @@ import { useMobilePlay } from "@/lib/useMobilePlay";
 import { getAudioContext } from "@/lib/audio/engine";
 import { playSfx } from "@/lib/audio/sfx";
 import SignOutButton from "@/components/auth/SignOutButton";
+
+type DistrictSummary = {
+  id: string;
+  name: string;
+  city: string;
+  blurb: string;
+  language: string;
+  languageLabel: string;
+  native: string;
+  coverImage: string;
+  taskCount: number;
+};
 
 const COMFORT_OPTIONS: {
   value: ComfortLevel;
@@ -29,21 +40,107 @@ export default function Title({
   onEnter,
   defaultDistrictId,
 }: {
-  onEnter: (d: District, comfort: ComfortLevel) => void;
-  /**
-   * Title fully unmounts/remounts every time the player leaves a district
-   * (GameShell renders it conditionally), which would otherwise reset the
-   * picker back to `DISTRICTS[0]` on every return trip — easy to not notice
-   * and re-enter the same district without meaning to. Remember what was
-   * last played instead.
-   */
+  onEnter: (districtId: string, comfort: ComfortLevel) => void;
   defaultDistrictId?: string;
 }) {
-  const [picked, setPicked] = useState<District>(
-    () => DISTRICTS.find((d) => d.id === defaultDistrictId) ?? DISTRICTS[0]
-  );
+  const [summaries, setSummaries] = useState<DistrictSummary[]>([]);
+  const [listError, setListError] = useState<string | null>(null);
+  const [listLoading, setListLoading] = useState(true);
+  const [pickedId, setPickedId] = useState<string | undefined>(defaultDistrictId);
+  const [picked, setPicked] = useState<District | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
   const [comfort, setComfort] = useState<ComfortLevel>("medium");
   const { mobilePlay } = useMobilePlay();
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setListLoading(true);
+      setListError(null);
+      try {
+        const res = await fetch("/api/districts");
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error ?? "Could not load districts.");
+        }
+        const data = (await res.json()) as { districts: DistrictSummary[] };
+        if (cancelled) return;
+        setSummaries(data.districts);
+        setPickedId((prev) => {
+          if (prev && data.districts.some((d) => d.id === prev)) return prev;
+          return data.districts[0]?.id;
+        });
+      } catch (err) {
+        if (!cancelled) {
+          setListError(err instanceof Error ? err.message : "Could not load districts.");
+        }
+      } finally {
+        if (!cancelled) setListLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!pickedId) {
+      setPicked(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setDetailError(null);
+      try {
+        const res = await fetch(`/api/districts/${encodeURIComponent(pickedId)}`);
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error ?? "Could not load district.");
+        }
+        const data = (await res.json()) as { district: District };
+        if (!cancelled) setPicked(data.district);
+      } catch (err) {
+        if (!cancelled) {
+          setPicked(null);
+          setDetailError(err instanceof Error ? err.message : "Could not load district.");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pickedId]);
+
+  const pickedSummary = summaries.find((d) => d.id === pickedId);
+
+  const enter = useCallback(() => {
+    if (!pickedId) return;
+    getAudioContext();
+    onEnter(pickedId, comfort);
+  }, [comfort, onEnter, pickedId]);
+
+  if (listLoading) {
+    return (
+      <main className="flex min-h-full items-center justify-center bg-background px-4 text-foreground">
+        <p className="text-sm text-foreground/70">Loading districts…</p>
+      </main>
+    );
+  }
+
+  if (listError || summaries.length === 0) {
+    return (
+      <main className="flex min-h-full flex-col items-center justify-center gap-4 bg-background px-4 text-center text-foreground">
+        <p className="text-sm text-foreground/80">
+          {listError ?? "No districts are available yet."}
+        </p>
+        <p className="max-w-md text-xs text-foreground/70">
+          If you are setting up locally, run the Supabase migrations{" "}
+          <code className="text-foreground">001</code> and <code className="text-foreground">002</code>{" "}
+          in the SQL editor.
+        </p>
+      </main>
+    );
+  }
 
   return (
     <main className="relative min-h-full max-h-full overflow-y-auto bg-background text-foreground">
@@ -82,22 +179,20 @@ export default function Title({
             <Button
               size="lg"
               className="w-full sm:w-auto"
-              onClick={() => {
-                // First real user gesture in the game: force-create/resume
-                // the shared AudioContext synchronously in the gesture,
-                // rather than leaning on the incidental click sfx to always
-                // win the race. GameShell starts the district's music
-                // theme once it mounts, a moment later.
-                getAudioContext();
-                onEnter(picked, comfort);
-              }}
+              disabled={!pickedId || !picked || !!detailError}
+              onClick={enter}
             >
-              Enter {picked.name}
+              Enter {pickedSummary?.name ?? "district"}
             </Button>
             <span className="text-sm text-foreground/70">
-              {tasksForDistrict(picked.id).length} errands in {picked.languageLabel}
+              {pickedSummary
+                ? `${pickedSummary.taskCount} errands in ${pickedSummary.languageLabel}`
+                : "Pick a district"}
             </span>
           </div>
+          {detailError && (
+            <p className="mt-2 text-sm text-destructive">{detailError}</p>
+          )}
         </header>
 
         <section className="mt-16 text-center" aria-label="Choose a district">
@@ -110,8 +205,8 @@ export default function Title({
             role="radiogroup"
             aria-label="District"
           >
-            {DISTRICTS.map((d) => {
-              const on = d.id === picked.id;
+            {summaries.map((d) => {
+              const on = d.id === pickedId;
               return (
                 <button
                   key={d.id}
@@ -121,7 +216,7 @@ export default function Title({
                   className="cursor-pointer border-0 bg-transparent p-0 text-left"
                   onClick={() => {
                     playSfx("tap");
-                    setPicked(d);
+                    setPickedId(d.id);
                   }}
                 >
                   <Card
@@ -162,7 +257,7 @@ export default function Title({
 
         <section className="mt-10 text-center" aria-label="Language comfort">
           <h2 className="text-xs font-base uppercase tracking-widest text-foreground/70">
-            How comfortable are you with {picked.languageLabel}?
+            How comfortable are you with {pickedSummary?.languageLabel ?? "this language"}?
           </h2>
           <p className="mx-auto mt-2 max-w-[40ch] text-sm text-foreground/70">
             Errands get harder as you go. Your answer sets where the first level starts.
@@ -203,33 +298,35 @@ export default function Title({
           </div>
         </section>
 
-        <section className="mt-10" aria-live="polite">
-          <Card className="gap-4 py-6">
-            <CardContent className="grid gap-6 px-6 md:grid-cols-[1.55fr_1fr]">
-              <div className="grid gap-3 md:col-span-2">
-                <h3 className="text-xs font-base uppercase tracking-widest text-foreground/70">
-                  What you will do in {picked.name}
-                </h3>
-              </div>
-              <p className="text-sm leading-relaxed text-foreground/80">
-                Hail an auto, order local food, buy something at a temple stall, and get a bus or
-                tram ticket — all in {picked.languageLabel}.
-              </p>
-              <ul className="grid gap-2">
-                {picked.phrases.slice(0, 3).map((p) => (
-                  <li key={p.native}>
-                    <Badge variant="neutral" className="h-auto w-full justify-start gap-2 py-2 text-left">
-                      <span className="font-indic text-sm" lang={picked.language.slice(0, 2)}>
-                        {p.native}
-                      </span>
-                      <em className="text-xs not-italic text-foreground/70">{p.en}</em>
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-        </section>
+        {picked && (
+          <section className="mt-10" aria-live="polite">
+            <Card className="gap-4 py-6">
+              <CardContent className="grid gap-6 px-6 md:grid-cols-[1.55fr_1fr]">
+                <div className="grid gap-3 md:col-span-2">
+                  <h3 className="text-xs font-base uppercase tracking-widest text-foreground/70">
+                    What you will do in {picked.name}
+                  </h3>
+                </div>
+                <p className="text-sm leading-relaxed text-foreground/80">
+                  Hail an auto, order local food, buy something at a temple stall, and get a bus or
+                  tram ticket — all in {picked.languageLabel}.
+                </p>
+                <ul className="grid gap-2">
+                  {picked.phrases.slice(0, 3).map((p) => (
+                    <li key={p.native}>
+                      <Badge variant="neutral" className="h-auto w-full justify-start gap-2 py-2 text-left">
+                        <span className="font-indic text-sm" lang={picked.language.slice(0, 2)}>
+                          {p.native}
+                        </span>
+                        <em className="text-xs not-italic text-foreground/70">{p.en}</em>
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          </section>
+        )}
 
         <footer className="mt-auto flex flex-col gap-3 border-t-2 border-border bg-background py-4 sm:sticky sm:bottom-0 sm:z-10 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
           {mobilePlay ? (
