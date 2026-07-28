@@ -1,9 +1,7 @@
 /**
- * Regenerates supabase/migrations/002_seed_districts.sql from TS source.
- * Run from game_engine: npx tsx scripts/generate-seed-districts.ts
- *
- * If 002 is already applied in Supabase, ship lesson fixes via
- * scripts/generate-lesson-patch-migration.ts → 003_fix_lesson_prompts.sql instead.
+ * Writes supabase/migrations/003_fix_lesson_prompts.sql from TS source.
+ * Use after 002_seed_districts.sql is already applied — does not modify 002.
+ * Run from game_engine: npx tsx scripts/generate-lesson-patch-migration.ts
  */
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -12,15 +10,16 @@ import { SEED_DISTRICTS } from "../lib/game/districts";
 import { SEED_TASK_PACKS } from "../lib/game/tasks";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const outPath = join(__dirname, "../supabase/migrations/002_seed_districts.sql");
+const outPath = join(__dirname, "../supabase/migrations/003_fix_lesson_prompts.sql");
 
 function sqlString(json: unknown): string {
   return `'${JSON.stringify(json).replace(/'/g, "''")}'::jsonb`;
 }
 
 const lines: string[] = [
-  "-- SADAK: seed district worlds (#11). Run after 001_worlds_and_progress.sql",
-  "-- Regenerate: npx tsx scripts/generate-seed-districts.ts",
+  "-- SADAK: patch district lesson data (#13 — lesson-only steps, no interruptions).",
+  "-- Run after 001_worlds_and_progress.sql and 002_seed_districts.sql.",
+  "-- Regenerate: npx tsx scripts/generate-lesson-patch-migration.ts",
   "",
 ];
 
@@ -46,16 +45,12 @@ const rows = [...SEED_DISTRICTS].sort((a, b) => a.id.localeCompare(b.id));
 for (const d of rows) {
   const pack = SEED_TASK_PACKS.find((p) => p.districtId === d.id)!;
   lines.push(
-    `insert into public.districts (id, district, task_pack)`,
-    `values (`,
-    `  '${d.id}',`,
-    `  ${sqlString(d)},`,
-    `  ${sqlString(pack)}`,
-    `)`,
-    `on conflict (id) do update set`,
-    `  district = excluded.district,`,
-    `  task_pack = excluded.task_pack,`,
-    `  updated_at = now();`,
+    `update public.districts`,
+    `set`,
+    `  district = ${sqlString(d)},`,
+    `  task_pack = ${sqlString(pack)},`,
+    `  updated_at = now()`,
+    `where id = '${d.id}';`,
     "",
   );
 }

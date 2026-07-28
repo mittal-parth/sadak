@@ -195,14 +195,6 @@ export default function Dialogue({
     playSfx("tap");
     const transcript = await voice.stop();
 
-    if (!step.prompt) {
-      if (transcript) pushTurn({ role: "user", content: transcript });
-      setAttempt(transcript ? { transcript, verdicts: [], points: 0 } : null);
-      setPhase("result");
-      setTimeout(advance, transcript ? 1400 : 700);
-      return;
-    }
-
     if (!transcript) {
       setHeardNothing(true);
       playSfx("error");
@@ -328,7 +320,7 @@ export default function Dialogue({
                     <p className="text-xs text-foreground/70">{step.prompt.en}</p>
                   </>
                 ) : (
-                  <p className="text-base italic text-foreground/80">Say anything back…</p>
+                  <p className="text-base italic text-foreground/80">…</p>
                 )}
                 {attempt && (
                   <p className="text-xs italic text-foreground/70">
