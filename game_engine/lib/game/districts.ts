@@ -89,9 +89,7 @@ export type LessonLine = { native: string; roman: string; en: string };
 export type LessonStep = {
   /** Scripted, not model-generated: the target phrase has to be exact to grade it. */
   npc: LessonLine;
-  /** Omitted for an interruption: an off-script beat the player just has to roll with. */
-  prompt?: LessonLine;
-  interruption?: boolean;
+  prompt: LessonLine;
 };
 
 export type District = {
@@ -214,7 +212,7 @@ parked outside Kumar's chai stall since 4am.`,
         },
         {
           npc: { native: "अरे, वो कुत्ता भाग गया!", roman: "Arre, wo kutta bhaag gaya!", en: "Hey, that dog ran off!" },
-          interruption: true,
+          prompt: { native: "ठीक है, ऑटो की बात सुनिए", roman: "Theek hai, auto ki baat suniye", en: "Okay, tell me about the auto" },
         },
         {
           npc: { native: "मेरा ऑटो चोरी हो गया!", roman: "Mera auto chori ho gaya!", en: "My auto got stolen!" },

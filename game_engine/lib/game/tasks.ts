@@ -150,7 +150,11 @@ const puraniSadak: DistrictTaskPack = {
             roman: "Teen sau! Petrol mehenga hai bhai",
             en: "Three hundred! Petrol is expensive, brother",
           },
-          interruption: true,
+          prompt: {
+            native: "हाँ समझा, पर थोड़ा कम कीजिए",
+            roman: "Haan samjha, par thoda kam kijiye",
+            en: "I understand, but please reduce it a bit",
+          },
         },
         {
           npc: {
@@ -196,7 +200,11 @@ const puraniSadak: DistrictTaskPack = {
             roman: "Teen sau! Petrol mehenga hai bhai",
             en: "Three hundred! Petrol is expensive, brother",
           },
-          interruption: true,
+          prompt: {
+            native: "हाँ समझा, पर थोड़ा कम कीजिए",
+            roman: "Haan samjha, par thoda kam kijiye",
+            en: "I understand, but please reduce it a bit",
+          },
         },
         {
           npc: {
@@ -297,7 +305,11 @@ const puraniSadak: DistrictTaskPack = {
             roman: "Arre, wo billi phir aa gayi!",
             en: "Hey, that cat is back again!",
           },
-          interruption: true,
+          prompt: {
+            native: "कोई बात नहीं, कचौड़ी दीजिए",
+            roman: "Koi baat nahin, kachaudi dijiye",
+            en: "No problem, give me the kachoris",
+          },
         },
         {
           npc: {
@@ -343,7 +355,11 @@ const puraniSadak: DistrictTaskPack = {
             roman: "Arre, wo billi phir aa gayi!",
             en: "Hey, that cat is back again!",
           },
-          interruption: true,
+          prompt: {
+            native: "कोई बात नहीं, कचौड़ी दीजिए",
+            roman: "Koi baat nahin, kachaudi dijiye",
+            en: "No problem, give me the kachoris",
+          },
         },
         {
           npc: {
@@ -444,7 +460,11 @@ const puraniSadak: DistrictTaskPack = {
             roman: "Ghanti baj rahi hai, jaldi kijiye",
             en: "The bell is ringing, hurry up",
           },
-          interruption: true,
+          prompt: {
+            native: "हाँ जल्दी, पहले दाम बताइए",
+            roman: "Haan jaldi, pehle daam bataiye",
+            en: "Yes hurry, tell me the price first",
+          },
         },
         {
           npc: {
@@ -490,7 +510,11 @@ const puraniSadak: DistrictTaskPack = {
             roman: "Ghanti baj rahi hai, jaldi kijiye",
             en: "The bell is ringing, hurry up",
           },
-          interruption: true,
+          prompt: {
+            native: "हाँ जल्दी, पहले दाम बताइए",
+            roman: "Haan jaldi, pehle daam bataiye",
+            en: "Yes hurry, tell me the price first",
+          },
         },
         {
           npc: {
@@ -591,7 +615,11 @@ const puraniSadak: DistrictTaskPack = {
             roman: "Peeche se chadho, bheed hai",
             en: "Board from the back, it's crowded",
           },
-          interruption: true,
+          prompt: {
+            native: "ठीक है, पीछे से चढ़ता हूँ",
+            roman: "Theek hai, peeche se chadhta hoon",
+            en: "Okay, I'll board from the back",
+          },
         },
         {
           npc: {
@@ -637,7 +665,11 @@ const puraniSadak: DistrictTaskPack = {
             roman: "Peeche se chadho, bheed hai",
             en: "Board from the back, it's crowded",
           },
-          interruption: true,
+          prompt: {
+            native: "ठीक है, पीछे से चढ़ता हूँ",
+            roman: "Theek hai, peeche se chadhta hoon",
+            en: "Okay, I'll board from the back",
+          },
         },
         {
           npc: {
@@ -748,7 +780,11 @@ const marinaNagar: DistrictTaskPack = {
             roman: "Ivarum T Nagar dhaan!",
             en: "This person is also going to T Nagar!",
           },
-          interruption: true,
+          prompt: {
+            native: "சரி, பகிர்ந்து போகலாம்",
+            roman: "Sari, pagirndhu pogalaam",
+            en: "Okay, we can share the ride",
+          },
         },
         {
           npc: {
@@ -794,7 +830,11 @@ const marinaNagar: DistrictTaskPack = {
             roman: "Ivarum T Nagar dhaan!",
             en: "This person is also going to T Nagar!",
           },
-          interruption: true,
+          prompt: {
+            native: "சரி, பகிர்ந்து போகலாம்",
+            roman: "Sari, pagirndhu pogalaam",
+            en: "Okay, we can share the ride",
+          },
         },
         {
           npc: {
@@ -895,7 +935,11 @@ const marinaNagar: DistrictTaskPack = {
             roman: "Suda suda varum!",
             en: "It'll come piping hot!",
           },
-          interruption: true,
+          prompt: {
+            native: "சரி, காத்திருக்கிறேன்",
+            roman: "Sari, kaathirukkiren",
+            en: "Okay, I'll wait",
+          },
         },
         {
           npc: {
@@ -941,7 +985,11 @@ const marinaNagar: DistrictTaskPack = {
             roman: "Suda suda varum!",
             en: "It'll come piping hot!",
           },
-          interruption: true,
+          prompt: {
+            native: "சரி, காத்திருக்கிறேன்",
+            roman: "Sari, kaathirukkiren",
+            en: "Okay, I'll wait",
+          },
         },
         {
           npc: {
@@ -1042,7 +1090,11 @@ const marinaNagar: DistrictTaskPack = {
             roman: "Poojai neram aarambam!",
             en: "Puja time is starting!",
           },
-          interruption: true,
+          prompt: {
+            native: "சரி, சீக்கிரம் பண்ணுங்க",
+            roman: "Sari, seekiram pannunga",
+            en: "Okay, please hurry",
+          },
         },
         {
           npc: {
@@ -1088,7 +1140,11 @@ const marinaNagar: DistrictTaskPack = {
             roman: "Poojai neram aarambam!",
             en: "Puja time is starting!",
           },
-          interruption: true,
+          prompt: {
+            native: "சரி, சீக்கிரம் பண்ணுங்க",
+            roman: "Sari, seekiram pannunga",
+            en: "Okay, please hurry",
+          },
         },
         {
           npc: {
@@ -1189,7 +1245,11 @@ const marinaNagar: DistrictTaskPack = {
             roman: "Pinnadi erunga!",
             en: "Board from the back!",
           },
-          interruption: true,
+          prompt: {
+            native: "சரி, பின்னாடி ஏறுகிறேன்",
+            roman: "Sari, pinnadi erukiren",
+            en: "Okay, I'm boarding from the back",
+          },
         },
         {
           npc: {
@@ -1235,7 +1295,11 @@ const marinaNagar: DistrictTaskPack = {
             roman: "Pinnadi erunga!",
             en: "Board from the back!",
           },
-          interruption: true,
+          prompt: {
+            native: "சரி, பின்னாடி ஏறுகிறேன்",
+            roman: "Sari, pinnadi erukiren",
+            en: "Okay, I'm boarding from the back",
+          },
         },
         {
           npc: {
@@ -1346,7 +1410,11 @@ const majesticCross: DistrictTaskPack = {
             roman: "Traffic jaasti ide!",
             en: "Traffic is heavy!",
           },
-          interruption: true,
+          prompt: {
+            native: "ಸರಿ, ಸಮಯ ಆಗುತ್ತೆ",
+            roman: "Sari, samaya agutte",
+            en: "Okay, time is tight",
+          },
         },
         {
           npc: {
@@ -1392,7 +1460,11 @@ const majesticCross: DistrictTaskPack = {
             roman: "Traffic jaasti ide!",
             en: "Traffic is heavy!",
           },
-          interruption: true,
+          prompt: {
+            native: "ಸರಿ, ಸಮಯ ಆಗುತ್ತೆ",
+            roman: "Sari, samaya agutte",
+            en: "Okay, time is tight",
+          },
         },
         {
           npc: {
@@ -1493,7 +1565,11 @@ const majesticCross: DistrictTaskPack = {
             roman: "Bisi bisi!",
             en: "Hot hot!",
           },
-          interruption: true,
+          prompt: {
+            native: "ಸರಿ, ಕಾಯುತ್ತೇನೆ",
+            roman: "Sari, kayuttene",
+            en: "Okay, I'll wait",
+          },
         },
         {
           npc: {
@@ -1539,7 +1615,11 @@ const majesticCross: DistrictTaskPack = {
             roman: "Bisi bisi!",
             en: "Hot hot!",
           },
-          interruption: true,
+          prompt: {
+            native: "ಸರಿ, ಕಾಯುತ್ತೇನೆ",
+            roman: "Sari, kayuttene",
+            en: "Okay, I'll wait",
+          },
         },
         {
           npc: {
@@ -1640,7 +1720,11 @@ const majesticCross: DistrictTaskPack = {
             roman: "Ghante baruttide!",
             en: "The bell is ringing!",
           },
-          interruption: true,
+          prompt: {
+            native: "ಸರಿ, ಬೇಗ ಬರುತ್ತೇನೆ",
+            roman: "Sari, bega baruttene",
+            en: "Okay, I'll come quickly",
+          },
         },
         {
           npc: {
@@ -1686,7 +1770,11 @@ const majesticCross: DistrictTaskPack = {
             roman: "Ghante baruttide!",
             en: "The bell is ringing!",
           },
-          interruption: true,
+          prompt: {
+            native: "ಸರಿ, ಬೇಗ ಬರುತ್ತೇನೆ",
+            roman: "Sari, bega baruttene",
+            en: "Okay, I'll come quickly",
+          },
         },
         {
           npc: {
@@ -1787,7 +1875,11 @@ const majesticCross: DistrictTaskPack = {
             roman: "Hindina baagilu!",
             en: "Back door!",
           },
-          interruption: true,
+          prompt: {
+            native: "ಸರಿ, ಹಿಂದಿನ ಬಾಗಿಲಿನಿಂದ",
+            roman: "Sari, hindina baagilinda",
+            en: "Okay, from the back door",
+          },
         },
         {
           npc: {
@@ -1833,7 +1925,11 @@ const majesticCross: DistrictTaskPack = {
             roman: "Hindina baagilu!",
             en: "Back door!",
           },
-          interruption: true,
+          prompt: {
+            native: "ಸರಿ, ಹಿಂದಿನ ಬಾಗಿಲಿನಿಂದ",
+            roman: "Sari, hindina baagilinda",
+            en: "Okay, from the back door",
+          },
         },
         {
           npc: {
@@ -1944,7 +2040,11 @@ const parkGully: DistrictTaskPack = {
             roman: "Brishti hocche, vijben!",
             en: "It's raining, you'll get wet!",
           },
-          interruption: true,
+          prompt: {
+            native: "ঠিক আছে, ছাতা আছে",
+            roman: "Thik ache, chhata ache",
+            en: "Okay, I have an umbrella",
+          },
         },
         {
           npc: {
@@ -1990,7 +2090,11 @@ const parkGully: DistrictTaskPack = {
             roman: "Brishti hocche, vijben!",
             en: "It's raining, you'll get wet!",
           },
-          interruption: true,
+          prompt: {
+            native: "ঠিক আছে, ছাতা আছে",
+            roman: "Thik ache, chhata ache",
+            en: "Okay, I have an umbrella",
+          },
         },
         {
           npc: {
@@ -2091,7 +2195,11 @@ const parkGully: DistrictTaskPack = {
             roman: "Garam garam!",
             en: "Hot hot!",
           },
-          interruption: true,
+          prompt: {
+            native: "ঠিক আছে, অপেক্ষা করছি",
+            roman: "Thik ache, opekkha korchi",
+            en: "Okay, I'm waiting",
+          },
         },
         {
           npc: {
@@ -2137,7 +2245,11 @@ const parkGully: DistrictTaskPack = {
             roman: "Garam garam!",
             en: "Hot hot!",
           },
-          interruption: true,
+          prompt: {
+            native: "ঠিক আছে, অপেক্ষা করছি",
+            roman: "Thik ache, opekkha korchi",
+            en: "Okay, I'm waiting",
+          },
         },
         {
           npc: {
@@ -2238,7 +2350,11 @@ const parkGully: DistrictTaskPack = {
             roman: "Ghonta bajche!",
             en: "The bell is ringing!",
           },
-          interruption: true,
+          prompt: {
+            native: "ঠিক আছে, তাড়াতাড়ি আসছি",
+            roman: "Thik ache, taratari aschi",
+            en: "Okay, coming quickly",
+          },
         },
         {
           npc: {
@@ -2284,7 +2400,11 @@ const parkGully: DistrictTaskPack = {
             roman: "Ghonta bajche!",
             en: "The bell is ringing!",
           },
-          interruption: true,
+          prompt: {
+            native: "ঠিক আছে, তাড়াতাড়ি আসছি",
+            roman: "Thik ache, taratari aschi",
+            en: "Okay, coming quickly",
+          },
         },
         {
           npc: {
@@ -2385,7 +2505,11 @@ const parkGully: DistrictTaskPack = {
             roman: "Tram asche!",
             en: "Tram is coming!",
           },
-          interruption: true,
+          prompt: {
+            native: "ঠিক আছে, টram এ উঠব",
+            roman: "Thik ache, tram e uthbo",
+            en: "Okay, I'll board the tram",
+          },
         },
         {
           npc: {
@@ -2431,7 +2555,11 @@ const parkGully: DistrictTaskPack = {
             roman: "Tram asche!",
             en: "Tram is coming!",
           },
-          interruption: true,
+          prompt: {
+            native: "ঠিক আছে, টram এ উঠব",
+            roman: "Thik ache, tram e uthbo",
+            en: "Okay, I'll board the tram",
+          },
         },
         {
           npc: {
