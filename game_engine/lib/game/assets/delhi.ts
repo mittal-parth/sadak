@@ -327,3 +327,87 @@ export function makeJalebiStall(mats?: AssetMaterialLib, seed = 4): THREE.Group 
   g.name = "delhi-jalebi-stall";
   return g;
 }
+
+/* ------------------------------------------------------------------ *
+ * Hero: India Gate — simplified triumph arch, sandstone, ~8m wide.
+ * ------------------------------------------------------------------ */
+export function makeIndiaGate(mats?: AssetMaterialLib, seed = 5): THREE.Group {
+  void seed;
+  const stone = stdMat(SANDSTONE, { roughness: 0.88 }, mats);
+  const inlay = stdMat(CREAM_INLAY, { roughness: 0.75 }, mats);
+  const dark = stdMat(JALI_DARK, { roughness: 0.9 }, mats);
+
+  const parts: Part[] = [];
+
+  // Central passage flanked by piers.
+  for (const x of [-3.2, 3.2]) {
+    parts.push({ geo: bakedBox(1.4, 8.5, 1.6, x, 4.25, 0), mat: stone });
+    parts.push({ geo: bakedBox(1.5, 0.25, 1.7, x, 8.65, 0), mat: inlay });
+  }
+
+  // Lintels and attic storey.
+  parts.push({ geo: bakedBox(8.2, 0.9, 1.8, 0, 8.8, 0), mat: stone });
+  parts.push({ geo: bakedBox(8.4, 0.18, 1.9, 0, 9.35, 0), mat: inlay });
+  parts.push({ geo: bakedBox(5.6, 2.2, 1.4, 0, 10.5, 0), mat: stone });
+  parts.push({ geo: bakedBox(5.8, 0.2, 1.5, 0, 11.65, 0), mat: inlay });
+
+  // Shallow dome cap.
+  parts.push({
+    geo: bakedSphere(1.4, 0, 12.2, 0, { wSeg: 12, hSeg: 8, thetaLength: Math.PI * 0.55 }),
+    mat: inlay,
+  });
+
+  // Names-inscribed panel suggestion on the attic.
+  parts.push({ geo: bakedBox(4.2, 0.9, 0.12, 0, 10.3, 0.78), mat: dark });
+
+  const grp = mergeByMaterial(parts);
+  grp.name = "delhi-india-gate";
+  return grp;
+}
+
+/* ------------------------------------------------------------------ *
+ * Street mandir — compact neighbourhood temple for mission sites.
+ * ~3.5m wide, shikhara spire, torana entrance.
+ * ------------------------------------------------------------------ */
+export function makeStreetMandir(mats?: AssetMaterialLib, seed = 6): THREE.Group {
+  const rand = mulberry32(seed);
+  const stone = stdMat(SANDSTONE_DK, { roughness: 0.85 }, mats);
+  const inlay = stdMat(CREAM_INLAY, { roughness: 0.72 }, mats);
+  const saffron = stdMat(0xe67e22, { roughness: 0.8 }, mats);
+  const flag = stdMat(0xf5c518, { roughness: 0.85 }, mats);
+
+  const parts: Part[] = [];
+
+  // Raised plinth.
+  parts.push({ geo: bakedBox(3.6, 0.35, 3.2, 0, 0.175, 0), mat: stone });
+
+  // Garbhagriha (sanctum).
+  parts.push({ geo: bakedBox(2.4, 2.4, 2.2, 0, 1.55, 0), mat: stone });
+  parts.push({ geo: bakedBox(2.6, 0.15, 2.4, 0, 2.75, 0), mat: inlay });
+
+  // Shikhara spire — stacked tapering boxes read as a north-Indian temple tower.
+  let shW = 1.8;
+  let shY = 2.85;
+  for (let tier = 0; tier < 4; tier++) {
+    const h = 0.55 - tier * 0.06;
+    parts.push({ geo: bakedBox(shW, h, shW * 0.85, 0, shY + h / 2, 0), mat: inlay });
+    shW *= 0.78;
+    shY += h;
+  }
+  parts.push({ geo: bakedSphere(0.22, 0, shY + 0.22, 0), mat: flag });
+
+  // Torana entrance arch.
+  parts.push({ geo: bakedBox(0.25, 2.2, 0.25, -0.85, 1.45, 1.15), mat: stone });
+  parts.push({ geo: bakedBox(0.25, 2.2, 0.25, 0.85, 1.45, 1.15), mat: stone });
+  parts.push({ geo: bakedBox(2.0, 0.25, 0.3, 0, 2.55, 1.15), mat: inlay });
+  parts.push({ geo: bakedCone(0.95, 0.7, 12, 0, 2.95, 1.15, 0, 0, 1, 0.35), mat: saffron });
+
+  // Small saffron flag on a mast beside the shrine.
+  parts.push({ geo: bakedCyl(0.03, 0.03, 2.8, 6, 1.55, 2.2, 0.4), mat: stone });
+  parts.push({ geo: bakedBox(0.55, 0.35, 0.04, 1.55, 3.45, 0.4), mat: saffron });
+
+  void rand;
+  const grp = mergeByMaterial(parts);
+  grp.name = "delhi-street-mandir";
+  return grp;
+}

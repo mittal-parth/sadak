@@ -118,7 +118,7 @@ function limbCyl(
   x: number,
   yTop: number,
   z: number,
-  segs = 6
+  segs = 12
 ): THREE.BufferGeometry {
   const g = new THREE.CylinderGeometry(topR, botR, h, segs);
   return xf(g, x, yTop - h / 2, z);
@@ -246,7 +246,7 @@ function headGeometry(scale: number): THREE.BufferGeometry {
     new THREE.Vector2(0.055, 0.17), // crown start
     new THREE.Vector2(0.0, 0.185), // top
   ];
-  const g = new THREE.LatheGeometry(pts, 8);
+  const g = new THREE.LatheGeometry(pts, 12);
   g.scale(scale, scale, scale);
   return g;
 }
@@ -401,16 +401,15 @@ export function makePerson(
 
   // Pelvis block (local space of `hips`: y=0 is hip height).
   clothStatic.push(
-    limbCyl(hipW * 0.95, hipW, waistTop - hipY, 0, waistTop - hipY, 0, 8)
+    limbCyl(hipW * 0.95, hipW, waistTop - hipY, 0, waistTop - hipY, 0, 12)
   );
 
-  // Torso: tapered cylinder, waist -> shoulders, low radial count so it
-  // reads slightly boxy rather than a smooth tube.
+  // Torso: tapered cylinder, waist -> shoulders.
   const torsoH = shoulderY - waistTop;
   const isDraped = preset === "sari" || preset === "kurta_pyjama" || preset === "salwar_kameez";
   const torsoTopR = shoulderW * (isDraped ? 0.85 : 0.78);
   const torsoBotR = hipW * 0.85;
-  clothStatic.push(limbCyl(torsoTopR, torsoBotR, torsoH, 0, shoulderY - hipY, 0, 8));
+  clothStatic.push(limbCyl(torsoTopR, torsoBotR, torsoH, 0, shoulderY - hipY, 0, 12));
 
   // Long garment overlay: kameez/kurta/sari fall to thigh height, over the
   // trousers/legs below — this is what changes the silhouette, not colour.
@@ -448,10 +447,10 @@ export function makePerson(
 
   // Sloped shoulders: a squashed sphere cap softens the top of the torso
   // cylinder so shoulders don't look cut flat.
-  clothStatic.push(sphereAt(torsoTopR * 0.95, 0, shoulderY - hipY, 0, 1, 0.35, 0.75, 6, 4));
+  clothStatic.push(sphereAt(torsoTopR * 0.95, 0, shoulderY - hipY, 0, 1, 0.35, 0.75, 10, 6));
 
   // Neck + head.
-  skinStatic.push(limbCyl(0.052, 0.058, neckY - shoulderY + 0.05, 0, neckY - hipY + 0.03, 0, 6));
+  skinStatic.push(limbCyl(0.052, 0.058, neckY - shoulderY + 0.05, 0, neckY - hipY + 0.03, 0, 10));
   const headGroup = new THREE.Group();
   const skullBaseY = chinY - hipY + 0.02;
   const headH = headTop - chinY;
@@ -468,6 +467,10 @@ export function makePerson(
   // gives the face — and the whole body's "+Z is front" convention used by
   // the pallu drape, badge and backpack placement below — a visible tell.
   skinStatic.push(boxAt(0.02, 0.03, 0.03, 0, chinY - hipY + 0.1, 0.083, 0.35));
+  // Eyes — dark spheres break up the smooth lathe and read as a face up close.
+  [-1, 1].forEach((s) => {
+    hairStatic.push(sphereAt(0.013, s * 0.034, chinY - hipY + 0.12, 0.078, 1, 1, 1, 8, 6));
+  });
 
   // ---- Hair / headwear (also drives whether a topi/turban is worn) ----
   const hairRoll = rand();

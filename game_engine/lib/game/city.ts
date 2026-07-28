@@ -2,13 +2,14 @@ import * as THREE from "three";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import {
   makeBuilding, makeStall, makeStreetLight, makeTrafficLight, makeTree, mulberry32,
-  makeBoat, makeBillboard, makeTram, makeArch,
+  makeBoat, makeBillboard, makeTram,
 } from "./props";
 import type { Theme } from "./districts";
 import { buildBuildingParts } from "./buildings";
 import type { MaterialLibrary } from "./materials";
 import { createClutter, type Clutter } from "./clutter";
 import { makeCar, TRAFFIC_KINDS, type VehicleMaterials } from "./vehicles";
+import { makeBazaarGate, makeHaveliBalcony, makeIndiaGate } from "./assets/delhi";
 
 /**
  * Two lanes each way plus a parking strip. The old 9m gully put the facades
@@ -556,9 +557,11 @@ function addLandmarks(
 
   switch (theme.landmark) {
     case "delhi":
-      // Arches straddling the two avenues either side of the chowk.
-      place(makeArch(), west, CHOWK.z, Math.PI / 2, 1.6, 5);
-      place(makeArch(), CHOWK.x, north, 0, 5, 1.6);
+      // Mughal bazaar gate and haveli facade — the real Delhi kit, not generic arches.
+      place(makeBazaarGate(), west, CHOWK.z, Math.PI / 2, 6, 5);
+      place(makeHaveliBalcony(), CHOWK.x, north, 0, 3.5, 2);
+      // India Gate visible down the eastern avenue from the chowk.
+      place(makeIndiaGate(), east + 18, CHOWK.z, -Math.PI / 2, 4.5, 1.2);
       break;
 
     case "chennai":

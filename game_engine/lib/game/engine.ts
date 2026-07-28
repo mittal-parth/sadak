@@ -5,7 +5,7 @@ import {
 } from "./city";
 import type { Clutter } from "./clutter";
 import { makeAuto, setSignalPhase, mulberry32 } from "./props";
-import { makeMissionShopStall } from "./assets/index";
+import { makeMissionShopStall, makeStreetMandir } from "./assets/index";
 import { makePerson, makeIdlePose, setWalkPhase, type PersonPreset } from "./people";
 import {
   createVehicleMaterials, makeCar, TRAFFIC_KINDS,
@@ -100,6 +100,56 @@ function markerColourForKind(kind: TaskKind): number {
   }
 }
 
+/** GTA-style ground blip: glowing circle + soft shadow, no spinning diamond. */
+function makeTaskBlip(color: number): THREE.Group {
+  const g = new THREE.Group();
+
+  const shadow = new THREE.Mesh(
+    new THREE.CircleGeometry(0.9, 24),
+    new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.32,
+      depthWrite: false,
+    })
+  );
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = 0.02;
+  g.add(shadow);
+
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(0.52, 0.78, 32),
+    new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.55,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    })
+  );
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.04;
+  g.add(ring);
+
+  const core = new THREE.Mesh(
+    new THREE.CircleGeometry(0.46, 24),
+    new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.9,
+      depthWrite: false,
+    })
+  );
+  core.rotation.x = -Math.PI / 2;
+  core.position.y = 0.05;
+  g.add(core);
+
+  g.userData.blipShadow = shadow;
+  g.userData.blipRing = ring;
+  g.userData.blipCore = core;
+  return g;
+}
+
 /** Stable numeric seed from an NPC id, so a character looks the same every run. */
 function hashId(id: string): number {
   let h = 2166136261;
@@ -160,7 +210,7 @@ export class Game {
   private clutter: Clutter | null = null;
   private taskAnchors = new Map<string, THREE.Group>();
   private hostMeshes = new Map<string, THREE.Group>();
-  private markers = new Map<string, THREE.Mesh>();
+  private markers = new Map<string, THREE.Group>();
   private tasks: StreetTask[] = [];
 
   private keys = new Set<string>();
@@ -291,6 +341,7 @@ export class Game {
         auto.rotation.y = -Math.PI / 5;
         auto.position.set(-2.2, 0.02, 0.6);
         anchor.add(auto);
+        this.colliders.push({ x: x - 2.2, z: z + 0.6, hw: 1.2, hd: 2.0 });
       } else if (task.kind === "shop") {
         const canopy = theme.canopies[hashId(task.id) % theme.canopies.length];
         const stall = makeMissionShopStall(
@@ -303,13 +354,13 @@ export class Game {
         stall.rotation.y = Math.PI / 6;
         stall.position.set(-1.4, 0, -0.8);
         anchor.add(stall);
+        this.colliders.push({ x: x - 1.4, z: z - 0.8, hw: 1.4, hd: 1.2 });
       } else if (task.kind === "temple") {
-        const arch = new THREE.Mesh(
-          new THREE.BoxGeometry(2.4, 2.8, 0.35),
-          new THREE.MeshLambertMaterial({ color: 0xc0392b })
-        );
-        arch.position.set(0, 1.4, -1.2);
-        anchor.add(arch);
+        const mandir = makeStreetMandir(undefined, hashId(task.id));
+        mandir.rotation.y = Math.PI;
+        mandir.position.set(0, 0, -1.0);
+        anchor.add(mandir);
+        this.colliders.push({ x, z: z - 1.0, hw: 1.8, hd: 1.6 });
       } else if (task.kind === "bus") {
         const pole = new THREE.Mesh(
           new THREE.CylinderGeometry(0.08, 0.08, 3.2, 8),
@@ -323,17 +374,14 @@ export class Game {
         );
         sign.position.set(-1.5, 2.8, 0);
         anchor.add(sign);
+        this.colliders.push({ x: x - 1.5, z, hw: 0.5, hd: 0.5 });
       }
 
       this.scene.add(anchor);
       this.taskAnchors.set(task.id, anchor);
 
-      const marker = new THREE.Mesh(
-        new THREE.ConeGeometry(0.5, 1.1, 4),
-        new THREE.MeshBasicMaterial({ color: markerColourForKind(task.kind) })
-      );
-      marker.rotation.x = Math.PI;
-      marker.position.set(x, 3.6, z);
+      const marker = makeTaskBlip(markerColourForKind(task.kind));
+      marker.position.set(x, 0, z);
       this.scene.add(marker);
       this.markers.set(task.id, marker);
     }
@@ -578,11 +626,25 @@ export class Game {
 
   private blocked(x: number, z: number): boolean {
     if (Math.abs(x) > WORLD_LIMIT || Math.abs(z) > WORLD_LIMIT) return true;
-    return this.colliders.some(
-      (b) =>
-        Math.abs(x - b.x) < b.hw + PLAYER_RADIUS &&
-        Math.abs(z - b.z) < b.hd + PLAYER_RADIUS
-    );
+    if (
+      this.colliders.some(
+        (b) =>
+          Math.abs(x - b.x) < b.hw + PLAYER_RADIUS &&
+          Math.abs(z - b.z) < b.hd + PLAYER_RADIUS
+      )
+    ) {
+      return true;
+    }
+    return this.vehicles.some((v) => {
+      const px = v.mesh.position.x;
+      const pz = v.mesh.position.z;
+      const hw = v.axis === "z" ? 1.05 : v.halfLength;
+      const hd = v.axis === "z" ? v.halfLength : 1.05;
+      return (
+        Math.abs(x - px) < hw + PLAYER_RADIUS &&
+        Math.abs(z - pz) < hd + PLAYER_RADIUS
+      );
+    });
   }
 
   /* ---------------- loop ---------------- */
@@ -630,11 +692,28 @@ export class Game {
     this.updateTraffic(dt);
 
     for (const [id, m] of this.markers) {
-      m.rotation.z = t * 1.6;
-      m.position.y = 3.5 + Math.sin(t * 2.4) * 0.22;
-      (m.material as THREE.MeshBasicMaterial).color.setHex(
-        this.done.has(id) ? 0x2ecc71 : markerColourForKind(this.tasks.find((t) => t.id === id)?.kind ?? "auto")
-      );
+      const done = this.done.has(id);
+      const colour = done
+        ? 0x2ecc71
+        : markerColourForKind(this.tasks.find((tk) => tk.id === id)?.kind ?? "auto");
+      const pulse = 0.5 + Math.sin(t * 2.8) * 0.12;
+
+      const ring = m.userData.blipRing as THREE.Mesh | undefined;
+      const core = m.userData.blipCore as THREE.Mesh | undefined;
+      const shadow = m.userData.blipShadow as THREE.Mesh | undefined;
+      if (ring) {
+        (ring.material as THREE.MeshBasicMaterial).color.setHex(colour);
+        (ring.material as THREE.MeshBasicMaterial).opacity = done ? 0.35 : 0.45 + pulse * 0.25;
+        ring.scale.setScalar(0.92 + pulse * 0.16);
+      }
+      if (core) {
+        (core.material as THREE.MeshBasicMaterial).color.setHex(colour);
+        (core.material as THREE.MeshBasicMaterial).opacity = done ? 0.55 : 0.75 + pulse * 0.2;
+      }
+      if (shadow) {
+        shadow.scale.setScalar(1.05 + pulse * 0.1);
+        (shadow.material as THREE.MeshBasicMaterial).opacity = 0.22 + pulse * 0.12;
+      }
     }
 
     // Errand hosts turn to face the player when they are close enough to talk.

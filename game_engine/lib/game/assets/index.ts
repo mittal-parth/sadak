@@ -17,7 +17,14 @@
 import * as THREE from "three";
 import type { MaterialLibrary } from "../materials";
 import type { AssetMaterialLib } from "./shared";
-import { makeBazaarGate, makeHaveliBalcony, makeCycleRickshaw, makeJalebiStall } from "./delhi";
+import {
+  makeBazaarGate,
+  makeHaveliBalcony,
+  makeCycleRickshaw,
+  makeJalebiStall,
+  makeIndiaGate,
+  makeStreetMandir,
+} from "./delhi";
 import { makeGopuram, makeCatamaran, makeCoconutPalm, makeTiffinCart, makeTiffinStall } from "./chennai";
 import { makeStall } from "../props";
 import {
@@ -100,9 +107,10 @@ export function getDistrictKit(landmark: Landmark, mats?: MaterialLibrary): Dist
         hero: [
           () => makeBazaarGate(al, nextSeed()),
           () => makeHaveliBalcony(al, nextSeed()),
+          () => makeIndiaGate(al, nextSeed()),
         ],
         vehicles: [() => makeCycleRickshaw(al, nextSeed())],
-        streetProps: [() => makeJalebiStall(al, nextSeed())],
+        streetProps: [() => makeJalebiStall(al, nextSeed()), () => makeStreetMandir(al, nextSeed())],
       };
 
     case "chennai":
@@ -133,6 +141,8 @@ export {
   makeHaveliBalcony,
   makeCycleRickshaw,
   makeJalebiStall,
+  makeIndiaGate,
+  makeStreetMandir,
 } from "./delhi";
 export { makeGopuram, makeCatamaran, makeCoconutPalm, makeTiffinCart, makeTiffinStall } from "./chennai";
 export {
