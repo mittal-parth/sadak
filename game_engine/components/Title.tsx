@@ -135,8 +135,8 @@ export default function Title({
         </p>
         <p className="max-w-md text-xs text-foreground/70">
           If you are setting up locally, run the Supabase migrations{" "}
-          <code className="text-foreground">001</code> and <code className="text-foreground">002</code>{" "}
-          in the SQL editor.
+          <code className="text-foreground">001</code>, <code className="text-foreground">002</code>, and{" "}
+          <code className="text-foreground">007</code> in the SQL editor.
         </p>
       </main>
     );
@@ -164,7 +164,7 @@ export default function Title({
           </span>
           <div className="flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1">
             <span className="text-xs text-foreground/70">
-              Real errands in four Indian languages
+              Real errands in ten Indian languages
             </span>
             <SignOutButton tone="subtle" />
           </div>
@@ -179,10 +179,11 @@ export default function Title({
             Sadak Errands
           </h1>
 
-          <p className="mx-auto mt-4 max-w-[44ch] text-lg leading-relaxed text-foreground/80">
+          <p className="mx-auto mt-4 max-w-[48ch] text-lg leading-relaxed text-foreground/80">
             Walk the city. Stop an auto, buy at a stall, visit a temple, catch a bus.
             <br />
-            Each errand is a real transaction — in Hindi, Tamil, Kannada, or Bengali.
+            Each errand is a real transaction — in Hindi, Tamil, Kannada, Bengali, Telugu,
+            Malayalam, Marathi, Gujarati, Punjabi, or Odia.
           </p>
 
           <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:mt-10 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
@@ -211,7 +212,7 @@ export default function Title({
           </h2>
 
           <div
-            className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+            className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
             role="radiogroup"
             aria-label="District"
           >

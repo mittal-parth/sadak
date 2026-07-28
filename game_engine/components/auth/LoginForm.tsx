@@ -124,7 +124,7 @@ export default function LoginForm() {
         <h1 className="text-3xl font-heading tracking-tight">sadak</h1>
       </div>
       <p className="mt-3 text-sm text-foreground/70">
-        A third-person street, in four languages. Sign in to walk it.
+        A third-person street across ten Indian languages. Sign in to walk it.
       </p>
 
       {authError ? (

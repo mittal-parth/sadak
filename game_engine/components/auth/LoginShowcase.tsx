@@ -9,10 +9,9 @@ import { cn } from "@/lib/utils";
 const INTERVAL_MS = 4000;
 
 /**
- * Slow crossfade carousel over the same four district covers used on the
- * Title screen (`lib/game/district-covers.ts`) — no new marketing stills to
- * source or license, and it doubles as a preview of what's actually in the
- * game rather than a generic hero image.
+ * Slow crossfade carousel over district cover art from `district-covers.ts`
+ * (all seeded districts, including the six new TTS∩STT languages). Uses the
+ * same stills as the district picker — a preview of what is in the game.
  */
 export function LoginShowcase({ className }: { className?: string }) {
   const [index, setIndex] = useState(0);

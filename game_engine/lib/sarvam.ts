@@ -21,6 +21,12 @@ function key(): string {
   return k;
 }
 
+/**
+ * BCP-47 codes accepted by Sarvam APIs. Playable SADAK districts must use a
+ * code supported by both Bulbul TTS and Saaras STT (the ten Indic codes below
+ * plus en-IN). STT-only languages (e.g. Assamese, Urdu) and Tulu are not
+ * district languages because NPCs cannot speak them via Bulbul.
+ */
 export type LangCode =
   | "hi-IN" | "ta-IN" | "te-IN" | "kn-IN" | "ml-IN"
   | "mr-IN" | "gu-IN" | "bn-IN" | "pa-IN" | "od-IN" | "en-IN";

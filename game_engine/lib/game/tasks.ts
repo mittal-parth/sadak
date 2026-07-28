@@ -1,5 +1,6 @@
 import type { LessonStep } from "@/lib/game/districts";
 import { streetLessonsFor } from "@/lib/game/street-task-lessons";
+import { SIX_SEED_TASK_PACKS } from "./tasks-six";
 import {
   lessonTierFor,
   type ComfortLevel,
@@ -386,6 +387,7 @@ export const SEED_TASK_PACKS: DistrictTaskPack[] = [
   marinaNagar,
   majesticCross,
   parkGully,
+  ...SIX_SEED_TASK_PACKS,
 ];
 
 export function findTaskById(

@@ -1,4 +1,5 @@
 import type { LangCode } from "@/lib/sarvam";
+import { SIX_SEED_DISTRICTS } from "./districts-six";
 
 /**
  * THE GAME BIBLE
@@ -825,6 +826,7 @@ export const SEED_DISTRICTS: District[] = [
   marinaNagar,
   majesticCross,
   parkGully,
+  ...SIX_SEED_DISTRICTS,
 ];
 
 export function totalReward(d: District): number {
