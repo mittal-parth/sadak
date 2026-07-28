@@ -320,7 +320,6 @@ export default function Hud({
                   <Button variant="neutral" size="sm" className="h-8 text-xs" onClick={onMenu}>
                     Menu
                   </Button>
-                  <SignOutButton className="h-8 text-xs" />
                 </CardContent>
               </HudCard>
               <HudCard className="py-2">
@@ -386,7 +385,6 @@ export default function Hud({
               <Button variant="neutral" size="sm" onClick={onMenu}>
                 <kbd>Esc</kbd> Menu
               </Button>
-              <SignOutButton />
             </div>
           </div>
 
