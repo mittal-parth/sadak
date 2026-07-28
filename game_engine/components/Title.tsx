@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useMobilePlay } from "@/lib/useMobilePlay";
+import SignOutButton from "@/components/auth/SignOutButton";
 
 const COMFORT_OPTIONS: {
   value: ComfortLevel;
@@ -42,6 +43,7 @@ export default function Title({
             <span className="text-lg font-heading tracking-tight">sadak</span>
           </span>
           <span className="text-xs text-foreground/70">Real errands in four Indian languages</span>
+          <SignOutButton />
         </div>
 
         <header className="text-center">

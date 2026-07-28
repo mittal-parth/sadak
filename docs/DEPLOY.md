@@ -17,8 +17,12 @@ Set the same LiveKit project on Vercel and on the agent worker.
 | `LIVEKIT_URL` | Yes | Usually injected by LiveKit Cloud |
 | `LIVEKIT_API_KEY` | Yes | Usually injected by LiveKit Cloud |
 | `LIVEKIT_API_SECRET` | Yes | Usually injected by LiveKit Cloud |
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | No |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | No |
 
 Optional: `SARVAM_CHAT_MODEL`, `SARVAM_TTS_MODEL`.
+
+Enable **Google** and **Email (magic link)** in the Supabase dashboard. Set the Supabase **Site URL** and **Redirect URLs** to your Vercel deployment (including `/auth/callback`).
 
 Never commit `.env`. Use the Vercel dashboard and `lk agent update-secrets`.
 
