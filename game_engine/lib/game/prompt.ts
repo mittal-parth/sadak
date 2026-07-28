@@ -24,6 +24,29 @@ export const JSON_SHAPE = `{"reply": "<your line>", "mission_complete": false, "
 
 export const RECALL_JSON_SHAPE = `{"reply": "<your line>"}`;
 
+/** One Unicode block per district script, used to catch a reply that ignored
+ *  every "never reply in English" instruction above (issue #23). */
+const SCRIPT_RANGES: Record<string, RegExp> = {
+  Devanagari: /[ऀ-ॿ]/,
+  Tamil: /[஀-௿]/,
+  Kannada: /[ಀ-೿]/,
+  Bengali: /[ঀ-৿]/,
+};
+
+/**
+ * The prompts below repeatedly tell the model to reply only in the
+ * district's script, but it occasionally ignores that and answers in plain
+ * English anyway. This is the cheap server-side backstop: a reply with none
+ * of the expected script's characters failed the instruction, whatever the
+ * model claims. Unknown script names pass (don't false-reject on a future
+ * district before its Unicode range is added here).
+ */
+export function looksLikeTargetScript(text: string, script: string): boolean {
+  const pattern = SCRIPT_RANGES[script];
+  if (!pattern) return true;
+  return pattern.test(text);
+}
+
 /** Prior exchanges with this NPC during the current district visit. */
 export function memoryBlock(turns: NpcTurn[]): string {
   if (!turns.length) return "";

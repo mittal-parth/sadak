@@ -47,32 +47,56 @@ export type ScoreResult = {
   points: number; // 0..100, rounded
 };
 
+function verdictFor(score: number): WordVerdict {
+  if (score >= 0.72) return "green";
+  if (score >= 0.4) return "yellow";
+  return "red";
+}
+
 /**
- * Greedy alignment: each expected word claims the best remaining transcript
- * word. Order drifts a little in speech, so we don't require exact position,
- * only that the word shows up somewhere in what was said.
+ * Order-preserving alignment (a weighted longest-common-subsequence over
+ * per-word similarity, not free bag-of-words matching): each expected word
+ * may only match a transcript word that comes *after* the one the previous
+ * expected word matched. Free matching used to score "one idli two vada"
+ * identical to "two idli one vada" — every word was present, so it didn't
+ * matter that the quantities were swapped onto the wrong noun. Requiring
+ * matches to stay in order means a swap breaks the alignment and gets
+ * penalised, while still tolerating minor insertions/deletions/mis-hearings
+ * the way the old greedy version did.
  */
 export function scoreAttempt(expectedNative: string, transcript: string): ScoreResult {
   const expected = tokenize(expectedNative);
   const said = tokenize(transcript);
-  const used = new Array(said.length).fill(false);
+  const n = expected.length;
+  const m = said.length;
 
-  const verdicts: WordVerdict[] = expected.map((word) => {
-    let best = -1;
-    let bestScore = 0;
-    for (let i = 0; i < said.length; i++) {
-      if (used[i]) continue;
-      const s = similarity(word, said[i]);
-      if (s > bestScore) {
-        bestScore = s;
-        best = i;
-      }
+  // dp[i][j]: best total similarity aligning expected[0..i) to said[0..j).
+  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = 1; i <= n; i++) {
+    for (let j = 1; j <= m; j++) {
+      const matched = dp[i - 1][j - 1] + similarity(expected[i - 1], said[j - 1]);
+      dp[i][j] = Math.max(matched, dp[i - 1][j], dp[i][j - 1]);
     }
-    if (best !== -1 && bestScore >= 0.4) used[best] = true;
-    if (bestScore >= 0.72) return "green";
-    if (bestScore >= 0.4) return "yellow";
-    return "red";
-  });
+  }
+
+  // Trace back to recover which expected word (if any) matched which said
+  // word, preferring a match over a skip whenever both reach the same total,
+  // so "how many words paired up" wins ties over "how few steps".
+  const verdicts: WordVerdict[] = new Array(n).fill("red");
+  let i = n;
+  let j = m;
+  while (i > 0 && j > 0) {
+    const matched = dp[i - 1][j - 1] + similarity(expected[i - 1], said[j - 1]);
+    if (dp[i][j] === matched) {
+      verdicts[i - 1] = verdictFor(similarity(expected[i - 1], said[j - 1]));
+      i--;
+      j--;
+    } else if (dp[i][j] === dp[i - 1][j]) {
+      i--;
+    } else {
+      j--;
+    }
+  }
 
   const total = verdicts.length || 1;
   const weight = verdicts.reduce((s, v) => s + (v === "green" ? 1 : v === "yellow" ? 0.5 : 0), 0);

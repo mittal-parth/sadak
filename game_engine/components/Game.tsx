@@ -61,8 +61,6 @@ export default function GameShell() {
   const [toast, setToast] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [phrasesOpen, setPhrasesOpen] = useState(false);
-  const [heat, setHeat] = useState(0);
-  const [busted, setBusted] = useState(false);
   const [card, setCard] = useState<StreetTask | null>(null);
   const [npcMemory, setNpcMemory] = useState<NpcMemoryMap>({});
   const [hudPanelsOpen, setHudPanelsOpen] = useState(false);
@@ -97,18 +95,14 @@ export default function GameShell() {
     const g = gameRef.current;
     if (!g) return;
     const frozen =
-      talking !== null ||
-      menuOpen ||
-      busted ||
-      card !== null ||
-      (mobilePlay && portrait);
+      talking !== null || menuOpen || card !== null || (mobilePlay && portrait);
     g.paused = frozen;
     if (frozen) g.releasePointer();
-  }, [talking, menuOpen, busted, card, mobilePlay, portrait]);
+  }, [talking, menuOpen, card, mobilePlay, portrait]);
 
   // Music sits under the dialogue's TTS and the held mic, and stays down
-  // for the pause menu / busted dialog / the portrait rotate-gate, so it
-  // never fights the one voice the player actually needs to hear.
+  // for the pause menu and the portrait rotate-gate, so it never fights the
+  // one voice the player actually needs to hear.
   //
   // Depend on `audio.duck` (stable via useCallback), not the `audio` object
   // itself: `useGameAudio` returns a fresh object every render, and telemetry
@@ -116,22 +110,8 @@ export default function GameShell() {
   // would re-run this effect (and restart the duck gain ramp) 60x/sec.
   const duck = audio.duck;
   useEffect(() => {
-    duck(talking !== null || menuOpen || busted || (mobilePlay && portrait));
-  }, [duck, talking, menuOpen, busted, mobilePlay, portrait]);
-
-  useEffect(() => {
-    if (heat <= 0 || busted) return;
-    const t = setTimeout(() => setHeat((h) => Math.max(0, h - 1)), 40000);
-    return () => clearTimeout(t);
-  }, [heat, busted]);
-
-  useEffect(() => {
-    if (heat < 5 || busted) return;
-    setBusted(true);
-    setTalking(null);
-    setCash((c) => Math.max(0, Math.round(c * 0.5)));
-    playSfx("error");
-  }, [heat, busted]);
+    duck(talking !== null || menuOpen || (mobilePlay && portrait));
+  }, [duck, talking, menuOpen, mobilePlay, portrait]);
 
   useEffect(() => {
     if (!district || !canvasRef.current) return;
@@ -239,17 +219,10 @@ export default function GameShell() {
     setToast(null);
     setMenuOpen(false);
     setPhrasesOpen(false);
-    setHeat(0);
-    setBusted(false);
     setCard(null);
     metRef.current = new Set();
     setNpcMemory({});
     setComfort("medium");
-  }, []);
-
-  const release = useCallback(() => {
-    setBusted(false);
-    setHeat(0);
   }, []);
 
   const onJoystickMove = useCallback((fwd: number, strafe: number) => {
@@ -257,11 +230,7 @@ export default function GameShell() {
   }, []);
 
   const gameplayFrozen =
-    talking !== null ||
-    menuOpen ||
-    busted ||
-    card !== null ||
-    (mobilePlay && portrait);
+    talking !== null || menuOpen || card !== null || (mobilePlay && portrait);
 
   if (!district) {
     return (
@@ -291,7 +260,6 @@ export default function GameShell() {
         xp={xp}
         artifacts={artifacts}
         completed={completed}
-        heat={heat}
         errandProgress={{ done: completed.size, total: tasks.length }}
         onOpen={openTalk}
         phrasesOpen={phrasesOpen}
@@ -333,21 +301,6 @@ export default function GameShell() {
           </CardContent>
         </Card>
       )}
-
-      <Dialog open={busted} onOpenChange={(open) => !open && release()}>
-        <DialogContent className="text-center sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-4xl tracking-wide">BUSTED</DialogTitle>
-            <DialogDescription className="text-base leading-relaxed">
-              Havaldar Singh had heard enough. A night in the chowk lockup, and half of what you
-              were carrying is gone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="justify-center sm:justify-center">
-            <Button onClick={release}>Back to the street</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={menuOpen} onOpenChange={setMenuOpen}>
         <DialogContent className="text-center sm:max-w-sm">
