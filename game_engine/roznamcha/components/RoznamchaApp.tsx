@@ -253,7 +253,7 @@ export default function RoznamchaApp() {
             Speak the visit. Interrupt to correct. File the record.
           </p>
           <div className="roz-actions">
-            <SignOutButton />
+            <SignOutButton tone="subtle" />
             {LANGS.map((l) => (
               <button
                 key={l.code}

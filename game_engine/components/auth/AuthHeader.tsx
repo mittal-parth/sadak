@@ -37,15 +37,13 @@ export default function AuthHeader() {
     };
   }, [supabase]);
 
-  if (!ready || !user || PUBLIC_PATHS.has(pathname)) {
+  if (!ready || !user || PUBLIC_PATHS.has(pathname) || pathname === "/") {
     return null;
   }
 
   return (
-    <header className="pointer-events-none fixed inset-x-0 top-0 z-[200] flex justify-end p-3 sm:p-4">
-      <div className="pointer-events-auto rounded-base border-2 border-border bg-background/95 px-2 py-1.5 shadow-shadow backdrop-blur-sm">
-        <SignOutButton />
-      </div>
+    <header className="pointer-events-none fixed inset-x-0 top-0 z-[200] flex justify-end px-4 py-3 sm:px-6 sm:py-4">
+      <SignOutButton tone="subtle" className="pointer-events-auto" />
     </header>
   );
 }
