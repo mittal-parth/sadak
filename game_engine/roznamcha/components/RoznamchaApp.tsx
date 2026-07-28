@@ -12,6 +12,7 @@ import { REQUIRED_TO_FILE } from "@/roznamcha/lib/types";
 import RecordCard from "./RecordCard";
 import MemoryPanel from "./MemoryPanel";
 import VoiceOrb from "./VoiceOrb";
+import SignOutButton from "@/components/auth/SignOutButton";
 import "./roznamcha.css";
 
 const RELAY = process.env.NEXT_PUBLIC_RELAY_URL ?? "ws://localhost:8787";
@@ -252,6 +253,7 @@ export default function RoznamchaApp() {
             Speak the visit. Interrupt to correct. File the record.
           </p>
           <div className="roz-actions">
+            <SignOutButton tone="subtle" />
             {LANGS.map((l) => (
               <button
                 key={l.code}
