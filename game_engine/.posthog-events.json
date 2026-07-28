@@ -1,0 +1,57 @@
+[
+  {
+    "event_name": "sign_in_attempted",
+    "event_description": "User attempts to sign in via Google OAuth, magic link email, or password.",
+    "file": "components/auth/LoginForm.tsx"
+  },
+  {
+    "event_name": "signed_out",
+    "event_description": "User explicitly signs out of the app.",
+    "file": "components/auth/SignOutButton.tsx"
+  },
+  {
+    "event_name": "district_entered",
+    "event_description": "Player selects a district and comfort level and enters the game world.",
+    "file": "components/Game.tsx"
+  },
+  {
+    "event_name": "district_left",
+    "event_description": "Player leaves a district and returns to the title screen.",
+    "file": "components/Game.tsx"
+  },
+  {
+    "event_name": "errand_started",
+    "event_description": "Player initiates a conversation with an NPC to begin an errand.",
+    "file": "components/Game.tsx"
+  },
+  {
+    "event_name": "errand_completed",
+    "event_description": "Player successfully completes an errand and earns a cash reward.",
+    "file": "components/Game.tsx"
+  },
+  {
+    "event_name": "language_attempt_scored",
+    "event_description": "Player's spoken language attempt is transcribed and scored in a dialogue lesson.",
+    "file": "components/Dialogue.tsx"
+  },
+  {
+    "event_name": "voice_utterance_submitted",
+    "event_description": "Roznamcha health worker submits a spoken utterance for field record extraction.",
+    "file": "roznamcha/components/RoznamchaApp.tsx"
+  },
+  {
+    "event_name": "roz_visit_filed",
+    "event_description": "Roznamcha health worker successfully files a completed household visit record.",
+    "file": "roznamcha/components/RoznamchaApp.tsx"
+  },
+  {
+    "event_name": "errand_outcome_achieved",
+    "event_description": "Server confirms an NPC errand real-world outcome was achieved in conversation.",
+    "file": "app/api/errand/route.ts"
+  },
+  {
+    "event_name": "roz_visit_record_filed",
+    "event_description": "Server successfully files a Roznamcha household visit record to the store.",
+    "file": "app/api/roz/file/route.ts"
+  }
+]

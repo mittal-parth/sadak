@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import posthog from "posthog-js";
 
 type SignOutButtonProps = {
   className?: string;
@@ -25,6 +26,7 @@ export default function SignOutButton({
     if (busy) return;
     setBusy(true);
     try {
+      posthog.capture("signed_out");
       const supabase = createClient();
       await supabase.auth.signOut();
       router.push("/login");

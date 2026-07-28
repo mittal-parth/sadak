@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { sarvamChat, type ChatMessage } from "@/lib/sarvam";
 import { errandById, type Errand, type ErrandId } from "@/lib/game/errands";
 import { loadDistrictById } from "@/lib/game/load-district";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -204,6 +205,26 @@ export async function POST(req: Request) {
   const missed = errand.teaches
     .filter((t) => !graded.phrasesUsed.some((p) => p.includes(t.native.slice(0, 6))))
     .map((t) => t.native);
+
+  if (outcomeAchieved) {
+    const distinctId = (body.turnId ?? "").split("-")[0] || "anonymous";
+    const posthog = getPostHogClient();
+    posthog.capture({
+      distinctId,
+      event: "errand_outcome_achieved",
+      properties: {
+        errand_id: body.errandId,
+        district: errand.district,
+        player_turns: turns,
+        checks_passed: graded.checks.filter(Boolean).length,
+        checks_total: errand.checks.length,
+        phrases_used_count: graded.phrasesUsed.length,
+        reward: errand.reward,
+        english_fallback: graded.englishFallback,
+      },
+    });
+    await posthog.flush();
+  }
 
   return NextResponse.json({
     reply: graded.reply,

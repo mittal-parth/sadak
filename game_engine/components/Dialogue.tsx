@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { lessonTierLabel } from "@/lib/game/levels";
 import { cn } from "@/lib/utils";
+import posthog from "posthog-js";
 
 type Phase = "recall" | "npc" | "player" | "result" | "finished";
 
@@ -207,6 +208,14 @@ export default function Dialogue({
     setTotalPoints((p) => p + scored.points);
     setGradedCount((c) => c + 1);
     onPoints(scored.points);
+    posthog.capture("language_attempt_scored", {
+      task_id: target.id,
+      district_language: district.language,
+      step_index: stepIndex,
+      points: scored.points,
+      word_count: scored.verdicts.length,
+      green_words: scored.verdicts.filter((v) => v === "green").length,
+    });
     setPhase("result");
     // Three-band feedback so the player hears how they did, not just sees it.
     if (scored.points >= 72) playSfx("success");

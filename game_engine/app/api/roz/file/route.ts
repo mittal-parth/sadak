@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { fileVisit } from "@/roznamcha/lib/store/store";
 import { FIELD_LABELS } from "@/roznamcha/lib/types";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 export const runtime = "nodejs";
 
@@ -39,6 +40,20 @@ export async function POST(req: Request) {
       { status: 422 }
     );
   }
+
+  const posthog = getPostHogClient();
+  posthog.capture({
+    distinctId: result.record.workerId,
+    event: "roz_visit_record_filed",
+    properties: {
+      visit_ref: result.record.ref,
+      household_id: result.record.householdId,
+      language: result.record.language,
+      fields_filled: Object.keys(result.record.fields ?? {}).length,
+      corrections_made: result.record.corrections?.length ?? 0,
+    },
+  });
+  await posthog.flush();
 
   return NextResponse.json({ record: result.record, summary: result.summary });
 }

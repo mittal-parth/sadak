@@ -5,6 +5,7 @@ import type { User } from "@supabase/supabase-js";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import SignOutButton from "@/components/auth/SignOutButton";
+import posthog from "posthog-js";
 
 const PUBLIC_PATHS = new Set(["/login"]);
 
@@ -26,9 +27,18 @@ export default function AuthHeader() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      const nextUser = session?.user ?? null;
+      setUser(nextUser);
       setReady(true);
+
+      if (nextUser) {
+        posthog.identify(nextUser.id, {
+          email: nextUser.email,
+        });
+      } else if (event === "SIGNED_OUT") {
+        posthog.reset();
+      }
     });
 
     return () => {
