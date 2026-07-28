@@ -35,15 +35,19 @@ export default function Title({
   return (
     <main className="relative min-h-full max-h-full overflow-y-auto bg-background text-foreground">
       <div className="mx-auto flex min-h-full max-w-5xl flex-col justify-center px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-        <div className="mb-10 flex flex-wrap items-baseline justify-between gap-3">
+        <div className="mb-10 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
           <span className="flex items-baseline gap-2">
             <span className="font-indic text-lg font-heading" lang="hi">
               सड़क
             </span>
             <span className="text-lg font-heading tracking-tight">sadak</span>
           </span>
-          <span className="text-xs text-foreground/70">Real errands in four Indian languages</span>
-          <SignOutButton />
+          <div className="flex flex-wrap items-center justify-end gap-3 sm:gap-4">
+            <span className="text-xs text-foreground/70">
+              Real errands in four Indian languages
+            </span>
+            <SignOutButton />
+          </div>
         </div>
 
         <header className="text-center">
