@@ -210,7 +210,6 @@ export default function Hud({
   xp,
   artifacts,
   completed,
-  heat,
   errandProgress,
   onOpen,
   phrasesOpen,
@@ -229,7 +228,6 @@ export default function Hud({
   xp: number;
   artifacts: string[];
   completed: Set<string>;
-  heat: number;
   errandProgress: { done: number; total: number };
   onOpen: () => void;
   phrasesOpen: boolean;
@@ -261,21 +259,6 @@ export default function Hud({
     </>
   );
 
-  const heatStars =
-    heat > 0 ? (
-      <HudCard className="flex-row px-3 py-2">
-        <CardContent className="flex gap-0.5 px-0 py-0" aria-label={`Wanted level ${heat} of 5`}>
-          {Array.from({ length: 5 }, (_, i) => (
-            <span
-              key={i}
-              className={cn("text-base leading-none", i < heat ? "text-main" : "text-foreground/30")}
-            >
-              ★
-            </span>
-          ))}
-        </CardContent>
-      </HudCard>
-    ) : null;
 
   return (
     <>
@@ -325,7 +308,6 @@ export default function Hud({
 
           {panelsOpen && (
             <div className="pointer-events-auto absolute top-[7.5rem] left-3 z-20 flex max-h-[min(52vh,22rem)] w-[min(18rem,calc(100vw-5.5rem))] flex-col gap-2 overflow-y-auto">
-              {heatStars}
               <HudCard className="py-2">
                 <CardHeader className="px-3 pb-0">
                   <CardTitle className="text-[0.65rem] uppercase tracking-widest text-main">
@@ -392,7 +374,6 @@ export default function Hud({
           <div className="pointer-events-none absolute inset-x-6 top-4 flex items-start justify-between gap-4">
             <div className="flex flex-col items-start gap-2">
               {statsRow}
-              {heatStars}
             </div>
             <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-2">
               <Badge variant="neutral" className="uppercase tracking-widest">
