@@ -100,51 +100,98 @@ function markerColourForKind(kind: TaskKind): number {
   }
 }
 
-/** GTA-style ground blip: glowing circle + soft shadow, no spinning diamond. */
+/**
+ * Vertical alpha ramp shared by every corona: bright at the ground, fading to
+ * nothing at the top, so the light column reads as a glow rather than a tube
+ * with a hard lid. One 2x64 canvas, built once.
+ */
+let coronaRamp: THREE.CanvasTexture | null = null;
+function getCoronaRamp(): THREE.CanvasTexture {
+  if (coronaRamp) return coronaRamp;
+  const H = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = 2;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d")!;
+  const grad = ctx.createLinearGradient(0, H, 0, 0);
+  grad.addColorStop(0, "rgba(255,255,255,1)");
+  grad.addColorStop(0.45, "rgba(255,255,255,0.5)");
+  grad.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 2, H);
+  coronaRamp = new THREE.CanvasTexture(canvas);
+  return coronaRamp;
+}
+
+/**
+ * Classic GTA:SA mission corona: a tall additive column of light standing on a
+ * glowing ground ring. Additive blending is what sells it — the column
+ * brightens whatever is behind it instead of dimming it, so it reads as light,
+ * and it stays visible from the far end of the street where a flat ground
+ * circle is edge-on to the camera and disappears.
+ */
 function makeTaskBlip(color: number): THREE.Group {
   const g = new THREE.Group();
+  const ramp = getCoronaRamp();
 
-  const shadow = new THREE.Mesh(
-    new THREE.CircleGeometry(0.9, 24),
-    new THREE.MeshBasicMaterial({
-      color: 0x000000,
-      transparent: true,
-      opacity: 0.32,
-      depthWrite: false,
-    })
-  );
-  shadow.rotation.x = -Math.PI / 2;
-  shadow.position.y = 0.02;
-  g.add(shadow);
+  // Two nested open cylinders (inner brighter, outer wider and fainter) fake
+  // the soft radial falloff of a volumetric beam for two draw calls.
+  const coronaMat = (radius: number, opacity: number) =>
+    new THREE.Mesh(
+      new THREE.CylinderGeometry(radius, radius, 5.5, 20, 1, true),
+      new THREE.MeshBasicMaterial({
+        color,
+        map: ramp,
+        transparent: true,
+        opacity,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        fog: false,
+      })
+    );
+
+  const coronaInner = coronaMat(0.55, 0.85);
+  coronaInner.position.y = 2.75;
+  g.add(coronaInner);
+
+  const coronaOuter = coronaMat(0.85, 0.4);
+  coronaOuter.position.y = 2.75;
+  g.add(coronaOuter);
 
   const ring = new THREE.Mesh(
-    new THREE.RingGeometry(0.52, 0.78, 32),
+    new THREE.RingGeometry(0.55, 1.0, 32),
     new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: 0.55,
+      opacity: 0.6,
+      blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
       depthWrite: false,
+      fog: false,
     })
   );
   ring.rotation.x = -Math.PI / 2;
-  ring.position.y = 0.04;
+  ring.position.y = 0.06;
   g.add(ring);
 
   const core = new THREE.Mesh(
-    new THREE.CircleGeometry(0.46, 24),
+    new THREE.CircleGeometry(0.55, 24),
     new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: 0.9,
+      opacity: 0.5,
+      blending: THREE.AdditiveBlending,
       depthWrite: false,
+      fog: false,
     })
   );
   core.rotation.x = -Math.PI / 2;
   core.position.y = 0.05;
   g.add(core);
 
-  g.userData.blipShadow = shadow;
+  g.userData.coronaInner = coronaInner;
+  g.userData.coronaOuter = coronaOuter;
   g.userData.blipRing = ring;
   g.userData.blipCore = core;
   return g;
@@ -356,11 +403,15 @@ export class Game {
         anchor.add(stall);
         this.colliders.push({ x: x - 1.4, z: z - 0.8, hw: 1.4, hd: 1.2 });
       } else if (task.kind === "temple") {
+        // Entrance (torana, local +z) faces the marker so the player walks up
+        // to the front, not the back wall; the old Math.PI flip faced it away.
         const mandir = makeStreetMandir(undefined, hashId(task.id));
-        mandir.rotation.y = Math.PI;
-        mandir.position.set(0, 0, -1.0);
+        mandir.position.set(0, 0, -2.6);
         anchor.add(mandir);
-        this.colliders.push({ x, z: z - 1.0, hw: 1.8, hd: 1.6 });
+        this.colliders.push({ x, z: z - 2.6, hw: 1.9, hd: 1.7 });
+        // Priest stands beside the entrance, clear of the plinth, instead of
+        // on top of it inside the temple's own collider.
+        host.position.set(1.5, 0.26, -0.6);
       } else if (task.kind === "bus") {
         const pole = new THREE.Mesh(
           new THREE.CylinderGeometry(0.08, 0.08, 3.2, 8),
@@ -683,13 +734,15 @@ export class Game {
   private update(dt: number) {
     const t = this.clock.elapsedTime;
 
+    this.updateSignals();
+    this.updateTraffic(dt);
+
     if (!this.paused) {
       this.updateLook(dt);
       this.updatePlayer(dt);
+      this.resolveVehicleOverlap();
     }
     this.updateCamera(dt);
-    this.updateSignals();
-    this.updateTraffic(dt);
 
     for (const [id, m] of this.markers) {
       const done = this.done.has(id);
@@ -700,19 +753,30 @@ export class Game {
 
       const ring = m.userData.blipRing as THREE.Mesh | undefined;
       const core = m.userData.blipCore as THREE.Mesh | undefined;
-      const shadow = m.userData.blipShadow as THREE.Mesh | undefined;
+      const inner = m.userData.coronaInner as THREE.Mesh | undefined;
+      const outer = m.userData.coronaOuter as THREE.Mesh | undefined;
+
+      // Slow counter-rotation of the two corona shells: the moving seams are
+      // what make the column shimmer like light instead of sitting like glass.
+      if (inner) {
+        inner.rotation.y = t * 0.7;
+        (inner.material as THREE.MeshBasicMaterial).color.setHex(colour);
+        (inner.material as THREE.MeshBasicMaterial).opacity = done ? 0.3 : 0.7 + pulse * 0.3;
+      }
+      if (outer) {
+        outer.rotation.y = -t * 0.45;
+        (outer.material as THREE.MeshBasicMaterial).color.setHex(colour);
+        (outer.material as THREE.MeshBasicMaterial).opacity = done ? 0.15 : 0.3 + pulse * 0.2;
+        outer.scale.set(1 + pulse * 0.1, 1, 1 + pulse * 0.1);
+      }
       if (ring) {
         (ring.material as THREE.MeshBasicMaterial).color.setHex(colour);
-        (ring.material as THREE.MeshBasicMaterial).opacity = done ? 0.35 : 0.45 + pulse * 0.25;
-        ring.scale.setScalar(0.92 + pulse * 0.16);
+        (ring.material as THREE.MeshBasicMaterial).opacity = done ? 0.3 : 0.45 + pulse * 0.3;
+        ring.scale.setScalar(0.95 + pulse * 0.18);
       }
       if (core) {
         (core.material as THREE.MeshBasicMaterial).color.setHex(colour);
-        (core.material as THREE.MeshBasicMaterial).opacity = done ? 0.55 : 0.75 + pulse * 0.2;
-      }
-      if (shadow) {
-        shadow.scale.setScalar(1.05 + pulse * 0.1);
-        (shadow.material as THREE.MeshBasicMaterial).opacity = 0.22 + pulse * 0.12;
+        (core.material as THREE.MeshBasicMaterial).opacity = done ? 0.25 : 0.4 + pulse * 0.25;
       }
     }
 
@@ -790,6 +854,34 @@ export class Game {
       this.walkPhase = 0;
       makeIdlePose(this.player);
     }
+  }
+
+  /**
+   * blocked() only stops the player from walking into a vehicle — it does
+   * nothing when a moving vehicle drives into a player who is standing
+   * still. Push the player out to the nearest edge of any vehicle box they
+   * end up inside, along whichever axis needs the smaller nudge.
+   */
+  private resolveVehicleOverlap() {
+    for (const v of this.vehicles) {
+      const px = v.mesh.position.x;
+      const pz = v.mesh.position.z;
+      const hw = (v.axis === "z" ? 1.05 : v.halfLength) + PLAYER_RADIUS;
+      const hd = (v.axis === "z" ? v.halfLength : 1.05) + PLAYER_RADIUS;
+
+      const dx = this.playerPos.x - px;
+      const dz = this.playerPos.z - pz;
+      if (Math.abs(dx) >= hw || Math.abs(dz) >= hd) continue;
+
+      const overlapX = hw - Math.abs(dx);
+      const overlapZ = hd - Math.abs(dz);
+      if (overlapX < overlapZ) {
+        this.playerPos.x = px + Math.sign(dx || 1) * hw;
+      } else {
+        this.playerPos.z = pz + Math.sign(dz || 1) * hd;
+      }
+    }
+    this.player.position.set(this.playerPos.x, 0.26, this.playerPos.z);
   }
 
   private updateCamera(dt: number) {

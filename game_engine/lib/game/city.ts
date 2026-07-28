@@ -556,13 +556,28 @@ function addLandmarks(
   const north = SPACING;
 
   switch (theme.landmark) {
-    case "delhi":
-      // Mughal bazaar gate and haveli facade — the real Delhi kit, not generic arches.
-      place(makeBazaarGate(), west, CHOWK.z, Math.PI / 2, 6, 5);
-      place(makeHaveliBalcony(), CHOWK.x, north, 0, 3.5, 2);
-      // India Gate visible down the eastern avenue from the chowk.
-      place(makeIndiaGate(), east + 18, CHOWK.z, -Math.PI / 2, 4.5, 1.2);
+    case "delhi": {
+      // Bazaar gate ARCHES OVER the west avenue: rotation 0 keeps its piers
+      // (local x ±5) at the road edges, so traffic in the lanes (±2.9) and the
+      // player both pass under the 8m passage. Colliders on the piers only —
+      // one blob collider here walls off the entire avenue.
+      const gate = makeBazaarGate();
+      gate.position.set(west, 0.02, CHOWK.z);
+      group.add(gate);
+      for (const px of [-5, 5]) {
+        colliders.push({ x: west + px, z: CHOWK.z, hw: 1.3, hd: 1.3 });
+      }
+
+      // Haveli facade on the chowk block's north edge, facing south into the
+      // square — it was previously centred on the north road, blocking it.
+      place(makeHaveliBalcony(), CHOWK.x, north - JUNCTION_HALF - 2.0, Math.PI, 3.3, 2.2);
+
+      // India Gate as a monument at the east edge of the square, facing the
+      // chowk. Its 5m passage is too narrow to straddle a trafficked road,
+      // and mid-block it clips into the building terraces.
+      place(makeIndiaGate(), east - JUNCTION_HALF - 1.6, CHOWK.z, -Math.PI / 2, 1.2, 4.4);
       break;
+    }
 
     case "chennai":
       // Boats hauled up on the sand beside the southern shore road.
