@@ -401,8 +401,8 @@ export default function GameShell() {
         mobilePlay={mobilePlay}
         panelsOpen={hudPanelsOpen}
         onTogglePanels={() => setHudPanelsOpen((o) => !o)}
-        sfxOn={audio.sfxOn}
-        onToggleSfx={audio.toggleSfx}
+        audioOn={audio.sfxOn || audio.musicOn}
+        onToggleAudio={audio.toggleAll}
       />
 
       {mobilePlay && !portrait && (
