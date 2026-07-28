@@ -6,6 +6,7 @@ import type { NpcTurn } from "@/lib/game/npc-memory";
 import type { LessonTarget } from "@/lib/game/tasks";
 import { useVoice } from "@/lib/useVoice";
 import { scoreAttempt, type WordVerdict } from "@/lib/game/speech-score";
+import { playSfx } from "@/lib/audio/sfx";
 import {
   Dialog,
   DialogContent,
@@ -169,6 +170,7 @@ export default function Dialogue({
       setPhase("finished");
       if (!finishedRef.current) {
         finishedRef.current = true;
+        playSfx("success");
         onComplete(target.id, target.reward);
       }
       return;
@@ -178,6 +180,7 @@ export default function Dialogue({
 
   async function onMicUp() {
     if (!voice.recording) return;
+    playSfx("tap");
     const transcript = await voice.stop();
 
     if (!step.prompt) {
@@ -190,6 +193,7 @@ export default function Dialogue({
 
     if (!transcript) {
       setHeardNothing(true);
+      playSfx("error");
       return;
     }
 
@@ -200,6 +204,10 @@ export default function Dialogue({
     setGradedCount((c) => c + 1);
     onPoints(scored.points);
     setPhase("result");
+    // Three-band feedback so the player hears how they did, not just sees it.
+    if (scored.points >= 72) playSfx("success");
+    else if (scored.points >= 40) playSfx("partial");
+    else playSfx("error");
   }
 
   const promptWords = step?.prompt?.roman.split(/\s+/) ?? [];
@@ -357,11 +365,15 @@ export default function Dialogue({
                 "size-16 text-2xl touch-none select-none",
                 voice.recording && "bg-chart-2 hover:bg-chart-2",
               )}
-              onMouseDown={voice.start}
+              onMouseDown={() => {
+                playSfx("tap");
+                voice.start();
+              }}
               onMouseUp={onMicUp}
               onMouseLeave={onMicUp}
               onTouchStart={(e) => {
                 e.preventDefault();
+                playSfx("tap");
                 voice.start();
               }}
               onTouchEnd={(e) => {

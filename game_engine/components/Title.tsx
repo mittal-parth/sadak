@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useMobilePlay } from "@/lib/useMobilePlay";
+import { getAudioContext } from "@/lib/audio/engine";
+import { playSfx } from "@/lib/audio/sfx";
 
 const COMFORT_OPTIONS: {
   value: ComfortLevel;
@@ -24,10 +26,21 @@ const COMFORT_OPTIONS: {
 
 export default function Title({
   onEnter,
+  defaultDistrictId,
 }: {
   onEnter: (d: District, comfort: ComfortLevel) => void;
+  /**
+   * Title fully unmounts/remounts every time the player leaves a district
+   * (GameShell renders it conditionally), which would otherwise reset the
+   * picker back to `DISTRICTS[0]` on every return trip — easy to not notice
+   * and re-enter the same district without meaning to. Remember what was
+   * last played instead.
+   */
+  defaultDistrictId?: string;
 }) {
-  const [picked, setPicked] = useState<District>(DISTRICTS[0]);
+  const [picked, setPicked] = useState<District>(
+    () => DISTRICTS.find((d) => d.id === defaultDistrictId) ?? DISTRICTS[0]
+  );
   const [comfort, setComfort] = useState<ComfortLevel>("medium");
   const { mobilePlay } = useMobilePlay();
 
@@ -60,7 +73,19 @@ export default function Title({
           </p>
 
           <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:mt-10 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
-            <Button size="lg" className="w-full sm:w-auto" onClick={() => onEnter(picked, comfort)}>
+            <Button
+              size="lg"
+              className="w-full sm:w-auto"
+              onClick={() => {
+                // First real user gesture in the game: force-create/resume
+                // the shared AudioContext synchronously in the gesture,
+                // rather than leaning on the incidental click sfx to always
+                // win the race. GameShell starts the district's music
+                // theme once it mounts, a moment later.
+                getAudioContext();
+                onEnter(picked, comfort);
+              }}
+            >
               Enter {picked.name}
             </Button>
             <span className="text-sm text-foreground/70">
@@ -88,7 +113,10 @@ export default function Title({
                   role="radio"
                   aria-checked={on}
                   className="cursor-pointer border-0 bg-transparent p-0 text-left"
-                  onClick={() => setPicked(d)}
+                  onClick={() => {
+                    playSfx("tap");
+                    setPicked(d);
+                  }}
                 >
                   <Card
                     className={cn(
@@ -147,7 +175,10 @@ export default function Title({
                   role="radio"
                   aria-checked={on}
                   className="cursor-pointer border-0 bg-transparent p-0 text-left"
-                  onClick={() => setComfort(opt.value)}
+                  onClick={() => {
+                    playSfx("tap");
+                    setComfort(opt.value);
+                  }}
                 >
                   <Card
                     className={cn(

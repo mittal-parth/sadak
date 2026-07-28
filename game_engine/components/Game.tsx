@@ -15,6 +15,8 @@ import {
 } from "@/lib/game/tasks";
 import type { ComfortLevel } from "@/lib/game/levels";
 import { errandLevelNumber, lessonTierFor } from "@/lib/game/levels";
+import { useGameAudio } from "@/lib/audio/useGameAudio";
+import { playSfx } from "@/lib/audio/sfx";
 import Title from "./Title";
 import Hud from "./Hud";
 import Dialogue from "./Dialogue";
@@ -44,6 +46,10 @@ export default function GameShell() {
   const gameRef = useRef<Game | null>(null);
 
   const [district, setDistrict] = useState<District | null>(null);
+  // Survives `district` going back to null so Title (which fully remounts
+  // on every return trip) can default the picker to what was last played
+  // instead of always resetting to DISTRICTS[0].
+  const [lastDistrictId, setLastDistrictId] = useState<string | undefined>();
   const [comfort, setComfort] = useState<ComfortLevel>("medium");
   const [tel, setTel] = useState<Telemetry | null>(null);
   const [talking, setTalking] = useState<StreetTask | null>(null);
@@ -60,6 +66,7 @@ export default function GameShell() {
   const [npcMemory, setNpcMemory] = useState<NpcMemoryMap>({});
   const [hudPanelsOpen, setHudPanelsOpen] = useState(false);
   const { mobilePlay, portrait } = useMobilePlay();
+  const audio = useGameAudio(district?.id);
 
   const tasks = useMemo(
     () => (district ? tasksForDistrict(district.id) : []),
@@ -98,6 +105,19 @@ export default function GameShell() {
     if (frozen) g.releasePointer();
   }, [talking, menuOpen, busted, card, mobilePlay, portrait]);
 
+  // Music sits under the dialogue's TTS and the held mic, and stays down
+  // for the pause menu / busted dialog / the portrait rotate-gate, so it
+  // never fights the one voice the player actually needs to hear.
+  //
+  // Depend on `audio.duck` (stable via useCallback), not the `audio` object
+  // itself: `useGameAudio` returns a fresh object every render, and telemetry
+  // re-renders this component every frame, so depending on the whole object
+  // would re-run this effect (and restart the duck gain ramp) 60x/sec.
+  const duck = audio.duck;
+  useEffect(() => {
+    duck(talking !== null || menuOpen || busted || (mobilePlay && portrait));
+  }, [duck, talking, menuOpen, busted, mobilePlay, portrait]);
+
   useEffect(() => {
     if (heat <= 0 || busted) return;
     const t = setTimeout(() => setHeat((h) => Math.max(0, h - 1)), 40000);
@@ -109,6 +129,7 @@ export default function GameShell() {
     setBusted(true);
     setTalking(null);
     setCash((c) => Math.max(0, Math.round(c * 0.5)));
+    playSfx("error");
   }, [heat, busted]);
 
   useEffect(() => {
@@ -138,6 +159,7 @@ export default function GameShell() {
     if (!metRef.current.has(task.id)) {
       metRef.current.add(task.id);
       setCard(task);
+      playSfx("open");
       setTimeout(() => {
         setCard(null);
         setTalking(task);
@@ -196,6 +218,7 @@ export default function GameShell() {
         prev.includes(task.completionNote) ? prev : [...prev, task.completionNote]
       );
       gameRef.current?.markDone(taskId);
+      playSfx("cash");
 
       setToast(`Done: ${task.title}`);
       setTimeout(() => setToast(null), 4000);
@@ -242,8 +265,10 @@ export default function GameShell() {
   if (!district) {
     return (
       <Title
+        defaultDistrictId={lastDistrictId}
         onEnter={(d, c) => {
           setDistrict(d);
+          setLastDistrictId(d.id);
           setComfort(c);
         }}
       />
@@ -274,6 +299,8 @@ export default function GameShell() {
         mobilePlay={mobilePlay}
         panelsOpen={hudPanelsOpen}
         onTogglePanels={() => setHudPanelsOpen((o) => !o)}
+        sfxOn={audio.sfxOn}
+        onToggleSfx={audio.toggleSfx}
       />
 
       {mobilePlay && !portrait && (
@@ -333,6 +360,24 @@ export default function GameShell() {
             <Button className="w-full" onClick={() => setMenuOpen(false)}>
               Resume
             </Button>
+            <div className="flex w-full gap-2">
+              <Button
+                variant="neutral"
+                className="w-full"
+                sound={audio.sfxOn ? "toggleOff" : "toggleOn"}
+                onClick={audio.toggleSfx}
+              >
+                Sound effects: {audio.sfxOn ? "On" : "Off"}
+              </Button>
+              <Button
+                variant="neutral"
+                className="w-full"
+                sound={audio.musicOn ? "toggleOff" : "toggleOn"}
+                onClick={audio.toggleMusic}
+              >
+                Music: {audio.musicOn ? "On" : "Off"}
+              </Button>
+            </div>
             <Button variant="neutral" className="w-full" onClick={leaveDistrict}>
               Leave for another district
             </Button>
