@@ -1,7 +1,6 @@
 /**
- * Writes supabase/migrations/003_fix_lesson_prompts.sql from TS source.
- * Use after 002_seed_districts.sql is already applied — does not modify 002.
- * Run from game_engine: npx tsx scripts/generate-lesson-patch-migration.ts
+ * Writes supabase/migrations/006_improve_lessons.sql from TS source.
+ * Run after 001–005 migrations. Regenerate: npx tsx scripts/generate-lesson-patch-migration.ts
  */
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -10,15 +9,15 @@ import { SEED_DISTRICTS } from "../lib/game/districts";
 import { SEED_TASK_PACKS } from "../lib/game/tasks";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const outPath = join(__dirname, "../supabase/migrations/003_fix_lesson_prompts.sql");
+const outPath = join(__dirname, "../supabase/migrations/006_improve_lessons.sql");
 
 function sqlString(json: unknown): string {
   return `'${JSON.stringify(json).replace(/'/g, "''")}'::jsonb`;
 }
 
 const lines: string[] = [
-  "-- SADAK: patch district lesson data (#13 — lesson-only steps, no interruptions).",
-  "-- Run after 001_worlds_and_progress.sql and 002_seed_districts.sql.",
+  "-- SADAK: improve street-errand lesson dialogue (#40 — 3/5/7 steps, causal prompts).",
+  "-- Run after 001_worlds_and_progress.sql through 005_plaza_and_nearby_task_positions.sql.",
   "-- Regenerate: npx tsx scripts/generate-lesson-patch-migration.ts",
   "",
 ];
