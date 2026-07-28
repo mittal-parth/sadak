@@ -367,15 +367,9 @@ export class Game {
   private buildTaskSites() {
     const theme = this.district.theme;
 
-    // Task offsets in the district data run past ±20, but the chowk block
-    // only spans ±20 around its centre — anything beyond that stands in the
-    // road (the temple at [6,22] sat in the middle of the north avenue).
-    // Clamp anchors 2m inside the kerb so every site is on the plaza.
-    const onPlaza = (v: number) => THREE.MathUtils.clamp(v, -18, 18);
-
     for (const task of this.tasks) {
-      const x = CHOWK.x + onPlaza(task.pos[0]);
-      const z = CHOWK.z + onPlaza(task.pos[1]);
+      const x = CHOWK.x + task.pos[0];
+      const z = CHOWK.z + task.pos[1];
       const anchor = new THREE.Group();
       anchor.position.set(x, 0, z);
 
