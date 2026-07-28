@@ -138,7 +138,7 @@ function makeTaskBlip(color: number): THREE.Group {
   // the soft radial falloff of a volumetric beam for two draw calls.
   const coronaMat = (radius: number, opacity: number) =>
     new THREE.Mesh(
-      new THREE.CylinderGeometry(radius, radius, 5.5, 20, 1, true),
+      new THREE.CylinderGeometry(radius, radius, 4.2, 20, 1, true),
       new THREE.MeshBasicMaterial({
         color,
         map: ramp,
@@ -151,12 +151,12 @@ function makeTaskBlip(color: number): THREE.Group {
       })
     );
 
-  const coronaInner = coronaMat(0.55, 0.85);
-  coronaInner.position.y = 2.75;
+  const coronaInner = coronaMat(0.5, 0.45);
+  coronaInner.position.y = 2.1;
   g.add(coronaInner);
 
-  const coronaOuter = coronaMat(0.85, 0.4);
-  coronaOuter.position.y = 2.75;
+  const coronaOuter = coronaMat(0.78, 0.18);
+  coronaOuter.position.y = 2.1;
   g.add(coronaOuter);
 
   const ring = new THREE.Mesh(
@@ -767,22 +767,22 @@ export class Game {
       if (inner) {
         inner.rotation.y = t * 0.7;
         (inner.material as THREE.MeshBasicMaterial).color.setHex(colour);
-        (inner.material as THREE.MeshBasicMaterial).opacity = done ? 0.3 : 0.7 + pulse * 0.3;
+        (inner.material as THREE.MeshBasicMaterial).opacity = done ? 0.15 : 0.35 + pulse * 0.15;
       }
       if (outer) {
         outer.rotation.y = -t * 0.45;
         (outer.material as THREE.MeshBasicMaterial).color.setHex(colour);
-        (outer.material as THREE.MeshBasicMaterial).opacity = done ? 0.15 : 0.3 + pulse * 0.2;
-        outer.scale.set(1 + pulse * 0.1, 1, 1 + pulse * 0.1);
+        (outer.material as THREE.MeshBasicMaterial).opacity = done ? 0.08 : 0.14 + pulse * 0.08;
+        outer.scale.set(1 + pulse * 0.08, 1, 1 + pulse * 0.08);
       }
       if (ring) {
         (ring.material as THREE.MeshBasicMaterial).color.setHex(colour);
-        (ring.material as THREE.MeshBasicMaterial).opacity = done ? 0.3 : 0.45 + pulse * 0.3;
-        ring.scale.setScalar(0.95 + pulse * 0.18);
+        (ring.material as THREE.MeshBasicMaterial).opacity = done ? 0.18 : 0.3 + pulse * 0.15;
+        ring.scale.setScalar(0.95 + pulse * 0.12);
       }
       if (core) {
         (core.material as THREE.MeshBasicMaterial).color.setHex(colour);
-        (core.material as THREE.MeshBasicMaterial).opacity = done ? 0.25 : 0.4 + pulse * 0.25;
+        (core.material as THREE.MeshBasicMaterial).opacity = done ? 0.15 : 0.25 + pulse * 0.12;
       }
     }
 
