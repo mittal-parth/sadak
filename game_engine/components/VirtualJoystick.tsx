@@ -2,6 +2,7 @@
 
 import { useCallback, useRef } from "react";
 import { cn } from "@/lib/utils";
+import { playSfx } from "@/lib/audio/sfx";
 
 const RADIUS = 40;
 const KNOB = 18;
@@ -51,6 +52,7 @@ export default function VirtualJoystick({ className, onMove, disabled }: Props) 
     if (disabled) return;
     e.preventDefault();
     e.stopPropagation();
+    playSfx("tap");
     touchId.current = e.pointerId;
     baseRef.current?.setPointerCapture(e.pointerId);
     moveKnob(e.clientX, e.clientY);

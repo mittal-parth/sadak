@@ -15,7 +15,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Volume2, VolumeX } from "lucide-react";
 
 const MAP_PX = 168;
 const MAP_PX_MOBILE = 80;
@@ -219,6 +219,8 @@ export default function Hud({
   mobilePlay,
   panelsOpen,
   onTogglePanels,
+  sfxOn,
+  onToggleSfx,
 }: {
   district: District;
   tasks: StreetTask[];
@@ -236,6 +238,8 @@ export default function Hud({
   mobilePlay: boolean;
   panelsOpen: boolean;
   onTogglePanels: () => void;
+  sfxOn: boolean;
+  onToggleSfx: () => void;
 }) {
   const nearbyTask = tel?.nearby ? tasks.find((t) => t.id === tel.nearby) : null;
   const mapSize = mobilePlay ? MAP_PX_MOBILE : MAP_PX;
@@ -284,6 +288,7 @@ export default function Hud({
                 variant="neutral"
                 size="icon"
                 className="size-8 shrink-0"
+                sound="tap"
                 onClick={onTogglePanels}
                 aria-expanded={panelsOpen}
                 aria-label={panelsOpen ? "Hide game panels" : "Show game panels"}
@@ -292,6 +297,20 @@ export default function Hud({
                   <PanelLeftClose className="size-4" aria-hidden />
                 ) : (
                   <PanelLeftOpen className="size-4" aria-hidden />
+                )}
+              </Button>
+              <Button
+                variant="neutral"
+                size="icon"
+                className="size-8 shrink-0"
+                sound={sfxOn ? "toggleOff" : "toggleOn"}
+                onClick={onToggleSfx}
+                aria-label={sfxOn ? "Mute sound" : "Unmute sound"}
+              >
+                {sfxOn ? (
+                  <Volume2 className="size-4" aria-hidden />
+                ) : (
+                  <VolumeX className="size-4" aria-hidden />
                 )}
               </Button>
             </div>
@@ -384,6 +403,19 @@ export default function Hud({
               </Button>
               <Button variant="neutral" size="sm" onClick={onMenu}>
                 <kbd>Esc</kbd> Menu
+              </Button>
+              <Button
+                variant="neutral"
+                size="icon"
+                sound={sfxOn ? "toggleOff" : "toggleOn"}
+                onClick={onToggleSfx}
+                aria-label={sfxOn ? "Mute sound" : "Unmute sound"}
+              >
+                {sfxOn ? (
+                  <Volume2 className="size-4" aria-hidden />
+                ) : (
+                  <VolumeX className="size-4" aria-hidden />
+                )}
               </Button>
             </div>
           </div>

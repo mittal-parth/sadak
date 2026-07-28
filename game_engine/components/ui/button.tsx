@@ -1,8 +1,11 @@
+"use client"
+
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import * as React from "react"
 
+import { playSfx, type SfxName } from "@/lib/audio/sfx"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
@@ -32,22 +35,49 @@ const buttonVariants = cva(
   },
 )
 
+/**
+ * `sound` picks the click effect from `lib/audio/sfx.ts` ("click" by
+ * default); pass "none" for silent buttons (forms, nav). `hoverSound` is
+ * opt-in (unset by default) — pass it on game-UI buttons that should tick
+ * on mouse-over.
+ */
 function Button({
   className,
   variant,
   size,
   asChild = false,
+  sound = "click",
+  hoverSound,
+  onClick,
+  onMouseEnter,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean
+    sound?: SfxName | "none"
+    hoverSound?: SfxName | "none"
   }) {
   const Comp = asChild ? Slot : "button"
+
+  // asChild renders via Radix's Slot, which merges these handlers onto the
+  // child element — attach them before spreading `...props` so a caller's
+  // own onClick still overrides nothing and both fire.
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (sound !== "none") playSfx(sound)
+    onClick?.(e)
+  }
+
+  const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (hoverSound && hoverSound !== "none") playSfx(hoverSound)
+    onMouseEnter?.(e)
+  }
 
   return (
     <Comp
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
+      onClick={handleClick}
+      onMouseEnter={handleMouseEnter}
       {...props}
     />
   )
