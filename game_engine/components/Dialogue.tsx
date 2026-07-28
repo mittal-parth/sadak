@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { District } from "@/lib/game/districts";
 import type { NpcTurn } from "@/lib/game/npc-memory";
 import type { LessonTarget } from "@/lib/game/tasks";
@@ -64,6 +64,18 @@ export default function Dialogue({
   onMemoryUpdateRef.current = onMemoryUpdate;
 
   const step = steps[stepIndex];
+
+  // Live word colouring + accuracy while the mic is still open, reusing the
+  // exact same scorer the committed grade uses so the meter never disagrees
+  // with the "+N pts" that lands a moment later. Only drives the preview
+  // layer — `attempt` (set in onMicUp) remains the sole source of the score.
+  const live = useMemo(
+    () =>
+      step?.prompt && !attempt && voice.partial
+        ? scoreAttempt(step.prompt.native, voice.partial)
+        : null,
+    [step, attempt, voice.partial]
+  );
 
   const pushTurn = useCallback((turn: NpcTurn) => {
     const text = turn.content.trim();
@@ -208,6 +220,10 @@ export default function Dialogue({
     yellow: "word-yellow",
     red: "word-red",
   };
+  // Same green/yellow/red bands scoreAttempt uses per-word, applied to the
+  // overall live accuracy so the meter's colour matches the words it sums up.
+  const liveAccuracyVerdict = (accuracy: number): WordVerdict =>
+    accuracy >= 0.72 ? "green" : accuracy >= 0.4 ? "yellow" : "red";
 
   const stepsGraded = steps.filter((s) => s.prompt).length;
   const avgAccuracy = gradedCount ? Math.round(totalPoints / gradedCount) : 0;
@@ -286,18 +302,20 @@ export default function Dialogue({
                 ) : step.prompt ? (
                   <>
                     <p className="flex flex-wrap justify-end gap-1.5 text-lg max-sm:justify-start">
-                      {promptWords.map((w, i) => (
-                        <span
-                          key={i}
-                          className={
-                            attempt?.verdicts[i]
-                              ? verdictColor[attempt.verdicts[i]]
-                              : "text-foreground/80"
-                          }
-                        >
-                          {w}
-                        </span>
-                      ))}
+                      {promptWords.map((w, i) => {
+                        // Committed verdict wins once the mic is released; until
+                        // then the live partial paints the same words as the
+                        // player speaks them.
+                        const verdict = attempt?.verdicts[i] ?? live?.verdicts[i];
+                        return (
+                          <span
+                            key={i}
+                            className={verdict ? verdictColor[verdict] : "text-foreground/80"}
+                          >
+                            {w}
+                          </span>
+                        );
+                      })}
                     </p>
                     <p className="text-xs text-foreground/70">{step.prompt.en}</p>
                   </>
@@ -373,12 +391,32 @@ export default function Dialogue({
             >
               {voice.transcribing ? "···" : voice.recording ? "◉" : "🎙"}
             </Button>
+            {voice.recording && live && (
+              <p className="text-xs">
+                <span className={verdictColor[liveAccuracyVerdict(live.accuracy)]}>
+                  {live.points}%
+                </span>
+                <span className="text-foreground/70">
+                  {" "}
+                  · {live.verdicts.filter((v) => v === "green").length}/{live.verdicts.length} words
+                </span>
+              </p>
+            )}
             <p className="text-xs text-foreground/70">
-              {voice.transcribing
-                ? "Transcribing…"
-                : voice.recording
-                  ? "Listening…"
-                  : "Hold to speak the line above"}
+              {voice.transcribing ? (
+                "Transcribing…"
+              ) : voice.recording ? (
+                voice.partial ? (
+                  <span className="italic">
+                    {voice.partial}
+                    <span className="animate-pulse">▍</span>
+                  </span>
+                ) : (
+                  "Listening…"
+                )
+              ) : (
+                "Hold to speak the line above"
+              )}
             </p>
           </div>
         )}

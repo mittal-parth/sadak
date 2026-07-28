@@ -177,10 +177,21 @@ export async function sarvamTTS(
   }
 }
 
-/** Transcribes a recorded audio blob. `mode` "transcribe" keeps the source script. */
+/**
+ * Transcribes a recorded audio blob. `mode` "transcribe" keeps the source script.
+ *
+ * `opts.retry === false` skips the usual retry-with-backoff wrapper. Used by the
+ * live-partial path in useVoice: a partial is superseded by the next slice ~900ms
+ * later regardless, so paying the retry backoff for a transient 500 just delays a
+ * response that's about to be thrown away.
+ */
 export async function sarvamSTT(
   audio: Blob,
-  opts: { language?: LangCode; mode?: "transcribe" | "translate" | "codemix" } = {}
+  opts: {
+    language?: LangCode;
+    mode?: "transcribe" | "translate" | "codemix";
+    retry?: boolean;
+  } = {}
 ): Promise<string> {
   const form = new FormData();
   form.append("file", audio, "speech.webm");
@@ -188,7 +199,7 @@ export async function sarvamSTT(
   form.append("mode", opts.mode ?? "transcribe");
   if (opts.language) form.append("language_code", opts.language);
 
-  const json = await withRetry(async () => {
+  const call = async () => {
     const res = await fetch(`${BASE}/speech-to-text`, {
       method: "POST",
       headers: { "api-subscription-key": key() },
@@ -204,7 +215,9 @@ export async function sarvamSTT(
     }
 
     return res.json();
-  }, DEFAULT_RETRY_OPTS);
+  };
+
+  const json = opts.retry === false ? await call() : await withRetry(call, DEFAULT_RETRY_OPTS);
 
   return json?.transcript ?? json?.text ?? "";
 }
