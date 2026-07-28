@@ -83,7 +83,7 @@ function Minimap({ tel, size }: { tel: Telemetry; size: number }) {
     ctx.fillRect(0, 0, size, size);
 
     ctx.translate(R, R);
-    ctx.rotate(tel.heading);
+    ctx.rotate(tel.heading + Math.PI);
     ctx.translate(-tel.playerX * scale, -tel.playerZ * scale);
 
     ctx.strokeStyle = "#454f5a";
