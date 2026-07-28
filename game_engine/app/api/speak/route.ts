@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { sarvamTTS, type LangCode } from "@/lib/sarvam";
-import { districtById } from "@/lib/game/districts";
-import { taskById } from "@/lib/game/tasks";
+import { findTaskInLoaded, loadDistrictById } from "@/lib/game/load-district";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -19,8 +18,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Malformed request body." }, { status: 400 });
   }
 
-  const district = districtById(body.districtId);
-  const task = taskById(body.npcId);
+  const loaded = await loadDistrictById(body.districtId);
+  if (!loaded) {
+    return NextResponse.json({ error: `Unknown district "${body.districtId}".` }, { status: 404 });
+  }
+  const district = loaded.district;
+  const task = findTaskInLoaded(loaded, body.npcId);
   const npc = district.npcs.find((n) => n.id === body.npcId);
   const speaker = task?.speaker ?? npc?.speaker;
   if (!speaker) {

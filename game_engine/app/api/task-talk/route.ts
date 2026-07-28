@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { sarvamChat, type ChatMessage } from "@/lib/sarvam";
-import { districtById } from "@/lib/game/districts";
+import { findTaskInLoaded, loadDistrictById } from "@/lib/game/load-district";
 import { taskTalkSystemPrompt } from "@/lib/game/task-conversation";
-import { taskById } from "@/lib/game/tasks";
 import type { LessonStep } from "@/lib/game/districts";
 import type { NpcTurn } from "@/lib/game/npc-memory";
 
@@ -80,8 +79,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
   }
 
-  const district = districtById(body.districtId);
-  const task = taskById(body.taskId);
+  const loaded = await loadDistrictById(body.districtId);
+  if (!loaded) {
+    return NextResponse.json({ error: `unknown district: ${body.districtId}` }, { status: 404 });
+  }
+  const district = loaded.district;
+  const task = findTaskInLoaded(loaded, body.taskId);
   if (!task) {
     return NextResponse.json({ error: `unknown task: ${body.taskId}` }, { status: 404 });
   }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { AccessToken } from "livekit-server-sdk";
-import { districtById } from "@/lib/game/districts";
+import { loadDistrictById } from "@/lib/game/load-district";
 import { resolveSpeaker } from "@/lib/sarvam";
 import { greetingPrompt, graderSystemPrompt, voiceSystemPrompt } from "@/lib/game/prompt";
 
@@ -54,7 +54,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Malformed request body." }, { status: 400 });
   }
 
-  const district = districtById(body.districtId);
+  const loaded = await loadDistrictById(body.districtId);
+  if (!loaded) {
+    return NextResponse.json({ error: `Unknown district "${body.districtId}".` }, { status: 404 });
+  }
+  const district = loaded.district;
   const npc = district.npcs.find((n) => n.id === body.npcId);
   if (!npc) {
     return NextResponse.json({ error: `Unknown NPC "${body.npcId}".` }, { status: 404 });

@@ -5,15 +5,15 @@ import { Game, type Telemetry } from "@/lib/game/engine";
 import type { District } from "@/lib/game/districts";
 import {
   errandIndexForTask,
+  findTaskById,
   resolveTaskLesson,
   taskAsLessonTarget,
-  taskById,
-  taskFinaleForDistrict,
-  tasksForDistrict,
-  totalTaskReward,
+  totalTaskRewardForTasks,
+  type DistrictTaskPack,
   type StreetTask,
 } from "@/lib/game/tasks";
 import type { ComfortLevel } from "@/lib/game/levels";
+import type { DistrictProgress } from "@/lib/game/progress";
 import { errandLevelNumber, lessonTierFor } from "@/lib/game/levels";
 import { useGameAudio } from "@/lib/audio/useGameAudio";
 import { playSfx } from "@/lib/audio/sfx";
@@ -47,6 +47,9 @@ export default function GameShell() {
   const gameRef = useRef<Game | null>(null);
 
   const [district, setDistrict] = useState<District | null>(null);
+  const [tasks, setTasks] = useState<StreetTask[]>([]);
+  const [taskFinale, setTaskFinale] = useState<DistrictTaskPack["finale"] | null>(null);
+  const [entering, setEntering] = useState(false);
   // Survives `district` going back to null so Title (which fully remounts
   // on every return trip) can default the picker to what was last played
   // instead of always resetting to DISTRICTS[0].
@@ -67,26 +70,100 @@ export default function GameShell() {
   const { mobilePlay, portrait } = useMobilePlay();
   const audio = useGameAudio(district?.id);
 
-  const tasks = useMemo(
-    () => (district ? tasksForDistrict(district.id) : []),
-    [district]
-  );
+  const tasksMemo = tasks;
 
   const talkingTarget = useMemo(() => {
     if (!talking) return null;
-    const index = errandIndexForTask(talking.id, talking.districtId);
+    const index = errandIndexForTask(talking.id, tasksMemo);
     const tier = lessonTierFor(comfort, index);
-    const lesson = resolveTaskLesson(talking, comfort);
+    const lesson = resolveTaskLesson(talking, comfort, tasksMemo);
     return taskAsLessonTarget(talking, lesson, {
       errandLevel: errandLevelNumber(index),
       lessonTier: tier,
     });
-  }, [talking, comfort]);
+  }, [talking, comfort, tasksMemo]);
 
   const nearbyRef = useRef<string | null>(null);
   const talkingRef = useRef<StreetTask | null>(null);
   const menuRef = useRef(false);
   const metRef = useRef<Set<string>>(new Set());
+  const progressRef = useRef({
+    districtId: "",
+    comfort: "medium" as ComfortLevel,
+    cash: 0,
+    xp: 0,
+    completedTaskIds: [] as string[],
+  });
+
+  useEffect(() => {
+    progressRef.current = {
+      districtId: district?.id ?? "",
+      comfort,
+      cash,
+      xp,
+      completedTaskIds: [...completed],
+    };
+  }, [district?.id, comfort, cash, xp, completed]);
+
+  const persistProgress = useCallback(async (snapshot: DistrictProgress) => {
+    try {
+      const res = await fetch("/api/progress", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(snapshot),
+      });
+      if (!res.ok) {
+        throw new Error("save failed");
+      }
+    } catch {
+      setToast("Could not save progress");
+      setTimeout(() => setToast(null), 4000);
+    }
+  }, []);
+
+  const enterDistrict = useCallback(
+    async (districtId: string, pickedComfort: ComfortLevel) => {
+      setEntering(true);
+      try {
+        const [districtRes, progressRes] = await Promise.all([
+          fetch(`/api/districts/${encodeURIComponent(districtId)}`),
+          fetch(`/api/progress?districtId=${encodeURIComponent(districtId)}`),
+        ]);
+        if (!districtRes.ok) {
+          throw new Error("Could not load district.");
+        }
+        if (!progressRes.ok) {
+          throw new Error("Could not load progress.");
+        }
+        const districtPayload = (await districtRes.json()) as {
+          district: District;
+          taskPack: DistrictTaskPack;
+          tasks: StreetTask[];
+        };
+        const progressPayload = (await progressRes.json()) as {
+          progress: DistrictProgress;
+        };
+        const saved = progressPayload.progress;
+        setDistrict(districtPayload.district);
+        setTasks(districtPayload.tasks);
+        setTaskFinale(districtPayload.taskPack.finale);
+        setLastDistrictId(districtId);
+        setComfort(pickedComfort);
+        setCash(saved.cash);
+        setXp(saved.xp);
+        setCompleted(new Set(saved.completedTaskIds));
+        setArtifacts([]);
+        setNpcMemory({});
+        metRef.current = new Set();
+      } catch {
+        setToast("Could not enter district");
+        setTimeout(() => setToast(null), 4000);
+      } finally {
+        setEntering(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     talkingRef.current = talking;
@@ -116,7 +193,7 @@ export default function GameShell() {
   useEffect(() => {
     if (!district || !canvasRef.current) return;
 
-    const game = new Game(canvasRef.current, district, (t) => {
+    const game = new Game(canvasRef.current, district, tasks, (t) => {
       nearbyRef.current = t.nearby;
       setTel(t);
     });
@@ -130,11 +207,11 @@ export default function GameShell() {
       game.dispose();
       gameRef.current = null;
     };
-  }, [district]);
+  }, [district, tasks]);
 
   const openTalk = useCallback(() => {
     if (!district || talkingRef.current) return;
-    const task = taskById(nearbyRef.current ?? "");
+    const task = findTaskById(tasks, nearbyRef.current ?? "");
     if (!task || task.districtId !== district.id) return;
 
     if (!metRef.current.has(task.id)) {
@@ -148,7 +225,7 @@ export default function GameShell() {
       return;
     }
     setTalking(task);
-  }, [district]);
+  }, [district, tasks]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -187,29 +264,47 @@ export default function GameShell() {
 
   const onComplete = useCallback(
     (taskId: string, reward: number) => {
-      const task = taskById(taskId);
+      if (!district) return;
+      const task = findTaskById(tasks, taskId);
       if (!task) return;
 
-      setCompleted((prev) => {
-        if (prev.has(taskId)) return prev;
-        return new Set(prev).add(taskId);
-      });
-      setCash((c) => c + reward);
+      if (completed.has(taskId)) return;
+
+      const nextCompleted = new Set(completed);
+      nextCompleted.add(taskId);
+      const nextCash = cash + reward;
+
+      setCompleted(nextCompleted);
+      setCash(nextCash);
       setArtifacts((prev) =>
         prev.includes(task.completionNote) ? prev : [...prev, task.completionNote]
       );
       gameRef.current?.markDone(taskId);
       playSfx("cash");
 
+      void persistProgress({
+        districtId: district.id,
+        comfort,
+        cash: nextCash,
+        xp: progressRef.current.xp,
+        completedTaskIds: [...nextCompleted],
+      });
+
       setToast(`Done: ${task.title}`);
       setTimeout(() => setToast(null), 4000);
       setTalking(null);
     },
-    []
+    [district, tasks, completed, cash, comfort, persistProgress]
   );
 
   const leaveDistrict = useCallback(() => {
+    const snap = progressRef.current;
+    if (snap.districtId) {
+      void persistProgress(snap);
+    }
     setDistrict(null);
+    setTasks([]);
+    setTaskFinale(null);
     setTel(null);
     setTalking(null);
     setCash(0);
@@ -222,8 +317,7 @@ export default function GameShell() {
     setCard(null);
     metRef.current = new Set();
     setNpcMemory({});
-    setComfort("medium");
-  }, []);
+  }, [persistProgress]);
 
   const onJoystickMove = useCallback((fwd: number, strafe: number) => {
     gameRef.current?.setVirtualMove(fwd, strafe);
@@ -234,19 +328,19 @@ export default function GameShell() {
 
   if (!district) {
     return (
-      <Title
-        defaultDistrictId={lastDistrictId}
-        onEnter={(d, c) => {
-          setDistrict(d);
-          setLastDistrictId(d.id);
-          setComfort(c);
-        }}
-      />
+      <>
+        <Title defaultDistrictId={lastDistrictId} onEnter={enterDistrict} />
+        {entering && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80">
+            <p className="text-sm text-foreground/80">Loading district…</p>
+          </div>
+        )}
+      </>
     );
   }
 
   const allDone = tasks.length > 0 && completed.size === tasks.length;
-  const finale = taskFinaleForDistrict(district.id);
+  const finale = taskFinale;
 
   return (
     <div className="relative h-screen w-screen overflow-hidden">
@@ -336,7 +430,9 @@ export default function GameShell() {
               Leave for another district
             </Button>
             <SignOutButton fullWidth />
-            <p className="text-xs text-foreground/70">Progress in this district is not saved.</p>
+            <p className="text-xs text-foreground/70">
+              Cash, XP, and completed errands save when you finish a task or leave.
+            </p>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -351,7 +447,7 @@ export default function GameShell() {
               </DialogDescription>
             </DialogHeader>
             <p className="text-sm text-foreground/80">
-              ₹{totalTaskReward(district.id).toLocaleString("en-IN")} earned in {district.name}
+              ₹{totalTaskRewardForTasks(tasks).toLocaleString("en-IN")} earned in {district.name}
             </p>
             <DialogFooter className="justify-center sm:justify-center">
               <Button variant="neutral" onClick={leaveDistrict}>

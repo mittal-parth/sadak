@@ -821,11 +821,13 @@ him.`,
   },
 };
 
-export const DISTRICTS: District[] = [puraniSadak, marinaNagar, majesticCross, parkGully];
-
-export function districtById(id: string): District {
-  return DISTRICTS.find((d) => d.id === id) ?? DISTRICTS[0];
-}
+/** Authoring / seed only — runtime loads from Supabase. */
+export const SEED_DISTRICTS: District[] = [
+  puraniSadak,
+  marinaNagar,
+  majesticCross,
+  parkGully,
+];
 
 export function totalReward(d: District): number {
   return d.npcs.reduce((s, n) => s + n.mission.reward, 0);
