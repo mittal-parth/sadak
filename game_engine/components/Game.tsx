@@ -20,6 +20,7 @@ import Hud from "./Hud";
 import Dialogue from "./Dialogue";
 import VirtualJoystick from "./VirtualJoystick";
 import LandscapeGate from "./LandscapeGate";
+import SignOutButton from "@/components/auth/SignOutButton";
 import { useMobilePlay } from "@/lib/useMobilePlay";
 import { Alert, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -336,6 +337,7 @@ export default function GameShell() {
             <Button variant="neutral" className="w-full" onClick={leaveDistrict}>
               Leave for another district
             </Button>
+            <SignOutButton fullWidth />
             <p className="text-xs text-foreground/70">Progress in this district is not saved.</p>
           </DialogFooter>
         </DialogContent>

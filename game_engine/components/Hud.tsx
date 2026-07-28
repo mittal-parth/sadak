@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import SignOutButton from "@/components/auth/SignOutButton";
 
 const MAP_PX = 168;
 const MAP_PX_MOBILE = 80;
@@ -320,6 +321,7 @@ export default function Hud({
                   <Button variant="neutral" size="sm" className="h-8 text-xs" onClick={onMenu}>
                     Menu
                   </Button>
+                  <SignOutButton className="h-8 text-xs" />
                 </CardContent>
               </HudCard>
               <HudCard className="py-2">
@@ -385,6 +387,7 @@ export default function Hud({
               <Button variant="neutral" size="sm" onClick={onMenu}>
                 <kbd>Esc</kbd> Menu
               </Button>
+              <SignOutButton />
             </div>
           </div>
 
