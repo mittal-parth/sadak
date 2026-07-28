@@ -419,8 +419,10 @@ export function buildCity(
   }
 
   const signals = addJunctionSignals(group, colliders);
-  addParkedCars(group, colliders, lines, rand, vehicleMats);
+  // Landmarks before parked cars: a gate pier stands in the parking strip,
+  // and the parking pass skips any spot that overlaps an existing collider.
   addLandmarks(group, colliders, theme, rand);
+  addParkedCars(group, colliders, lines, rand, vehicleMats);
 
   // Street clutter goes last: it needs the finished collider list so nothing
   // spawns inside a building or a tree.
@@ -511,11 +513,19 @@ function addParkedCars(
         // Never park across a junction or its crossing.
         if (lines.some((o) => Math.abs(along - o) < ROAD_W + 4)) continue;
 
-        const kind = TRAFFIC_KINDS[Math.floor(rand() * TRAFFIC_KINDS.length)];
-        const car = makeCar(vehicleMats, { kind, seed: Math.floor(rand() * 1e6) });
-
         const x = axis === "z" ? c + side * lay : along;
         const z = axis === "z" ? along : c + side * lay;
+
+        // Never park inside something already standing there — without this,
+        // cars spawn embedded in the bazaar gate's piers.
+        const chw = axis === "z" ? 1.0 : 2.3;
+        const chd = axis === "z" ? 2.3 : 1.0;
+        if (colliders.some((b) => Math.abs(x - b.x) < chw + b.hw && Math.abs(z - b.z) < chd + b.hd)) {
+          continue;
+        }
+
+        const kind = TRAFFIC_KINDS[Math.floor(rand() * TRAFFIC_KINDS.length)];
+        const car = makeCar(vehicleMats, { kind, seed: Math.floor(rand() * 1e6) });
         // Parked cars face the direction of travel for their side of the road.
         car.rotation.y =
           axis === "z" ? (side > 0 ? Math.PI : 0) : side > 0 ? Math.PI / 2 : -Math.PI / 2;
@@ -572,10 +582,11 @@ function addLandmarks(
       // square — it was previously centred on the north road, blocking it.
       place(makeHaveliBalcony(), CHOWK.x, north - JUNCTION_HALF - 2.0, Math.PI, 3.3, 2.2);
 
-      // India Gate as a monument at the east edge of the square, facing the
+      // India Gate as a monument on the square's south edge, facing the
       // chowk. Its 5m passage is too narrow to straddle a trafficked road,
-      // and mid-block it clips into the building terraces.
-      place(makeIndiaGate(), east - JUNCTION_HALF - 1.6, CHOWK.z, -Math.PI / 2, 1.2, 4.4);
+      // mid-block it clips the building terraces, and the east edge is where
+      // the auto errand parks its rickshaw.
+      place(makeIndiaGate(), CHOWK.x, south + JUNCTION_HALF + 1.6, 0, 4.4, 1.2);
       break;
     }
 
