@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { X } from "lucide-react";
 import type { District } from "@/lib/game/districts";
 import type { NpcTurn } from "@/lib/game/npc-memory";
 import type { LessonTarget } from "@/lib/game/tasks";
@@ -9,6 +10,7 @@ import { scoreAttempt, type WordVerdict } from "@/lib/game/speech-score";
 import { playSfx } from "@/lib/audio/sfx";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -244,7 +246,10 @@ export default function Dialogue({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="fixed top-auto bottom-6 max-h-[min(85vh,42rem)] translate-y-0 gap-0 overflow-y-auto p-0 sm:max-w-2xl">
+      <DialogContent
+        showClose={false}
+        className="fixed top-auto bottom-6 max-h-[min(85vh,42rem)] translate-y-0 gap-0 overflow-y-auto p-0 sm:max-w-2xl"
+      >
         <DialogHeader className="flex-row items-center gap-3 space-y-0 border-b-2 border-border px-4 py-3 text-left">
           <div
             className="size-9 shrink-0 rounded-base border-2 border-border"
@@ -257,15 +262,21 @@ export default function Dialogue({
               <strong className="font-indic text-foreground">{district.native}</strong>
             </DialogDescription>
           </div>
-          <div className="flex shrink-0 flex-col items-end gap-1">
-            {target.errandLevel != null && target.lessonTier != null && (
-              <Badge variant="neutral" className="text-[0.625rem] uppercase tracking-wide">
-                Level {target.errandLevel}/4 · {lessonTierLabel(target.lessonTier)}
+          <div className="flex shrink-0 items-center gap-2">
+            <div className="flex flex-nowrap items-center justify-end gap-1">
+              {target.errandLevel != null && target.lessonTier != null && (
+                <Badge variant="neutral" className="shrink-0 text-[0.625rem] uppercase tracking-wide">
+                  Level {target.errandLevel}/4 · {lessonTierLabel(target.lessonTier)}
+                </Badge>
+              )}
+              <Badge variant="neutral" className="shrink-0">
+                {Math.min(stepIndex + 1, steps.length)} / {steps.length}
               </Badge>
-            )}
-            <Badge variant="neutral">
-              {Math.min(stepIndex + 1, steps.length)} / {steps.length}
-            </Badge>
+            </div>
+            <DialogClose className="rounded-base opacity-100 ring-offset-white focus:outline-hidden focus:ring-2 focus:ring-black focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
+              <X />
+              <span className="sr-only">Close</span>
+            </DialogClose>
           </div>
         </DialogHeader>
 

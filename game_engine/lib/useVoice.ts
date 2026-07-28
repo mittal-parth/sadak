@@ -147,7 +147,11 @@ export function useVoice(language: LangCode) {
       const json = await res.json();
 
       if (!res.ok) {
-        setError(json.error ?? "Could not transcribe that.");
+        setError(
+          typeof json.error === "string" && json.error.trim()
+            ? json.error
+            : "Could not transcribe that - try again."
+        );
         return "";
       }
       return (json.transcript ?? "").trim();
