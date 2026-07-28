@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,18 +13,25 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
+const IS_DEV = process.env.NODE_ENV === "development";
+
 function authRedirectPath(next: string | null): string {
   const path = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
   return `${window.location.origin}/auth/callback?next=${encodeURIComponent(path)}`;
 }
 
 export default function LoginForm() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next");
   const authError = searchParams.get("error") === "auth";
+  const safeNext =
+    next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
 
   const [email, setEmail] = useState("");
-  const [busy, setBusy] = useState<"google" | "magic" | null>(null);
+  const [devEmail, setDevEmail] = useState("");
+  const [devPassword, setDevPassword] = useState("");
+  const [busy, setBusy] = useState<"google" | "magic" | "password" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -64,6 +71,26 @@ export default function LoginForm() {
       return;
     }
     setMessage("Check your email for a sign-in link.");
+  }
+
+  async function signInWithPassword(event: React.FormEvent) {
+    event.preventDefault();
+    const trimmedEmail = devEmail.trim();
+    if (!trimmedEmail || !devPassword) return;
+    setFormError(null);
+    setMessage(null);
+    setBusy("password");
+    const { error } = await supabase.auth.signInWithPassword({
+      email: trimmedEmail,
+      password: devPassword,
+    });
+    if (error) {
+      setFormError(error.message);
+      setBusy(null);
+      return;
+    }
+    router.push(safeNext);
+    router.refresh();
   }
 
   return (
@@ -129,6 +156,56 @@ export default function LoginForm() {
             {busy === "magic" ? "Sending…" : "Email me a magic link"}
           </Button>
         </form>
+
+        {IS_DEV ? (
+          <>
+            <div className="relative text-center text-sm text-foreground/70">
+              <span className="bg-background px-2 relative z-10 uppercase tracking-widest text-[11px] font-heading">
+                development only
+              </span>
+              <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-border" aria-hidden />
+            </div>
+
+            <form
+              className="flex flex-col gap-3 rounded-base border-2 border-dashed border-border p-3"
+              onSubmit={(e) => void signInWithPassword(e)}
+            >
+              <label className="flex flex-col gap-1.5 text-sm">
+                <span className="font-heading">Email</span>
+                <input
+                  type="email"
+                  name="dev-email"
+                  autoComplete="email"
+                  required
+                  value={devEmail}
+                  onChange={(e) => setDevEmail(e.target.value)}
+                  className="h-10 rounded-base border-2 border-border bg-secondary-background px-3 text-foreground shadow-shadow focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                  placeholder="you@example.com"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm">
+                <span className="font-heading">Password</span>
+                <input
+                  type="password"
+                  name="dev-password"
+                  autoComplete="current-password"
+                  required
+                  value={devPassword}
+                  onChange={(e) => setDevPassword(e.target.value)}
+                  className="h-10 rounded-base border-2 border-border bg-secondary-background px-3 text-foreground shadow-shadow focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                  placeholder="Password"
+                />
+              </label>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={busy !== null || !devEmail.trim() || !devPassword}
+              >
+                {busy === "password" ? "Signing in…" : "Sign in with password"}
+              </Button>
+            </form>
+          </>
+        ) : null}
       </CardContent>
     </Card>
   );
