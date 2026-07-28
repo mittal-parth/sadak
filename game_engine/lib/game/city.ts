@@ -2,13 +2,14 @@ import * as THREE from "three";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import {
   makeBuilding, makeStall, makeStreetLight, makeTrafficLight, makeTree, mulberry32,
-  makeBoat, makeBillboard, makeTram, makeArch,
+  makeBoat, makeBillboard, makeTram,
 } from "./props";
 import type { Theme } from "./districts";
 import { buildBuildingParts } from "./buildings";
 import type { MaterialLibrary } from "./materials";
 import { createClutter, type Clutter } from "./clutter";
 import { makeCar, TRAFFIC_KINDS, type VehicleMaterials } from "./vehicles";
+import { makeBazaarGate, makeHaveliBalcony, makeIndiaGate } from "./assets/delhi";
 
 /**
  * Two lanes each way plus a parking strip. The old 9m gully put the facades
@@ -418,8 +419,10 @@ export function buildCity(
   }
 
   const signals = addJunctionSignals(group, colliders);
-  addParkedCars(group, colliders, lines, rand, vehicleMats);
+  // Landmarks before parked cars: a gate pier stands in the parking strip,
+  // and the parking pass skips any spot that overlaps an existing collider.
   addLandmarks(group, colliders, theme, rand);
+  addParkedCars(group, colliders, lines, rand, vehicleMats);
 
   // Street clutter goes last: it needs the finished collider list so nothing
   // spawns inside a building or a tree.
@@ -510,11 +513,19 @@ function addParkedCars(
         // Never park across a junction or its crossing.
         if (lines.some((o) => Math.abs(along - o) < ROAD_W + 4)) continue;
 
-        const kind = TRAFFIC_KINDS[Math.floor(rand() * TRAFFIC_KINDS.length)];
-        const car = makeCar(vehicleMats, { kind, seed: Math.floor(rand() * 1e6) });
-
         const x = axis === "z" ? c + side * lay : along;
         const z = axis === "z" ? along : c + side * lay;
+
+        // Never park inside something already standing there — without this,
+        // cars spawn embedded in the bazaar gate's piers.
+        const chw = axis === "z" ? 1.0 : 2.3;
+        const chd = axis === "z" ? 2.3 : 1.0;
+        if (colliders.some((b) => Math.abs(x - b.x) < chw + b.hw && Math.abs(z - b.z) < chd + b.hd)) {
+          continue;
+        }
+
+        const kind = TRAFFIC_KINDS[Math.floor(rand() * TRAFFIC_KINDS.length)];
+        const car = makeCar(vehicleMats, { kind, seed: Math.floor(rand() * 1e6) });
         // Parked cars face the direction of travel for their side of the road.
         car.rotation.y =
           axis === "z" ? (side > 0 ? Math.PI : 0) : side > 0 ? Math.PI / 2 : -Math.PI / 2;
@@ -555,11 +566,29 @@ function addLandmarks(
   const north = SPACING;
 
   switch (theme.landmark) {
-    case "delhi":
-      // Arches straddling the two avenues either side of the chowk.
-      place(makeArch(), west, CHOWK.z, Math.PI / 2, 1.6, 5);
-      place(makeArch(), CHOWK.x, north, 0, 5, 1.6);
+    case "delhi": {
+      // Bazaar gate ARCHES OVER the west avenue: rotation 0 keeps its piers
+      // (local x ±5) at the road edges, so traffic in the lanes (±2.9) and the
+      // player both pass under the 8m passage. Colliders on the piers only —
+      // one blob collider here walls off the entire avenue.
+      const gate = makeBazaarGate();
+      gate.position.set(west, 0.02, CHOWK.z);
+      group.add(gate);
+      for (const px of [-5, 5]) {
+        colliders.push({ x: west + px, z: CHOWK.z, hw: 1.3, hd: 1.3 });
+      }
+
+      // Haveli facade on the chowk block's north edge, facing south into the
+      // square — it was previously centred on the north road, blocking it.
+      place(makeHaveliBalcony(), CHOWK.x, north - JUNCTION_HALF - 2.0, Math.PI, 3.3, 2.2);
+
+      // India Gate as a monument on the square's south edge, facing the
+      // chowk. Its 5m passage is too narrow to straddle a trafficked road,
+      // mid-block it clips the building terraces, and the east edge is where
+      // the auto errand parks its rickshaw.
+      place(makeIndiaGate(), CHOWK.x, south + JUNCTION_HALF + 1.6, 0, 4.4, 1.2);
       break;
+    }
 
     case "chennai":
       // Boats hauled up on the sand beside the southern shore road.

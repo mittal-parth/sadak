@@ -118,7 +118,7 @@ function limbCyl(
   x: number,
   yTop: number,
   z: number,
-  segs = 6
+  segs = 12
 ): THREE.BufferGeometry {
   const g = new THREE.CylinderGeometry(topR, botR, h, segs);
   return xf(g, x, yTop - h / 2, z);
@@ -239,14 +239,19 @@ function curvedSheet(
 function headGeometry(scale: number): THREE.BufferGeometry {
   const pts = [
     new THREE.Vector2(0.015, 0.0), // chin tip
+    new THREE.Vector2(0.055, 0.012), // jaw curve
     new THREE.Vector2(0.07, 0.02), // jaw
+    new THREE.Vector2(0.08, 0.04), // lower cheek
     new THREE.Vector2(0.085, 0.06), // cheek
     new THREE.Vector2(0.09, 0.1), // ear line
+    new THREE.Vector2(0.087, 0.125), // upper temple
     new THREE.Vector2(0.082, 0.14), // temple
+    new THREE.Vector2(0.07, 0.16), // crown curve
     new THREE.Vector2(0.055, 0.17), // crown start
+    new THREE.Vector2(0.03, 0.18), // near top
     new THREE.Vector2(0.0, 0.185), // top
   ];
-  const g = new THREE.LatheGeometry(pts, 8);
+  const g = new THREE.LatheGeometry(pts, 20);
   g.scale(scale, scale, scale);
   return g;
 }
@@ -401,16 +406,15 @@ export function makePerson(
 
   // Pelvis block (local space of `hips`: y=0 is hip height).
   clothStatic.push(
-    limbCyl(hipW * 0.95, hipW, waistTop - hipY, 0, waistTop - hipY, 0, 8)
+    limbCyl(hipW * 0.95, hipW, waistTop - hipY, 0, waistTop - hipY, 0, 16)
   );
 
-  // Torso: tapered cylinder, waist -> shoulders, low radial count so it
-  // reads slightly boxy rather than a smooth tube.
+  // Torso: tapered cylinder, waist -> shoulders.
   const torsoH = shoulderY - waistTop;
   const isDraped = preset === "sari" || preset === "kurta_pyjama" || preset === "salwar_kameez";
   const torsoTopR = shoulderW * (isDraped ? 0.85 : 0.78);
   const torsoBotR = hipW * 0.85;
-  clothStatic.push(limbCyl(torsoTopR, torsoBotR, torsoH, 0, shoulderY - hipY, 0, 8));
+  clothStatic.push(limbCyl(torsoTopR, torsoBotR, torsoH, 0, shoulderY - hipY, 0, 16));
 
   // Long garment overlay: kameez/kurta/sari fall to thigh height, over the
   // trousers/legs below — this is what changes the silhouette, not colour.
@@ -448,10 +452,10 @@ export function makePerson(
 
   // Sloped shoulders: a squashed sphere cap softens the top of the torso
   // cylinder so shoulders don't look cut flat.
-  clothStatic.push(sphereAt(torsoTopR * 0.95, 0, shoulderY - hipY, 0, 1, 0.35, 0.75, 6, 4));
+  clothStatic.push(sphereAt(torsoTopR * 0.95, 0, shoulderY - hipY, 0, 1, 0.35, 0.75, 10, 6));
 
   // Neck + head.
-  skinStatic.push(limbCyl(0.052, 0.058, neckY - shoulderY + 0.05, 0, neckY - hipY + 0.03, 0, 6));
+  skinStatic.push(limbCyl(0.052, 0.058, neckY - shoulderY + 0.05, 0, neckY - hipY + 0.03, 0, 10));
   const headGroup = new THREE.Group();
   const skullBaseY = chinY - hipY + 0.02;
   const headH = headTop - chinY;
@@ -468,6 +472,10 @@ export function makePerson(
   // gives the face — and the whole body's "+Z is front" convention used by
   // the pallu drape, badge and backpack placement below — a visible tell.
   skinStatic.push(boxAt(0.02, 0.03, 0.03, 0, chinY - hipY + 0.1, 0.083, 0.35));
+  // Eyes — dark spheres break up the smooth lathe and read as a face up close.
+  [-1, 1].forEach((s) => {
+    hairStatic.push(sphereAt(0.013, s * 0.034, chinY - hipY + 0.12, 0.078, 1, 1, 1, 8, 6));
+  });
 
   // ---- Hair / headwear (also drives whether a topi/turban is worn) ----
   const hairRoll = rand();
@@ -494,8 +502,19 @@ export function makePerson(
   const onCrown = (r: number, sy: number, sz = 1) =>
     sphereAt(r, 0, skullCrownY + r * sy, 0, 1, sy, sz, 6, 4);
 
+  // Actual hair over the scalp for the uncovered styles. Without this the
+  // bare lathe crown is skin-coloured and every "short"-haired character —
+  // most of the crowd — reads as bald.
+  if (hairStyle === "short" || hairStyle === "bun" || hairStyle === "braid") {
+    // Sized to hug the crown and swept slightly back, so it shows a hairline
+    // above the forehead without ever dipping over the eyes (z 0.078).
+    hairStatic.push(
+      sphereAt(0.092, 0, skullCrownY - 0.045, -0.02, 1, 0.6, 1, 12, 7)
+    );
+  }
+
   if (hairStyle === "short") {
-    // Skull reads as the head; no extra cap mesh stacked on top.
+    // Cap above covers it; nothing extra.
   } else if (hairStyle === "bun") {
     hairStatic.push(sphereAt(0.05, 0, skullCrownY - 0.09, -0.11, 1, 0.85, 0.9, 6, 4));
   } else if (hairStyle === "braid") {
@@ -623,10 +642,13 @@ export function makePerson(
     const thighBotR = 0.072 * build;
 
     if (bareLeg) {
-      thighSkin.push(limbCyl(thighTopR, thighBotR, kneeDrop, 0, 0, 0, 6));
+      thighSkin.push(limbCyl(thighTopR, thighBotR, kneeDrop, 0, 0, 0, 10));
+      thighSkin.push(sphereAt(thighTopR * 0.98, 0, 0, 0, 1, 1, 1, 10, 6));
     } else {
       const bag = preset === "salwar_kameez" ? 1.7 : 1.0; // baggy salwar
-      thighCloth.push(limbCyl(thighTopR * bag, thighBotR * bag, kneeDrop, 0, 0, 0, 6));
+      thighCloth.push(limbCyl(thighTopR * bag, thighBotR * bag, kneeDrop, 0, 0, 0, 10));
+      // Hip joint sphere so the thigh doesn't shear open at the pelvis mid-stride.
+      thighCloth.push(sphereAt(thighTopR * bag * 0.98, 0, 0, 0, 1, 1, 1, 10, 6));
     }
 
     const thighMesh = mergeAndMesh(thighCloth, legColourMat ?? mats.cloth);
@@ -646,14 +668,19 @@ export function makePerson(
     const shinLen = ankleDrop - footH;
     const shinBareBelowKnee = preset === "lungi" || preset === "sari";
     if (shinBareBelowKnee) {
-      shinSkin.push(limbCyl(0.065 * build, 0.048 * build, shinLen, 0, 0, 0, 6));
+      shinSkin.push(limbCyl(0.065 * build, 0.048 * build, shinLen, 0, 0, 0, 10));
+      shinSkin.push(sphereAt(0.062 * build, 0, 0, 0, 1, 1, 1, 10, 6));
     } else {
       const bag = preset === "salwar_kameez" ? 1.35 : 1.0;
       const cuff = preset === "salwar_kameez" ? 0.032 : 0.045; // salwar cuffs in at the ankle
-      shinCloth.push(limbCyl(thighBotR * bag, cuff * build, shinLen, 0, 0, 0, 6));
+      shinCloth.push(limbCyl(thighBotR * bag, cuff * build, shinLen, 0, 0, 0, 10));
+      // Knee joint sphere: fills the wedge the bent knee opens between
+      // thigh bottom and shin top.
+      shinCloth.push(sphereAt(thighBotR * bag * 0.96, 0, 0, 0, 1, 1, 1, 10, 6));
     }
-    // Foot.
-    shinSkin.push(boxAt(0.065, footH, 0.14, 0, -shinLen - footH / 2, 0.03));
+    // Foot: main block plus a lower rounded toe so it reads as a shoe, not a brick.
+    shinSkin.push(boxAt(0.065, footH, 0.12, 0, -shinLen - footH / 2, 0.02));
+    shinSkin.push(sphereAt(0.034, 0, -shinLen - footH * 0.7, 0.095, 1, 0.6, 1.3, 8, 5));
 
     const shinMesh = mergeAndMesh(shinCloth, legColourMat ?? mats.cloth);
     const shinSkinMesh = mergeAndMesh(shinSkin, mats.skin);
@@ -676,14 +703,21 @@ export function makePerson(
     shoulderPivot.position.set(side * shoulderW * 0.92, shoulderY - hipY - 0.04, 0);
     hips.add(shoulderPivot);
 
+    // Hang the arm a few degrees outboard: dead vertical it embeds in the
+    // torso cylinder and the silhouette loses the arm entirely.
+    shoulderPivot.rotation.z = side * 0.09;
+
     const sleeved = preset !== "sari"; // sari blouse sleeves are short; keep simple: everyone else covered
     const upperCloth: THREE.BufferGeometry[] = [];
     const upperSkin: THREE.BufferGeometry[] = [];
     const upperR = 0.058 * build;
     if (sleeved && preset !== "lungi") {
-      upperCloth.push(limbCyl(upperR * 1.1, upperR, upperArmLen, 0, 0, 0, 6));
+      upperCloth.push(limbCyl(upperR * 1.1, upperR, upperArmLen, 0, 0, 0, 10));
+      // Shoulder cap sphere rounds off the sleeve top against the torso.
+      upperCloth.push(sphereAt(upperR * 1.12, 0, 0.01, 0, 1, 1, 1, 10, 6));
     } else {
-      upperSkin.push(limbCyl(upperR, upperR * 0.9, upperArmLen, 0, 0, 0, 6));
+      upperSkin.push(limbCyl(upperR, upperR * 0.9, upperArmLen, 0, 0, 0, 10));
+      upperSkin.push(sphereAt(upperR * 1.02, 0, 0.01, 0, 1, 1, 1, 10, 6));
     }
     const upperMesh = mergeAndMesh(upperCloth, mats.cloth);
     const upperSkinMesh = mergeAndMesh(upperSkin, mats.skin);
@@ -698,8 +732,11 @@ export function makePerson(
     shoulderPivot.add(elbowPivot);
 
     const foreSkin: THREE.BufferGeometry[] = [];
-    foreSkin.push(limbCyl(0.044 * build, 0.036 * build, forearmLen, 0, 0, 0, 6));
-    foreSkin.push(boxAt(0.058, 0.07, 0.04, 0, -forearmLen - 0.03, 0)); // hand
+    foreSkin.push(limbCyl(0.044 * build, 0.036 * build, forearmLen, 0, 0, 0, 10));
+    // Elbow joint sphere, same job as the knee's.
+    foreSkin.push(sphereAt(0.045 * build, 0, 0, 0, 1, 1, 1, 10, 6));
+    // Rounded hand instead of a box paddle.
+    foreSkin.push(sphereAt(0.038, 0, -forearmLen - 0.03, 0.005, 0.85, 1.15, 0.7, 8, 6));
     const foreMesh = mergeAndMesh(foreSkin, mats.skin);
     if (foreMesh) elbowPivot.add(foreMesh);
     countTris(foreMesh);

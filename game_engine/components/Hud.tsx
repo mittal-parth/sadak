@@ -39,6 +39,74 @@ function kindColour(kind: TaskKind, done: boolean): string {
   }
 }
 
+function kindIcon(kind: TaskKind): string {
+  switch (kind) {
+    case "auto":
+      return "🛺";
+    case "shop":
+      return "🏪";
+    case "temple":
+      return "🛕";
+    case "bus":
+      return "🚌";
+    default: {
+      const _exhaustive: never = kind;
+      return _exhaustive;
+    }
+  }
+}
+
+/** Duolingo-style circular lesson progress ring. */
+function ProgressRing({
+  done,
+  total,
+  size = 36,
+}: {
+  done: number;
+  total: number;
+  size?: number;
+}) {
+  if (total <= 0) return null;
+  const pct = Math.min(done / total, 1);
+  const r = (size - 6) / 2;
+  const circ = 2 * Math.PI * r;
+  const dash = circ * pct;
+
+  return (
+    <svg width={size} height={size} className="shrink-0" aria-hidden>
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={4}
+        className="text-border"
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke="#58cc02"
+        strokeWidth={4}
+        strokeLinecap="round"
+        strokeDasharray={`${dash} ${circ - dash}`}
+        transform={`rotate(-90 ${size / 2} ${size / 2})`}
+      />
+      <text
+        x="50%"
+        y="50%"
+        dominantBaseline="central"
+        textAnchor="middle"
+        className="fill-foreground font-heading text-[0.55rem]"
+      >
+        {done}/{total}
+      </text>
+    </svg>
+  );
+}
+
 function kindLabel(kind: TaskKind): string {
   switch (kind) {
     case "auto":
@@ -102,10 +170,27 @@ function Minimap({ tel, size }: { tel: Telemetry; size: number }) {
     }
 
     for (const t of tel.tasks) {
-      ctx.fillStyle = kindColour(t.kind, t.done);
+      const col = kindColour(t.kind, t.done);
+      const dotR = 4.5 * ui;
+      const sx = t.x * scale;
+      const sy = t.z * scale;
+
+      // Soft shadow under blip (GTA-style minimap parity).
+      ctx.fillStyle = "rgba(0,0,0,0.35)";
       ctx.beginPath();
-      ctx.arc(t.x * scale, t.z * scale, 4.5 * ui, 0, Math.PI * 2);
+      ctx.arc(sx + 1.2 * ui, sy + 1.2 * ui, dotR + 1.5 * ui, 0, Math.PI * 2);
       ctx.fill();
+
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.arc(sx, sy, dotR, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = "rgba(255,255,255,0.45)";
+      ctx.lineWidth = Math.max(1, 1.5 * ui);
+      ctx.beginPath();
+      ctx.arc(sx, sy, dotR + 0.5 * ui, 0, Math.PI * 2);
+      ctx.stroke();
     }
 
     ctx.restore();
@@ -159,11 +244,15 @@ function ErrandsList({
           <div key={t.id} className={cn("flex gap-2", done && "opacity-50 line-through")}>
             <span
               className={cn(
-                "mt-1.5 size-2 shrink-0 rounded-full border border-border",
-                done ? "bg-chart-4" : "bg-main",
-                compact && "mt-1 size-1.5"
+                "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border border-border text-xs",
+                done ? "bg-chart-4/20" : "bg-main/10",
+                compact && "size-5 text-[0.65rem]"
               )}
-            />
+              style={{ borderColor: done ? undefined : kindColour(t.kind, false) }}
+              aria-hidden
+            >
+              {kindIcon(t.kind)}
+            </span>
             <div>
               <strong className={cn("block text-sm", compact && "text-xs")}>{t.title}</strong>
               <em
@@ -251,10 +340,14 @@ export default function Hud({
         {xp} XP
       </Badge>
       {errandProgress.total > 0 && (
-        <Badge variant="neutral" className="text-xs uppercase tracking-wide">
-          Level {Math.min(errandProgress.done + 1, errandProgress.total)} of{" "}
-          {errandProgress.total}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <ProgressRing done={errandProgress.done} total={errandProgress.total} />
+          <span className="text-xs text-foreground/70">
+            {errandProgress.done === errandProgress.total
+              ? "District complete!"
+              : `${errandProgress.total - errandProgress.done} left`}
+          </span>
+        </div>
       )}
     </>
   );
