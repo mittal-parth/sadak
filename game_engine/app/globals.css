@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600&family=Noto+Sans+Tamil:wght@400;500;600&family=Noto+Sans+Kannada:wght@400;500;600&family=Noto+Sans+Bengali:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600&family=Noto+Sans+Tamil:wght@400;500;600&family=Noto+Sans+Kannada:wght@400;500;600&family=Noto+Sans+Bengali:wght@400;500;600&family=Noto+Sans+Telugu:wght@400;500;600&family=Noto+Sans+Malayalam:wght@400;500;600&family=Noto+Sans+Gujarati:wght@400;500;600&family=Noto+Sans+Gurmukhi:wght@400;500;600&family=Noto+Sans+Oriya:wght@400;500;600&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -24,7 +24,9 @@
   --chart-active-dot: #000;
 
   --font-indic: "Noto Sans Devanagari", "Noto Sans Tamil", "Noto Sans Kannada",
-    "Noto Sans Bengali", var(--font-sans), system-ui, sans-serif;
+    "Noto Sans Bengali", "Noto Sans Telugu", "Noto Sans Malayalam",
+    "Noto Sans Gujarati", "Noto Sans Gurmukhi", "Noto Sans Oriya", var(--font-sans),
+    system-ui, sans-serif;
 }
 
 .dark {

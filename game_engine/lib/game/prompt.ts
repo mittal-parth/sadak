@@ -31,6 +31,11 @@ const SCRIPT_RANGES: Record<string, RegExp> = {
   Tamil: /[஀-௿]/,
   Kannada: /[ಀ-೿]/,
   Bengali: /[ঀ-৿]/,
+  Telugu: /[ఀ-౿]/,
+  Malayalam: /[ഀ-ൿ]/,
+  Gujarati: /[઀-૿]/,
+  Gurmukhi: /[਀-੿]/,
+  Odia: /[଀-୿]/,
 };
 
 /**
