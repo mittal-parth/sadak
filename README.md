@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="game_engine/app/icon.png" alt="SADAK" width="36" height="36" />
+</p>
+
 ## Sarvam Hackathon — LiveKit Voice Agent
 
 Real-time voice agent using [LiveKit](https://docs.livekit.io) and [Sarvam AI](https://docs.sarvam.ai) (STT, LLM, TTS). Supports 11 languages (10 Indian + English).
