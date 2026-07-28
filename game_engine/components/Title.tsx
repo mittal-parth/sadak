@@ -146,11 +146,21 @@ export default function Title({
     <main className="relative min-h-full max-h-full overflow-y-auto bg-background text-foreground">
       <div className="mx-auto flex min-h-full max-w-5xl flex-col justify-center px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         <div className="mb-10 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <span className="flex items-baseline gap-2">
-            <span className="font-indic text-lg font-heading" lang="hi">
-              सड़क
+          <span className="flex items-center gap-2.5">
+            <Image
+              src="/icon.png"
+              alt=""
+              width={36}
+              height={36}
+              className="size-9 shrink-0 rounded-md"
+              priority
+            />
+            <span className="flex items-baseline gap-2">
+              <span className="font-indic text-lg font-heading" lang="hi">
+                सड़क
+              </span>
+              <span className="text-lg font-heading tracking-tight">sadak</span>
             </span>
-            <span className="text-lg font-heading tracking-tight">sadak</span>
           </span>
           <div className="flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1">
             <span className="text-xs text-foreground/70">

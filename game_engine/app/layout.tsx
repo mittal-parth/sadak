@@ -27,6 +27,10 @@ export const metadata: Metadata = {
   title: siteTitle,
   description: siteDescription,
   applicationName: "SADAK",
+  icons: {
+    icon: [{ url: "/icon.png", type: "image/png", sizes: "500x500" }],
+    apple: [{ url: "/icon.png", type: "image/png", sizes: "500x500" }],
+  },
   openGraph: {
     title: siteTitle,
     description: siteDescription,
