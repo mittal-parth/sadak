@@ -18,7 +18,7 @@ Set the same LiveKit project on Vercel and on the agent worker.
 | `LIVEKIT_API_KEY` | Yes | Usually injected by LiveKit Cloud |
 | `LIVEKIT_API_SECRET` | Yes | Usually injected by LiveKit Cloud |
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | No |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | No |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes | No |
 
 Optional: `SARVAM_CHAT_MODEL`, `SARVAM_TTS_MODEL`.
 

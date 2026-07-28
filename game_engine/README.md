@@ -149,7 +149,7 @@ Open http://localhost:3000. You will be redirected to `/login` until you sign in
 
 The game and Roznamcha are behind Supabase Auth. Configure a project at [supabase.com](https://supabase.com):
 
-1. **Project URL & anon key** → `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `.env`.
+1. **Project URL & publishable key** → `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (`sb_publishable_…` from **Settings → API Keys**; see [Supabase API keys](https://supabase.com/docs/guides/getting-started/api-keys)). Legacy JWT `anon` keys still work via `NEXT_PUBLIC_SUPABASE_ANON_KEY` if needed.
 2. **Authentication → URL configuration**: set **Site URL** to your app origin (e.g. `http://localhost:3000` or your Vercel URL). Add the same origin under **Redirect URLs**, plus `http://localhost:3000/auth/callback` and `https://your-app.vercel.app/auth/callback`.
 3. **Google provider**: enable under Authentication → Providers, paste Google OAuth client ID/secret from [Google Cloud Console](https://console.cloud.google.com/apis/credentials). Authorized redirect URI in Google must be `https://<project-ref>.supabase.co/auth/v1/callback`.
 4. **Magic link**: enabled by default via Email provider; customize the email template if you want links to use `/auth/confirm` with `token_hash` (implicit flow) or keep the default PKCE redirect to `/auth/callback`.
