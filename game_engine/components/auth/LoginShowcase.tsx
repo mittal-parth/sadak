@@ -59,8 +59,10 @@ export function LoginShowcase({ className }: { className?: string }) {
         </div>
       ))}
 
-      {/* Warm edge fade into the form column, matching the app's neobrutalist border. */}
-      <div className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-linear-to-r from-background/60 to-transparent lg:w-24" />
+      {/* Warm edge fade into the form column. Stops short of the caption's
+          bottom-left corner (bottom-28) — it used to run the full height and
+          paint over the district name/city text sitting right there. */}
+      <div className="pointer-events-none absolute top-0 bottom-28 left-0 w-16 bg-linear-to-r from-background/60 to-transparent lg:w-24" />
     </div>
   );
 }
