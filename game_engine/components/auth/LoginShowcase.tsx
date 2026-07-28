@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { DISTRICTS } from "@/lib/game/districts";
+import { SEED_DISTRICTS } from "@/lib/game/districts";
 import { DISTRICT_COVER_IMAGES } from "@/lib/game/district-covers";
 import { cn } from "@/lib/utils";
 
@@ -18,16 +18,16 @@ export function LoginShowcase({ className }: { className?: string }) {
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    if (DISTRICTS.length <= 1) return;
+    if (SEED_DISTRICTS.length <= 1) return;
     const id = window.setInterval(() => {
-      setIndex((i) => (i + 1) % DISTRICTS.length);
+      setIndex((i) => (i + 1) % SEED_DISTRICTS.length);
     }, INTERVAL_MS);
     return () => window.clearInterval(id);
   }, []);
 
   return (
     <div className={cn("relative overflow-hidden bg-black", className)} aria-hidden>
-      {DISTRICTS.map((d, i) => (
+      {SEED_DISTRICTS.map((d, i) => (
         <div
           key={d.id}
           className={cn(
