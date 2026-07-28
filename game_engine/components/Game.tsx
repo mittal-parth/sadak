@@ -18,6 +18,7 @@ import { errandLevelNumber, lessonTierFor } from "@/lib/game/levels";
 import { useGameAudio } from "@/lib/audio/useGameAudio";
 import { playSfx } from "@/lib/audio/sfx";
 import Title from "./Title";
+import EnterLoading from "./EnterLoading";
 import Hud from "./Hud";
 import Dialogue from "./Dialogue";
 import VirtualJoystick from "./VirtualJoystick";
@@ -43,6 +44,10 @@ import {
   type NpcTurn,
 } from "@/lib/game/npc-memory";
 
+/** Minimum time the enter screen stays up, so its controls are readable even
+ *  when the district and progress fetches come back instantly. */
+const ENTER_DWELL_MS = 2600;
+
 export default function GameShell() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const gameRef = useRef<Game | null>(null);
@@ -51,6 +56,7 @@ export default function GameShell() {
   const [tasks, setTasks] = useState<StreetTask[]>([]);
   const [taskFinale, setTaskFinale] = useState<DistrictTaskPack["finale"] | null>(null);
   const [entering, setEntering] = useState(false);
+  const [enteringCity, setEnteringCity] = useState<string | undefined>();
   // Survives `district` going back to null so Title (which fully remounts
   // on every return trip) can default the picker to what was last played
   // instead of always resetting to DISTRICTS[0].
@@ -123,8 +129,10 @@ export default function GameShell() {
   }, []);
 
   const enterDistrict = useCallback(
-    async (districtId: string, pickedComfort: ComfortLevel) => {
+    async (districtId: string, pickedComfort: ComfortLevel, cityLabel?: string) => {
       setEntering(true);
+      setEnteringCity(cityLabel);
+      const startedAt = Date.now();
       try {
         const [districtRes, progressRes] = await Promise.all([
           fetch(`/api/districts/${encodeURIComponent(districtId)}`),
@@ -145,6 +153,15 @@ export default function GameShell() {
           progress: DistrictProgress;
         };
         const saved = progressPayload.progress;
+
+        // Hold the loading screen open long enough to read the controls on it.
+        // Committing the state below is what tears it down, so the wait goes
+        // here rather than around `setEntering`.
+        const elapsed = Date.now() - startedAt;
+        if (elapsed < ENTER_DWELL_MS) {
+          await new Promise((r) => setTimeout(r, ENTER_DWELL_MS - elapsed));
+        }
+
         setDistrict(districtPayload.district);
         setTasks(districtPayload.tasks);
         setTaskFinale(districtPayload.taskPack.finale);
@@ -171,6 +188,7 @@ export default function GameShell() {
         setTimeout(() => setToast(null), 4000);
       } finally {
         setEntering(false);
+        setEnteringCity(undefined);
       }
     },
     [],
@@ -369,11 +387,7 @@ export default function GameShell() {
     return (
       <>
         <Title defaultDistrictId={lastDistrictId} onEnter={enterDistrict} />
-        {entering && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80">
-            <p className="text-sm text-foreground/80">Loading district…</p>
-          </div>
-        )}
+        {entering && <EnterLoading city={enteringCity} />}
       </>
     );
   }

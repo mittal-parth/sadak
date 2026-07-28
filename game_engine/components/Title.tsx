@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { useMobilePlay } from "@/lib/useMobilePlay";
 import { getAudioContext } from "@/lib/audio/engine";
 import { playSfx } from "@/lib/audio/sfx";
 import SignOutButton from "@/components/auth/SignOutButton";
@@ -36,11 +35,43 @@ const COMFORT_OPTIONS: {
   { value: "hard", title: "Hard", description: "I can hold a basic conversation" },
 ];
 
+/** Numbered stamp + title. The number is what makes the two choices read as a
+ *  sequence instead of two sibling sections of equal weight. */
+function Step({
+  n,
+  title,
+  hint,
+}: {
+  n: number;
+  title: string;
+  hint?: string;
+}) {
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1">
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-base border-2 border-border bg-main text-sm font-heading text-main-foreground shadow-shadow">
+        {n}
+      </span>
+      <h2 className="text-xl font-heading tracking-tight">{title}</h2>
+      {hint && <p className="text-sm text-foreground/70">{hint}</p>}
+    </div>
+  );
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <main className="flex min-h-full max-h-full items-center justify-center overflow-y-auto bg-background px-4 text-foreground">
+      <Card className="max-w-md py-6 text-center">
+        <CardContent className="grid gap-2 px-6">{children}</CardContent>
+      </Card>
+    </main>
+  );
+}
+
 export default function Title({
   onEnter,
   defaultDistrictId,
 }: {
-  onEnter: (districtId: string, comfort: ComfortLevel) => void;
+  onEnter: (districtId: string, comfort: ComfortLevel, cityLabel?: string) => void;
   defaultDistrictId?: string;
 }) {
   const [summaries, setSummaries] = useState<DistrictSummary[]>([]);
@@ -50,7 +81,6 @@ export default function Title({
   const [picked, setPicked] = useState<District | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [comfort, setComfort] = useState<ComfortLevel>("medium");
-  const { mobilePlay } = useMobilePlay();
 
   useEffect(() => {
     let cancelled = false;
@@ -112,266 +142,331 @@ export default function Title({
   }, [pickedId]);
 
   const pickedSummary = summaries.find((d) => d.id === pickedId);
+  const pickedComfort = COMFORT_OPTIONS.find((o) => o.value === comfort)!;
+  const ready = Boolean(pickedId && picked && !detailError);
 
   const enter = useCallback(() => {
     if (!pickedId) return;
     getAudioContext();
-    onEnter(pickedId, comfort);
-  }, [comfort, onEnter, pickedId]);
+    onEnter(pickedId, comfort, pickedSummary?.city);
+  }, [comfort, onEnter, pickedId, pickedSummary?.city]);
 
   if (listLoading) {
     return (
-      <main className="flex min-h-full items-center justify-center bg-background px-4 text-foreground">
-        <p className="text-sm text-foreground/70">Loading districts…</p>
-      </main>
+      <Shell>
+        <p className="font-heading">Loading cities…</p>
+      </Shell>
     );
   }
 
   if (listError || summaries.length === 0) {
     return (
-      <main className="flex min-h-full flex-col items-center justify-center gap-4 bg-background px-4 text-center text-foreground">
-        <p className="text-sm text-foreground/80">
-          {listError ?? "No districts are available yet."}
-        </p>
-        <p className="max-w-md text-xs text-foreground/70">
+      <Shell>
+        <p className="font-heading">{listError ?? "No cities are available yet."}</p>
+        <p className="text-sm text-foreground/70">
           If you are setting up locally, run the Supabase migrations{" "}
-          <code className="text-foreground">001</code>, <code className="text-foreground">002</code>, and{" "}
-          <code className="text-foreground">007</code> in the SQL editor.
+          <code className="font-heading text-foreground">001</code>,{" "}
+          <code className="font-heading text-foreground">002</code>, and{" "}
+          <code className="font-heading text-foreground">007</code> in the SQL editor.
         </p>
-      </main>
+      </Shell>
     );
   }
 
+  const enterLabel = `Enter ${pickedSummary?.city ?? "city"}`;
+
   return (
     <main className="relative min-h-full max-h-full overflow-y-auto bg-background text-foreground">
-      <div className="mx-auto flex min-h-full max-w-5xl flex-col justify-center px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-        <div className="mb-10 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <span className="flex items-center gap-2.5">
-            <Image
-              src="/icon.png"
-              alt=""
-              width={36}
-              height={36}
-              className="size-9 shrink-0 rounded-md"
-              priority
-            />
-            <span className="flex items-baseline gap-2">
-              <span className="font-indic text-lg font-heading" lang="hi">
-                सड़क
-              </span>
-              <span className="text-lg font-heading tracking-tight">sadak</span>
+      {/* Chrome — brand and account only. Nothing here competes with the hero. */}
+      <div className="sticky top-0 z-30 border-b-2 border-border bg-background">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
+          {/* Wordmark only — the logo itself anchors the hero below. */}
+          <span className="flex items-baseline gap-2">
+            <span className="font-indic text-lg font-heading" lang="hi">
+              सड़क
             </span>
+            <span className="text-lg font-heading tracking-tight">sadak</span>
           </span>
-          <div className="flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1">
-            <span className="text-xs text-foreground/70">
-              Real errands in ten Indian languages
-            </span>
+          <div className="flex items-center gap-3">
+            <Badge variant="neutral" className="hidden sm:inline-flex">
+              Sarvam Epoch Buildathon
+            </Badge>
             <SignOutButton tone="subtle" />
           </div>
         </div>
+      </div>
 
-        <header className="text-center">
-          <p className="text-xs font-base uppercase tracking-widest text-main">
-            Sarvam Epoch Buildathon
-          </p>
-
-          <h1 className="mx-auto mt-4 max-w-[16ch] text-3xl font-heading leading-tight tracking-tight sm:mt-6 sm:text-4xl sm:text-5xl">
-            Sadak Errands
-          </h1>
-
-          <p className="mx-auto mt-4 max-w-[48ch] text-lg leading-relaxed text-foreground/80">
-            Walk the city. Stop an auto, buy at a stall, visit a temple, catch a bus.
-            <br />
-            Each errand is a real transaction — in Hindi, Tamil, Kannada, Bengali, Telugu,
-            Malayalam, Marathi, Gujarati, Punjabi, or Odia.
-          </p>
-
-          <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:mt-10 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
-            <Button
-              size="lg"
-              className="w-full sm:w-auto"
-              disabled={!pickedId || !picked || !!detailError}
-              onClick={enter}
-            >
-              Enter {pickedSummary?.name ?? "district"}
-            </Button>
-            <span className="text-sm text-foreground/70">
-              {pickedSummary
-                ? `${pickedSummary.taskCount} errands in ${pickedSummary.languageLabel}`
-                : "Pick a district"}
-            </span>
-          </div>
-          {detailError && (
-            <p className="mt-2 text-sm text-destructive">{detailError}</p>
-          )}
-        </header>
-
-        <section className="mt-16 text-center" aria-label="Choose a district">
-          <h2 className="text-xs font-base uppercase tracking-widest text-foreground/70">
-            Choose your district
-          </h2>
-
-          <div
-            className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
-            role="radiogroup"
-            aria-label="District"
-          >
-            {summaries.map((d) => {
-              const on = d.id === pickedId;
-              return (
-                <button
-                  key={d.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  className="cursor-pointer border-0 bg-transparent p-0 text-left"
-                  onClick={() => {
-                    playSfx("tap");
-                    setPickedId(d.id);
-                  }}
-                >
-                  <Card
-                    className={cn(
-                      "relative aspect-[4/3] gap-2 overflow-hidden py-4 transition-all hover:translate-x-boxShadowX hover:translate-y-boxShadowY hover:shadow-none",
-                      on && "ring-2 ring-foreground ring-offset-2 ring-offset-background",
-                    )}
-                  >
-                    <Image
-                      src={DISTRICT_COVER_IMAGES[d.id]}
-                      alt=""
-                      fill
-                      className="object-cover object-center"
-                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                      priority
-                    />
-                    <span
-                      className="absolute inset-0 bg-linear-to-t from-black/75 via-black/25 to-black/10"
-                      aria-hidden
-                    />
-                    <CardContent className="relative z-10 flex flex-col gap-1 px-4">
-                      <span className="font-indic text-xl font-heading text-white" lang={d.language.slice(0, 2)}>
-                        {d.native}
-                      </span>
-                      <span className="grid gap-0.5">
-                        <strong className="font-heading text-base text-white">{d.name}</strong>
-                        <em className="text-xs not-italic uppercase tracking-widest text-white/85">
-                          {d.city}
-                        </em>
-                      </span>
-                    </CardContent>
-                  </Card>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="mt-10 text-center" aria-label="Language comfort">
-          <h2 className="text-xs font-base uppercase tracking-widest text-foreground/70">
-            How comfortable are you with {pickedSummary?.languageLabel ?? "this language"}?
-          </h2>
-          <p className="mx-auto mt-2 max-w-[40ch] text-sm text-foreground/70">
-            Errands get harder as you go. Your answer sets where the first level starts.
-          </p>
-          <div
-            className="mx-auto mt-4 grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-3"
-            role="radiogroup"
-            aria-label="Language comfort"
-          >
-            {COMFORT_OPTIONS.map((opt) => {
-              const on = comfort === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  className="cursor-pointer border-0 bg-transparent p-0 text-left"
-                  onClick={() => {
-                    playSfx("tap");
-                    setComfort(opt.value);
-                  }}
-                >
-                  <Card
-                    className={cn(
-                      "h-full gap-1 py-4 transition-all hover:translate-x-boxShadowX hover:translate-y-boxShadowY hover:shadow-none",
-                      on && "ring-2 ring-foreground ring-offset-2 ring-offset-background",
-                    )}
-                  >
-                    <CardContent className="px-4">
-                      <strong className="font-heading">{opt.title}</strong>
-                      <p className="mt-1 text-sm text-foreground/80">{opt.description}</p>
-                    </CardContent>
-                  </Card>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {picked && (
-          <section className="mt-10" aria-live="polite">
-            <Card className="gap-4 py-6">
-              <CardContent className="grid gap-6 px-6 md:grid-cols-[1.55fr_1fr]">
-                <div className="grid gap-3 md:col-span-2">
-                  <h3 className="text-xs font-base uppercase tracking-widest text-foreground/70">
-                    What you will do in {picked.name}
-                  </h3>
-                </div>
-                <p className="text-sm leading-relaxed text-foreground/80">
-                  Hail an auto, order local food, buy something at a temple stall, and get a bus or
-                  tram ticket — all in {picked.languageLabel}.
-                </p>
-                <ul className="grid gap-2">
-                  {picked.phrases.slice(0, 3).map((p) => (
-                    <li key={p.native}>
-                      <Badge variant="neutral" className="h-auto w-full justify-start gap-2 py-2 text-left">
-                        <span className="font-indic text-sm" lang={picked.language.slice(0, 2)}>
-                          {p.native}
-                        </span>
-                        <em className="text-xs not-italic text-foreground/70">{p.en}</em>
-                      </Badge>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          </section>
-        )}
-
-        <footer className="mt-auto flex flex-col gap-3 border-t-2 border-border bg-background py-4 sm:sticky sm:bottom-0 sm:z-10 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
-          {mobilePlay ? (
-            <p className="text-xs leading-relaxed text-foreground/70">
-              Rotate to landscape to play. Move with the on-screen joystick, drag to look, and tap
-              vendors to talk.
+      {/* Level 1 — one loud yellow band. The only element at this weight. */}
+      <header className="border-b-2 border-border bg-main text-main-foreground">
+        <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-8 sm:px-6 sm:py-10 sm:flex-row sm:items-start sm:gap-7 lg:px-8">
+          <Image
+            src="/icon.png"
+            alt="Sadak"
+            width={112}
+            height={112}
+            className="size-20 shrink-0 rounded-base border-2 border-border bg-secondary-background shadow-shadow sm:size-28"
+            priority
+          />
+          <div className="min-w-0">
+            <h1 className="max-w-[14ch] text-4xl font-heading leading-[0.95] tracking-tight sm:text-5xl lg:text-6xl">
+              Sadak Errands
+            </h1>
+            <p className="mt-4 max-w-[52ch] text-base leading-relaxed sm:text-lg">
+              Walk the city and finish a real errand out loud — stop an auto, buy at a
+              stall, catch a bus.
             </p>
-          ) : (
-            <ul className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-foreground/70">
-              <li className="flex items-center gap-1">
-                <kbd>W</kbd>
-                <kbd>A</kbd>
-                <kbd>S</kbd>
-                <kbd>D</kbd> move
+            <ul className="mt-5 flex flex-wrap gap-2">
+              <li>
+                <Badge variant="neutral">{summaries.length} cities</Badge>
               </li>
-              <li className="flex items-center gap-1">
-                <kbd>←</kbd>
-                <kbd>→</kbd> look
+              <li>
+                <Badge variant="neutral">10 Indian languages</Badge>
               </li>
-              <li className="flex items-center gap-1">
-                <kbd>E</kbd> talk
-              </li>
-              <li className="flex items-center gap-1">
-                <kbd>Space</kbd> hold to speak
-              </li>
-              <li className="flex items-center gap-1">
-                <kbd>P</kbd> phrasebook
+              <li>
+                <Badge variant="neutral">Voice by Sarvam AI</Badge>
               </li>
             </ul>
-          )}
-          <p className="shrink-0 text-xs text-foreground/70">
-            Speech, voice and dialogue by <strong className="font-base text-foreground">Sarvam AI</strong>
+          </div>
+        </div>
+      </header>
+
+      {/* Bottom padding leaves room for the fixed phone action bar. */}
+      <div className="mx-auto max-w-6xl px-4 pb-28 pt-8 sm:px-6 sm:pt-10 lg:px-8 lg:pb-10">
+        {/* Level 2 — the choices carry the page; the brief rides alongside. */}
+        <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_21rem] lg:gap-8">
+          <div>
+            <section aria-label="Choose a city">
+              <Step n={1} title="Choose your city" hint="Each one speaks its own language." />
+              <div
+                className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+                role="radiogroup"
+                aria-label="City"
+              >
+                {summaries.map((d) => {
+                  const on = d.id === pickedId;
+                  return (
+                    <button
+                      key={d.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      className="cursor-pointer rounded-base border-0 bg-transparent p-0 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      onClick={() => {
+                        playSfx("tap");
+                        setPickedId(d.id);
+                      }}
+                    >
+                      <Card
+                        className={cn(
+                          "relative aspect-[4/3] justify-end gap-2 overflow-hidden py-4 transition-all",
+                          // Unselected: sits flat, colour pulled back so the
+                          // picked card is the only one at full strength.
+                          "saturate-[0.85] hover:translate-x-boxShadowX hover:translate-y-boxShadowY hover:saturate-100 hover:shadow-none",
+                          // Selected: lifted off the page with a deeper hard
+                          // shadow and an inset accent frame — the brutalist
+                          // way to say "this one", instead of a soft ring.
+                          on &&
+                            "-translate-x-boxShadowX -translate-y-boxShadowY saturate-100 shadow-[8px_8px_0px_0px_var(--border)] outline-4 -outline-offset-4 outline-main hover:-translate-x-boxShadowX hover:-translate-y-boxShadowY hover:shadow-[8px_8px_0px_0px_var(--border)]",
+                        )}
+                      >
+                        <Image
+                          src={DISTRICT_COVER_IMAGES[d.id]}
+                          alt=""
+                          fill
+                          className="object-cover object-center"
+                          sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 22vw"
+                          priority
+                        />
+                        <span
+                          className="absolute inset-0 bg-linear-to-t from-black/80 via-black/35 to-black/5"
+                          aria-hidden
+                        />
+                        {on && (
+                          <Badge className="absolute right-3 top-3 z-20 rotate-3 shadow-shadow">
+                            Picked
+                          </Badge>
+                        )}
+                        <CardContent className="relative z-10 flex flex-col gap-1 px-4">
+                          <span
+                            className="font-indic text-xl font-heading text-white"
+                            lang={d.language.slice(0, 2)}
+                          >
+                            {d.native}
+                          </span>
+                          <strong className="font-heading text-base text-white">{d.city}</strong>
+                          <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs uppercase tracking-widest text-white/85">
+                            <em className="not-italic">{d.name}</em>
+                            <span aria-hidden>·</span>
+                            <em className="not-italic">{d.languageLabel}</em>
+                          </span>
+                        </CardContent>
+                      </Card>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* Secondary choice — a segmented control, not three more cards,
+                so it cannot compete with the district grid. */}
+            <section className="mt-10" aria-label="Language comfort">
+              <Step
+                n={2}
+                title="Set your starting level"
+                hint={`How much ${pickedSummary?.languageLabel ?? "of the language"} do you already have?`}
+              />
+              <div
+                className="flex w-full max-w-2xl overflow-hidden rounded-base border-2 border-border bg-secondary-background shadow-shadow"
+                role="radiogroup"
+                aria-label="Language comfort"
+              >
+                {COMFORT_OPTIONS.map((opt, i) => {
+                  const on = comfort === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      className={cn(
+                        "flex-1 cursor-pointer px-3 py-3 font-heading transition-colors focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-ring",
+                        i > 0 && "border-l-2 border-border",
+                        on
+                          ? "bg-main text-main-foreground"
+                          : "text-foreground/70 hover:bg-main/25 hover:text-foreground",
+                      )}
+                      onClick={() => {
+                        playSfx("tap");
+                        setComfort(opt.value);
+                      }}
+                    >
+                      {opt.title}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-3 max-w-[56ch] text-sm text-foreground/70">
+                <strong className="font-heading text-foreground">
+                  {pickedComfort.description}.
+                </strong>{" "}
+                Errands get harder as you go — this only sets where the first level starts.
+              </p>
+            </section>
+          </div>
+
+          {/* Level 3 — the brief. Small footprint, but it holds the CTA, so the
+              action now sits at the end of the decision instead of before it. */}
+          <aside aria-live="polite" className="lg:sticky lg:top-20 lg:self-start">
+            <Card className="gap-0 overflow-hidden py-0 lg:max-h-[calc(100dvh-7rem)]">
+              {pickedSummary && (
+                <div className="relative h-28 shrink-0 border-b-2 border-border">
+                  <Image
+                    src={DISTRICT_COVER_IMAGES[pickedSummary.id]}
+                    alt=""
+                    fill
+                    className="object-cover object-center"
+                    sizes="21rem"
+                  />
+                  <span
+                    className="absolute inset-0 bg-linear-to-t from-black/75 to-black/10"
+                    aria-hidden
+                  />
+                  <span className="absolute bottom-3 left-4 right-4 flex flex-col">
+                    <span
+                      className="font-indic text-lg font-heading text-white"
+                      lang={pickedSummary.language.slice(0, 2)}
+                    >
+                      {pickedSummary.native}
+                    </span>
+                    <strong className="font-heading text-white">
+                      {pickedSummary.city} · {pickedSummary.name}
+                    </strong>
+                  </span>
+                </div>
+              )}
+
+              {/* Scrolls on short viewports so the CTA below never leaves the card. */}
+              <CardContent className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto px-5 py-5">
+                <div className="flex flex-wrap gap-2">
+                  <Badge>{pickedSummary?.languageLabel ?? "—"}</Badge>
+                  <Badge variant="neutral">{pickedSummary?.taskCount ?? 0} errands</Badge>
+                  <Badge variant="neutral">{pickedComfort.title}</Badge>
+                </div>
+
+                <p className="text-sm leading-relaxed text-foreground/80">
+                  Hail an auto, order local food, buy something at a temple stall, and get a
+                  ticket — all in {pickedSummary?.languageLabel ?? "the local language"}.
+                </p>
+
+                {picked && picked.phrases.length > 0 && (
+                  <div className="grid gap-2">
+                    <h3 className="text-xs font-heading uppercase tracking-widest text-foreground/60">
+                      You will say things like
+                    </h3>
+                    <ul className="grid gap-2">
+                      {picked.phrases.slice(0, 3).map((p) => (
+                        <li
+                          key={p.native}
+                          className="rounded-base border-2 border-border bg-secondary-background px-3 py-2"
+                        >
+                          <span
+                            className="block font-indic text-sm font-heading"
+                            lang={picked.language.slice(0, 2)}
+                          >
+                            {p.native}
+                          </span>
+                          <em className="text-xs not-italic text-foreground/70">{p.en}</em>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {detailError && (
+                  <p className="rounded-base border-2 border-border bg-black px-3 py-2 text-sm text-white">
+                    {detailError}
+                  </p>
+                )}
+
+              </CardContent>
+
+              <div className="hidden shrink-0 border-t-2 border-border p-4 lg:block">
+                <Button size="lg" className="w-full" disabled={!ready} onClick={enter}>
+                  {enterLabel}
+                </Button>
+              </div>
+            </Card>
+          </aside>
+        </div>
+
+        <footer className="mt-10 border-t-2 border-border pt-5">
+          <p className="text-xs text-foreground/60">
+            Speech, voice and dialogue by{" "}
+            <strong className="font-heading text-foreground">Sarvam AI</strong>
           </p>
         </footer>
+      </div>
+
+      {/* Phone: the CTA is pinned to the viewport, not parked at the end of a
+          long scroll. It carries the current choice so the bar is also the
+          confirmation of what you picked. */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-border bg-background px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_0_0_var(--border)] lg:hidden">
+        <div className="mx-auto flex max-w-6xl items-center gap-3 sm:px-2">
+          <p className="min-w-0 flex-1 truncate text-xs text-foreground/70">
+            {pickedSummary ? (
+              <>
+                <strong className="font-heading text-foreground">{pickedSummary.city}</strong>
+                {" · "}
+                {pickedSummary.languageLabel}
+              </>
+            ) : (
+              "Pick a city to start"
+            )}
+          </p>
+          <Button size="lg" className="shrink-0" disabled={!ready} onClick={enter}>
+            {ready ? enterLabel : "Enter"}
+          </Button>
+        </div>
       </div>
     </main>
   );
