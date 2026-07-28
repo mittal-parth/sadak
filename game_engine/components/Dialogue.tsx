@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { Volume2, X } from "lucide-react";
 import type { District } from "@/lib/game/districts";
 import type { NpcTurn } from "@/lib/game/npc-memory";
 import type { LessonTarget } from "@/lib/game/tasks";
@@ -59,6 +59,7 @@ export default function Dialogue({
   const [totalPoints, setTotalPoints] = useState(0);
   const [gradedCount, setGradedCount] = useState(0);
   const [npcSpeaking, setNpcSpeaking] = useState(false);
+  const [ttsPlaying, setTtsPlaying] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const voice = useVoice(district.language);
@@ -87,9 +88,9 @@ export default function Dialogue({
     sessionTurnsRef.current = [...sessionTurnsRef.current, { ...turn, content: text }];
   }, []);
 
-  const playNpcLine = useCallback(
-    async (text: string, after: "player" | "lesson") => {
-      setNpcSpeaking(true);
+  const playAudio = useCallback(
+    async (text: string, onDone?: () => void) => {
+      setTtsPlaying(true);
       try {
         const res = await fetch("/api/speak", {
           method: "POST",
@@ -98,9 +99,8 @@ export default function Dialogue({
         });
         const { audio } = await res.json();
         const finish = () => {
-          setNpcSpeaking(false);
-          if (after === "player") setPhase("player");
-          else setRecallDone(true);
+          setTtsPlaying(false);
+          onDone?.();
         };
         if (!audio) {
           finish();
@@ -113,13 +113,36 @@ export default function Dialogue({
         a.onerror = finish;
         await a.play().catch(finish);
       } catch {
-        setNpcSpeaking(false);
-        if (after === "player") setPhase("player");
-        else setRecallDone(true);
+        setTtsPlaying(false);
+        onDone?.();
       }
     },
     [district.id, target.id]
   );
+
+  const playNpcLine = useCallback(
+    async (text: string, after: "player" | "lesson") => {
+      setNpcSpeaking(true);
+      await playAudio(text, () => {
+        setNpcSpeaking(false);
+        if (after === "player") setPhase("player");
+        else setRecallDone(true);
+      });
+    },
+    [playAudio]
+  );
+
+  const playPromptPronunciation = useCallback(() => {
+    const native = step?.prompt?.native;
+    if (!native?.trim()) return;
+    void playAudio(native);
+  }, [playAudio, step?.prompt?.native]);
+
+  const retryLine = useCallback(() => {
+    setAttempt(null);
+    setHeardNothing(false);
+    setPhase("player");
+  }, []);
 
   useEffect(() => {
     if (!hasPrior) return;
@@ -207,9 +230,11 @@ export default function Dialogue({
     pushTurn({ role: "user", content: transcript });
     const scored = scoreAttempt(step.prompt.native, transcript);
     setAttempt({ transcript, verdicts: scored.verdicts, points: scored.points });
-    setTotalPoints((p) => p + scored.points);
-    setGradedCount((c) => c + 1);
-    onPoints(scored.points);
+    if (scored.points > 0) {
+      setTotalPoints((p) => p + scored.points);
+      setGradedCount((c) => c + 1);
+      onPoints(scored.points);
+    }
     posthog.capture("language_attempt_scored", {
       task_id: target.id,
       district_language: district.language,
@@ -357,15 +382,36 @@ export default function Dialogue({
 
         {phase === "result" && attempt && step.prompt && (
           <div className="flex items-center justify-between gap-3 border-t-2 border-border px-4 py-3">
-            <div>
-              <p className="text-[0.625rem] uppercase tracking-widest text-foreground/70">
-                This line
-              </p>
+            <p className="min-w-0 text-sm text-foreground/80">
               <strong className="text-xl text-main">+{attempt.points} pts</strong>
+              {attempt.points === 0 && (
+                <span className="ml-2 text-foreground/70">Say it again when you&apos;re ready.</span>
+              )}
+            </p>
+            <div className="flex shrink-0 items-center gap-2">
+              {attempt.points < 100 && (
+                <Button
+                  type="button"
+                  variant="neutral"
+                  size="icon"
+                  sound="tap"
+                  onClick={playPromptPronunciation}
+                  disabled={ttsPlaying}
+                  aria-label={ttsPlaying ? "Playing pronunciation" : "Hear correct pronunciation"}
+                >
+                  <Volume2 className="size-4" aria-hidden />
+                </Button>
+              )}
+              {attempt.points === 0 ? (
+                <Button type="button" onClick={retryLine}>
+                  Try again
+                </Button>
+              ) : (
+                <Button type="button" onClick={advance}>
+                  Continue →
+                </Button>
+              )}
             </div>
-            <Button type="button" onClick={advance}>
-              Continue →
-            </Button>
           </div>
         )}
 
