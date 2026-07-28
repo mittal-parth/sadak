@@ -70,10 +70,25 @@ export function useGameAudio(districtId: string | undefined) {
     });
   }, []);
 
+  /**
+   * The single mute icon on the HUD (as opposed to the pause menu's two
+   * separate SFX/Music toggles) is a master mute: if anything is currently
+   * audible, silence both; otherwise restore both. A player hitting the one
+   * visible mute button expects it to mute everything, not just SFX — that
+   * mismatch (SFX went quiet, music kept playing) was the reported bug.
+   */
+  const toggleAll = useCallback(() => {
+    const nextOn = !(sfxOn || musicOn);
+    localStorage.setItem(SFX_KEY, nextOn ? "on" : "off");
+    localStorage.setItem(MUSIC_KEY, nextOn ? "on" : "off");
+    setSfxOn(nextOn);
+    setMusicOn(nextOn);
+  }, [sfxOn, musicOn]);
+
   /** Duck music under dialogue TTS / the mic — the issue's one hard rule. */
   const duck = useCallback((ducked: boolean) => {
     engineRef.current?.setDucked(ducked);
   }, []);
 
-  return { sfxOn, musicOn, toggleSfx, toggleMusic, duck };
+  return { sfxOn, musicOn, toggleSfx, toggleMusic, toggleAll, duck };
 }

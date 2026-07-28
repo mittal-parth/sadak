@@ -307,8 +307,8 @@ export default function Hud({
   mobilePlay,
   panelsOpen,
   onTogglePanels,
-  sfxOn,
-  onToggleSfx,
+  audioOn,
+  onToggleAudio,
 }: {
   district: District;
   tasks: StreetTask[];
@@ -325,8 +325,8 @@ export default function Hud({
   mobilePlay: boolean;
   panelsOpen: boolean;
   onTogglePanels: () => void;
-  sfxOn: boolean;
-  onToggleSfx: () => void;
+  audioOn: boolean;
+  onToggleAudio: () => void;
 }) {
   const nearbyTask = tel?.nearby ? tasks.find((t) => t.id === tel.nearby) : null;
   const mapSize = mobilePlay ? MAP_PX_MOBILE : MAP_PX;
@@ -379,11 +379,11 @@ export default function Hud({
                 variant="neutral"
                 size="icon"
                 className="size-8 shrink-0"
-                sound={sfxOn ? "toggleOff" : "toggleOn"}
-                onClick={onToggleSfx}
-                aria-label={sfxOn ? "Mute sound" : "Unmute sound"}
+                sound={audioOn ? "toggleOff" : "toggleOn"}
+                onClick={onToggleAudio}
+                aria-label={audioOn ? "Mute sound" : "Unmute sound"}
               >
-                {sfxOn ? (
+                {audioOn ? (
                   <Volume2 className="size-4" aria-hidden />
                 ) : (
                   <VolumeX className="size-4" aria-hidden />
@@ -481,11 +481,11 @@ export default function Hud({
               <Button
                 variant="neutral"
                 size="icon"
-                sound={sfxOn ? "toggleOff" : "toggleOn"}
-                onClick={onToggleSfx}
-                aria-label={sfxOn ? "Mute sound" : "Unmute sound"}
+                sound={audioOn ? "toggleOff" : "toggleOn"}
+                onClick={onToggleAudio}
+                aria-label={audioOn ? "Mute sound" : "Unmute sound"}
               >
-                {sfxOn ? (
+                {audioOn ? (
                   <Volume2 className="size-4" aria-hidden />
                 ) : (
                   <VolumeX className="size-4" aria-hidden />
