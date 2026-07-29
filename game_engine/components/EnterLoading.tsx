@@ -43,7 +43,7 @@ export default function EnterLoading({ city }: { city?: string }) {
           label: "Look around",
         },
         { keys: <kbd>E</kbd>, label: "Talk to whoever you are facing" },
-        { keys: <kbd>Space</kbd>, label: "Hold to speak out loud" },
+        { keys: <kbd>Space</kbd>, label: "Jump" },
         { keys: <kbd>P</kbd>, label: "Open the phrasebook" },
       ];
 

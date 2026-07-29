@@ -276,8 +276,23 @@ function districtWeights(landmark: Theme["landmark"]): Weights {
       return { ...base, pole: 1.3, scooter: 1.9, puddle: 2.2, groundPatch: 1.4, hoarding: 1.6, drum: 1.3 };
     case "kolkata":
       return { ...base, wire: 1.9, poster: 2.0, pottedPlant: 1.5, cart: 1.3, sackBundle: 1.2 };
-    default:
-      return base;
+
+    // Every landmark value must appear here. The six seed districts used to
+    // borrow one of the four above; once they got their own Landmark values
+    // they silently fell through to the flat base weights and lost their
+    // street character.
+    case "hyderabad":
+      return { ...base, pole: 1.5, wire: 1.6, cart: 1.7, paanStall: 1.8, poster: 1.4, drum: 1.3 };
+    case "kochi":
+      return { ...base, crate: 2.1, sackBundle: 1.8, bananaClump: 1.9, puddle: 1.5, weed: 1.4, tyreStack: 0.5 };
+    case "mumbai":
+      return { ...base, pole: 1.4, wire: 1.8, hoarding: 1.9, scooter: 1.7, rubbishPile: 1.4, poster: 1.5 };
+    case "ahmedabad":
+      return { ...base, cart: 1.8, chairStack: 1.6, paanStall: 1.5, pottedPlant: 1.4, sackBundle: 1.4 };
+    case "amritsar":
+      return { ...base, cart: 1.6, drum: 1.5, sackBundle: 1.7, signboard: 1.6, gasCylinder: 1.4 };
+    case "bhubaneswar":
+      return { ...base, bananaClump: 1.7, weed: 1.6, pottedPlant: 1.6, groundPatch: 1.3, bicycle: 1.5 };
   }
 }
 

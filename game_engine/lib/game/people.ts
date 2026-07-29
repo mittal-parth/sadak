@@ -235,8 +235,14 @@ function curvedSheet(
   return geo;
 }
 
-/** Skull-and-jaw head silhouette via a lathe, instead of a cube. */
-function headGeometry(scale: number): THREE.BufferGeometry {
+/**
+ * Skull-and-jaw head silhouette via a lathe, instead of a cube.
+ *
+ * Width and height scale independently: the profile below is authored at a
+ * natural 0.185 tall by 0.09 in radius, and a head that has been scaled
+ * uniformly to fit a shorter chin-to-crown span comes out visibly squat.
+ */
+function headGeometry(widthScale: number, heightScale: number): THREE.BufferGeometry {
   const pts = [
     new THREE.Vector2(0.015, 0.0), // chin tip
     new THREE.Vector2(0.055, 0.012), // jaw curve
@@ -252,9 +258,13 @@ function headGeometry(scale: number): THREE.BufferGeometry {
     new THREE.Vector2(0.0, 0.185), // top
   ];
   const g = new THREE.LatheGeometry(pts, 20);
-  g.scale(scale, scale, scale);
+  g.scale(widthScale, heightScale, widthScale);
   return g;
 }
+
+/** Authored dimensions of the head lathe profile above. */
+const HEAD_LATHE_H = 0.185;
+const HEAD_LATHE_R = 0.09;
 
 /* ------------------------------------------------------------------ *
  * Merge helper — mirrors buildings.ts: merge a bucket, drop the sources.
@@ -383,8 +393,12 @@ export function makePerson(
   const waistTop = hipY + 0.08;
   const shoulderY = 1.44;
   const neckY = 1.52;
-  const chinY = 1.58;
-  const headTop = 1.74;
+  // Chin dropped closer to the collar so the exposed neck is a couple of
+  // centimetres, not a hand's width.
+  const chinY = 1.545;
+  // Chin-to-crown was 0.16 against a lathe authored at 0.185, so every head
+  // was being squashed to ~86% of its intended height.
+  const headTop = 1.78;
   const shoulderW = (0.22 + (female ? -0.015 : 0.025)) * build;
   const hipW = (0.19 + (female ? 0.02 : 0)) * build;
   const upperArmLen = 0.27;
@@ -454,27 +468,65 @@ export function makePerson(
   // cylinder so shoulders don't look cut flat.
   clothStatic.push(sphereAt(torsoTopR * 0.95, 0, shoulderY - hipY, 0, 1, 0.35, 0.75, 10, 6));
 
-  // Neck + head.
-  skinStatic.push(limbCyl(0.052, 0.058, neckY - shoulderY + 0.05, 0, neckY - hipY + 0.03, 0, 10));
-  const headGroup = new THREE.Group();
-  const skullBaseY = chinY - hipY + 0.02;
+  // ---- Neck + head ----
+  //
+  // The head sits with its chin exactly at chinY and the neck runs from the
+  // shoulder well past that, so the jaw closes over the top of the neck. The
+  // old numbers left the neck stopping just short of a chin that had itself
+  // been nudged up 2cm, which is what left a visible seam at the throat.
+  const skullBaseY = chinY - hipY;
   const headH = headTop - chinY;
+  const headScaleY = headH / HEAD_LATHE_H;
+  // Width stays near natural: a head scaled to the taller span in every axis
+  // would read as a bobblehead.
+  const headScaleXZ = 0.94;
+  const headW = HEAD_LATHE_R * headScaleXZ;
+
+  // Neck: from inside the torso up into the skull, so there is no join to see
+  // from any angle. Overlap is free — it all merges into one skin mesh.
+  //
+  // NOTE limbCyl's 5th argument is the TOP of the cylinder, not its centre.
+  // Passing a midpoint here (as this did) drops the neck by half its length
+  // and leaves the head floating clear of the shoulders.
+  // Only the exposed span between collar and jaw should read as neck; the
+  // rest is buried in the torso above and the skull below.
+  const neckBottom = shoulderY - 0.1;
+  const neckTop = chinY + headH * 0.18;
+  skinStatic.push(
+    limbCyl(
+      // Tapered narrower at the top so it tucks up under the jaw rather than
+      // bulging out past it.
+      0.052,
+      0.075,
+      neckTop - neckBottom,
+      0,
+      neckTop - hipY,
+      0,
+      10
+    )
+  );
+
+  const headGroup = new THREE.Group();
   headGroup.position.set(0, skullBaseY, 0);
-  const headGeo = headGeometry(headH / 0.185);
+  const headGeo = headGeometry(headScaleXZ, headScaleY);
   skinStatic.push(xf(headGeo, 0, skullBaseY, 0));
   const skullCrownY = skullBaseY + headH;
+
+  // Face features are placed as fractions of the head so they track its size.
+  const browY = skullBaseY + headH * 0.62;
+  const noseY = skullBaseY + headH * 0.52;
   // Ears.
   [-1, 1].forEach((s) => {
-    skinStatic.push(boxAt(0.018, 0.03, 0.02, s * 0.088, chinY - hipY + 0.11, 0));
+    skinStatic.push(boxAt(0.018, 0.032, 0.02, s * (headW + 0.012), browY - 0.01, 0));
   });
   // Nose: the head lathe is a solid of revolution (no front/back on its
   // own), so this small wedge is what actually breaks the symmetry and
   // gives the face — and the whole body's "+Z is front" convention used by
   // the pallu drape, badge and backpack placement below — a visible tell.
-  skinStatic.push(boxAt(0.02, 0.03, 0.03, 0, chinY - hipY + 0.1, 0.083, 0.35));
+  skinStatic.push(boxAt(0.02, 0.032, 0.03, 0, noseY, headW * 0.98, 0.35));
   // Eyes — dark spheres break up the smooth lathe and read as a face up close.
   [-1, 1].forEach((s) => {
-    hairStatic.push(sphereAt(0.013, s * 0.034, chinY - hipY + 0.12, 0.078, 1, 1, 1, 8, 6));
+    hairStatic.push(sphereAt(0.013, s * 0.034, browY, headW * 0.92, 1, 1, 1, 8, 6));
   });
 
   // ---- Hair / headwear (also drives whether a topi/turban is worn) ----
@@ -775,38 +827,224 @@ export function makePerson(
  * Pose control
  * ------------------------------------------------------------------ */
 
-export function makeIdlePose(group: THREE.Group): void {
-  const L = group.userData.limbs as PersonLimbs | undefined;
-  if (!L) return;
-  L.hipL.rotation.x = 0;
-  L.hipR.rotation.x = 0;
-  L.kneeL.rotation.x = 0.04;
-  L.kneeR.rotation.x = 0.04;
-  L.shoulderL.rotation.x = 0.06;
-  L.shoulderR.rotation.x = -0.04;
-  L.elbowL.rotation.x = 0.12;
-  L.elbowR.rotation.x = 0.16;
-  L.hips.position.y = L.baseHipY;
-  L.hips.rotation.y = 0;
+/**
+ * Every pose here is written into this one scratch object and then blended,
+ * so a frame costs no allocation however many people are on screen.
+ */
+type Pose = {
+  hipL: number;
+  hipR: number;
+  kneeL: number;
+  kneeR: number;
+  shoulderL: number;
+  shoulderR: number;
+  elbowL: number;
+  elbowR: number;
+  /** Vertical offset from baseHipY. */
+  bob: number;
+  /** Pelvis twist about Y. */
+  twist: number;
+  /** Pelvis roll about Z — the weight shift that stops an idle looking dead. */
+  roll: number;
+};
+
+const poseA: Pose = blank();
+const poseB: Pose = blank();
+
+function blank(): Pose {
+  return {
+    hipL: 0, hipR: 0, kneeL: 0, kneeR: 0,
+    shoulderL: 0, shoulderR: 0, elbowL: 0, elbowR: 0,
+    bob: 0, twist: 0, roll: 0,
+  };
 }
 
-/** Swings limb pivots through a walk cycle. `t` is phase in radians. */
-export function setWalkPhase(group: THREE.Group, t: number): void {
+/**
+ * One-sided and C1-continuous, unlike Math.max(0, x). The old knee driver used
+ * a hard clamp, whose derivative jumps at zero — that showed up as a visible
+ * kink in the knee once per stride.
+ */
+function softPos(x: number): number {
+  return x > 0 ? x * x : 0;
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+function copyPose(out: Pose, src: Pose): void {
+  Object.assign(out, src);
+}
+
+function blendInto(out: Pose, a: Pose, b: Pose, t: number): void {
+  out.hipL = lerp(a.hipL, b.hipL, t);
+  out.hipR = lerp(a.hipR, b.hipR, t);
+  out.kneeL = lerp(a.kneeL, b.kneeL, t);
+  out.kneeR = lerp(a.kneeR, b.kneeR, t);
+  out.shoulderL = lerp(a.shoulderL, b.shoulderL, t);
+  out.shoulderR = lerp(a.shoulderR, b.shoulderR, t);
+  out.elbowL = lerp(a.elbowL, b.elbowL, t);
+  out.elbowR = lerp(a.elbowR, b.elbowR, t);
+  out.bob = lerp(a.bob, b.bob, t);
+  out.twist = lerp(a.twist, b.twist, t);
+  out.roll = lerp(a.roll, b.roll, t);
+}
+
+/**
+ * Standing, but alive: slow breathing, a weight shift from one hip to the
+ * other, and a faint arm sway. `t` is wall-clock seconds.
+ *
+ * This used to be a fixed pose, which meant a standing character — the player
+ * whenever they stopped, and every NPC in the district, permanently — was a
+ * frozen statue.
+ */
+function idlePose(out: Pose, t: number): void {
+  const breath = Math.sin(t * 1.5);
+  // Weight shift is deliberately slower than the breath and slightly out of
+  // phase with it, so the two never visibly line up into a single bounce.
+  const shift = Math.sin(t * 0.55);
+
+  out.hipL = shift * 0.03;
+  out.hipR = -shift * 0.03;
+  out.kneeL = 0.04 + Math.max(0, shift) * 0.05;
+  out.kneeR = 0.04 + Math.max(0, -shift) * 0.05;
+
+  out.shoulderL = 0.06 + breath * 0.025 + shift * 0.02;
+  out.shoulderR = -0.04 + breath * 0.025 - shift * 0.02;
+  out.elbowL = 0.12 + breath * 0.03;
+  out.elbowR = 0.16 + breath * 0.03;
+
+  out.bob = breath * 0.008;
+  out.twist = shift * 0.025;
+  out.roll = shift * 0.035;
+}
+
+/**
+ * Walk and run share a driver but not their constants. A run is not a walk
+ * played fast: the stride opens up, the knee lifts higher, the elbows come up
+ * and stay bent, and the pelvis works harder.
+ */
+function gaitPose(out: Pose, phase: number, run: number): void {
+  const swing = Math.sin(phase);
+  const swingOpp = -swing;
+
+  const stride = lerp(0.55, 0.85, run);
+  const knee = lerp(1.0, 1.35, run);
+  const armSwing = lerp(0.4, 0.72, run);
+  const elbowBend = lerp(0.08, 0.55, run);
+  const bobAmt = lerp(0.025, 0.055, run);
+
+  out.hipL = swing * stride;
+  out.hipR = swingOpp * stride;
+  out.kneeL = softPos(-swing) * knee + 0.05;
+  out.kneeR = softPos(-swingOpp) * knee + 0.05;
+
+  // Arms counter-swing against the legs — same-side arm and leg moving
+  // together is the classic broken-walk tell.
+  out.shoulderL = swingOpp * armSwing;
+  out.shoulderR = swing * armSwing;
+  out.elbowL = softPos(swingOpp) * 0.5 + elbowBend;
+  out.elbowR = softPos(swing) * 0.5 + elbowBend;
+
+  out.bob = Math.abs(Math.sin(phase * 2)) * bobAmt;
+  // Pelvis counter-rotates against the shoulders.
+  out.twist = swing * lerp(0.06, 0.11, run);
+  out.roll = swing * lerp(0.02, 0.05, run);
+}
+
+/**
+ * Airborne: trailing leg tucked, lead leg reaching, arms up and out for
+ * balance. A static pose — the hop is short enough that a driven one would
+ * never be seen.
+ */
+function airPose(out: Pose): void {
+  out.hipL = 0.62;
+  out.hipR = -0.3;
+  out.kneeL = 0.95;
+  out.kneeR = 0.35;
+  out.shoulderL = -0.75;
+  out.shoulderR = -0.6;
+  out.elbowL = 0.7;
+  out.elbowR = 0.62;
+  out.bob = 0;
+  out.twist = 0.04;
+  out.roll = 0;
+}
+
+function applyPose(L: PersonLimbs, p: Pose, lean: number): void {
+  L.hipL.rotation.x = p.hipL - lean;
+  L.hipR.rotation.x = p.hipR - lean;
+  L.kneeL.rotation.x = p.kneeL;
+  L.kneeR.rotation.x = p.kneeR;
+  L.shoulderL.rotation.x = p.shoulderL;
+  L.shoulderR.rotation.x = p.shoulderR;
+  L.elbowL.rotation.x = p.elbowL;
+  L.elbowR.rotation.x = p.elbowR;
+
+  L.hips.position.y = L.baseHipY + p.bob;
+  L.hips.rotation.y = p.twist;
+  L.hips.rotation.z = p.roll;
+  // Whole-body lean from acceleration. The legs are counter-rotated above so
+  // the torso tips forward without the feet swinging out behind.
+  L.hips.rotation.x = lean;
+}
+
+/**
+ * Drives a standing character's idle. Used for NPCs, who are otherwise never
+ * updated after spawn.
+ */
+export function setIdlePhase(group: THREE.Group, t: number): void {
   const L = group.userData.limbs as PersonLimbs | undefined;
   if (!L) return;
-  const swing = Math.sin(t);
-  const swingOpp = Math.sin(t + Math.PI);
+  idlePose(poseA, t);
+  applyPose(L, poseA, 0);
+}
 
-  L.hipL.rotation.x = swing * 0.55;
-  L.hipR.rotation.x = swingOpp * 0.55;
-  L.kneeL.rotation.x = Math.max(0, -swing) * 1.0 + 0.05;
-  L.kneeR.rotation.x = Math.max(0, -swingOpp) * 1.0 + 0.05;
+/** Snaps straight to the neutral standing pose, with no motion. */
+export function makeIdlePose(group: THREE.Group): void {
+  setIdlePhase(group, 0);
+}
 
-  L.shoulderL.rotation.x = swingOpp * 0.4;
-  L.shoulderR.rotation.x = swing * 0.4;
-  L.elbowL.rotation.x = Math.max(0, swingOpp) * 0.5 + 0.08;
-  L.elbowR.rotation.x = Math.max(0, swing) * 0.5 + 0.08;
+/**
+ * Blends idle → walk → run and writes the result to the rig.
+ *
+ * @param phase  stride phase in radians
+ * @param gait   0 standing, 1 walking, 2 running — fractional, and damped by
+ *               the caller so transitions crossfade instead of popping
+ * @param lean   forward body lean in radians, from acceleration
+ * @param t      wall-clock seconds, drives the idle's breathing
+ * @param air    0 grounded, 1 fully airborne — blends over the ground pose
+ */
+export function setWalkPhase(
+  group: THREE.Group,
+  phase: number,
+  gait = 1,
+  lean = 0,
+  t = 0,
+  air = 0
+): void {
+  const L = group.userData.limbs as PersonLimbs | undefined;
+  if (!L) return;
 
-  L.hips.position.y = L.baseHipY + Math.abs(Math.sin(t * 2)) * 0.025;
-  L.hips.rotation.y = Math.sin(t) * 0.06;
+  if (gait <= 0.001) {
+    idlePose(poseA, t);
+  } else {
+    const run = Math.min(1, Math.max(0, gait - 1));
+    gaitPose(poseB, phase, run);
+    if (gait >= 1) {
+      copyPose(poseA, poseB);
+    } else {
+      // Standing-to-walking: crossfade, so the feet don't skate through a
+      // half-amplitude walk.
+      idlePose(poseA, t);
+      blendInto(poseA, poseA, poseB, gait);
+    }
+  }
+
+  if (air > 0.001) {
+    airPose(poseB);
+    blendInto(poseA, poseA, poseB, air);
+  }
+
+  applyPose(L, poseA, lean * (1 - air));
 }

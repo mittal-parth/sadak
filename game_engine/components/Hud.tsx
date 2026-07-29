@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { roadLines, WORLD_LIMIT, ROAD_W } from "@/lib/game/city";
-import type { Telemetry } from "@/lib/game/engine";
+import type { LiveState, TaskSnapshot, Telemetry } from "@/lib/game/engine";
 import type { District } from "@/lib/game/districts";
 import type { StreetTask, TaskKind } from "@/lib/game/tasks";
 import { Button } from "@/components/ui/button";
@@ -124,8 +124,32 @@ function kindLabel(kind: TaskKind): string {
   }
 }
 
-function Minimap({ tel, size }: { tel: Telemetry; size: number }) {
+/**
+ * Draws from the engine's LiveState on its own rAF rather than from React
+ * state, so the map stays smooth at 60fps while the HUD around it only
+ * re-renders when something actually changes.
+ *
+ * Previously this ran a useEffect keyed on `tel`, which arrived every frame,
+ * and reassigned canvas.width/height on each pass — reallocating the backing
+ * store 60 times a second inside the game's own rAF callback. That was the
+ * single largest source of frame-time jitter in the whole app.
+ */
+function Minimap({
+  live,
+  tasks,
+  size,
+}: {
+  live: LiveState | null;
+  tasks: TaskSnapshot[];
+  size: number;
+}) {
   const ref = useRef<HTMLCanvasElement | null>(null);
+  // Read through a ref so the draw loop never needs to be torn down and
+  // rebuilt when the (throttled) task list changes.
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
+  const liveRef = useRef(live);
+  liveRef.current = live;
 
   useEffect(() => {
     const canvas = ref.current;
@@ -133,82 +157,98 @@ function Minimap({ tel, size }: { tel: Telemetry; size: number }) {
     if (!canvas || !ctx) return;
 
     const dpr = Math.min(devicePixelRatio, 2);
-    canvas.width = size * dpr;
-    canvas.height = size * dpr;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, size, size);
+    let raf = 0;
 
-    const R = size / 2;
-    const scale = R / MAP_RANGE;
-    const ui = size / MAP_PX;
+    const draw = () => {
+      raf = requestAnimationFrame(draw);
+      const l = liveRef.current;
+      if (!l) return;
 
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(R, R, R - 2, 0, Math.PI * 2);
-    ctx.clip();
+      // Only touch width/height when they actually change; assigning them is
+      // what reallocates (and clears) the backing store.
+      const w = Math.round(size * dpr);
+      if (canvas.width !== w || canvas.height !== w) {
+        canvas.width = w;
+        canvas.height = w;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, size, size);
 
-    ctx.fillStyle = "#1d2229";
-    ctx.fillRect(0, 0, size, size);
+      const R = size / 2;
+      const scale = R / MAP_RANGE;
+      const ui = size / MAP_PX;
 
-    ctx.translate(R, R);
-    ctx.rotate(tel.heading + Math.PI);
-    ctx.translate(-tel.playerX * scale, -tel.playerZ * scale);
-
-    ctx.strokeStyle = "#454f5a";
-    ctx.lineWidth = ROAD_W * scale;
-    const L = WORLD_LIMIT;
-    for (const c of roadLines()) {
+      ctx.save();
       ctx.beginPath();
-      ctx.moveTo(c * scale, -L * scale);
-      ctx.lineTo(c * scale, L * scale);
-      ctx.stroke();
+      ctx.arc(R, R, R - 2, 0, Math.PI * 2);
+      ctx.clip();
 
+      ctx.fillStyle = "#1d2229";
+      ctx.fillRect(0, 0, size, size);
+
+      ctx.translate(R, R);
+      ctx.rotate(l.heading + Math.PI);
+      ctx.translate(-l.x * scale, -l.z * scale);
+
+      ctx.strokeStyle = "#454f5a";
+      ctx.lineWidth = ROAD_W * scale;
+      const L = WORLD_LIMIT;
+      for (const c of roadLines()) {
+        ctx.beginPath();
+        ctx.moveTo(c * scale, -L * scale);
+        ctx.lineTo(c * scale, L * scale);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(-L * scale, c * scale);
+        ctx.lineTo(L * scale, c * scale);
+        ctx.stroke();
+      }
+
+      for (const t of tasksRef.current) {
+        const col = kindColour(t.kind, t.done);
+        const dotR = 4.5 * ui;
+        const sx = t.x * scale;
+        const sy = t.z * scale;
+
+        // Soft shadow under blip (GTA-style minimap parity).
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
+        ctx.beginPath();
+        ctx.arc(sx + 1.2 * ui, sy + 1.2 * ui, dotR + 1.5 * ui, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.arc(sx, sy, dotR, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(255,255,255,0.45)";
+        ctx.lineWidth = Math.max(1, 1.5 * ui);
+        ctx.beginPath();
+        ctx.arc(sx, sy, dotR + 0.5 * ui, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+
+      ctx.fillStyle = "#5ab0ff";
       ctx.beginPath();
-      ctx.moveTo(-L * scale, c * scale);
-      ctx.lineTo(L * scale, c * scale);
-      ctx.stroke();
-    }
-
-    for (const t of tel.tasks) {
-      const col = kindColour(t.kind, t.done);
-      const dotR = 4.5 * ui;
-      const sx = t.x * scale;
-      const sy = t.z * scale;
-
-      // Soft shadow under blip (GTA-style minimap parity).
-      ctx.fillStyle = "rgba(0,0,0,0.35)";
-      ctx.beginPath();
-      ctx.arc(sx + 1.2 * ui, sy + 1.2 * ui, dotR + 1.5 * ui, 0, Math.PI * 2);
+      ctx.moveTo(R, R - 7 * ui);
+      ctx.lineTo(R - 5 * ui, R + 5 * ui);
+      ctx.lineTo(R + 5 * ui, R + 5 * ui);
+      ctx.closePath();
       ctx.fill();
 
-      ctx.fillStyle = col;
+      ctx.strokeStyle = "rgba(255,255,255,0.32)";
+      ctx.lineWidth = Math.max(1, 2 * ui);
       ctx.beginPath();
-      ctx.arc(sx, sy, dotR, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.strokeStyle = "rgba(255,255,255,0.45)";
-      ctx.lineWidth = Math.max(1, 1.5 * ui);
-      ctx.beginPath();
-      ctx.arc(sx, sy, dotR + 0.5 * ui, 0, Math.PI * 2);
+      ctx.arc(R, R, R - 2, 0, Math.PI * 2);
       ctx.stroke();
-    }
+    };
 
-    ctx.restore();
-
-    ctx.fillStyle = "#5ab0ff";
-    ctx.beginPath();
-    ctx.moveTo(R, R - 7 * ui);
-    ctx.lineTo(R - 5 * ui, R + 5 * ui);
-    ctx.lineTo(R + 5 * ui, R + 5 * ui);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.strokeStyle = "rgba(255,255,255,0.32)";
-    ctx.lineWidth = Math.max(1, 2 * ui);
-    ctx.beginPath();
-    ctx.arc(R, R, R - 2, 0, Math.PI * 2);
-    ctx.stroke();
-  }, [tel, size]);
+    draw();
+    return () => cancelAnimationFrame(raf);
+  }, [size]);
 
   return <canvas ref={ref} style={{ width: size, height: size }} />;
 }
@@ -297,6 +337,7 @@ export default function Hud({
   tel,
   cash,
   xp,
+  live,
   artifacts,
   completed,
   errandProgress,
@@ -313,6 +354,8 @@ export default function Hud({
   district: District;
   tasks: StreetTask[];
   tel: Telemetry | null;
+  /** Engine-owned, mutated per frame. Only the minimap reads it. */
+  live: LiveState | null;
   cash: number;
   xp: number;
   artifacts: string[];
@@ -393,7 +436,7 @@ export default function Hud({
             {tel && (
               <HudCard className="pointer-events-auto p-1">
                 <CardContent className="px-0 py-0">
-                  <Minimap tel={tel} size={mapSize} />
+                  <Minimap live={live} tasks={tel.tasks} size={mapSize} />
                 </CardContent>
               </HudCard>
             )}
@@ -544,7 +587,7 @@ export default function Hud({
             {tel && (
               <HudCard className="p-2">
                 <CardContent className="px-2 py-0">
-                  <Minimap tel={tel} size={mapSize} />
+                  <Minimap live={live} tasks={tel.tasks} size={mapSize} />
                 </CardContent>
               </HudCard>
             )}

@@ -44,8 +44,15 @@ export function createRenderPipeline(
 
   /* ---------------- depth target for haze ---------------- */
 
-  const depthTarget = new THREE.WebGLRenderTarget(size.x, size.y);
-  depthTarget.depthTexture = new THREE.DepthTexture(size.x, size.y);
+  // Half resolution: this target is only ever read through the haze term,
+  // which is a low-frequency ramp over hundreds of pixels. At full res it cost
+  // a second complete scene render every frame at DPR 2 for no visible gain.
+  const DEPTH_SCALE = 0.5;
+  const dw = () => Math.max(1, Math.floor(size.x * DEPTH_SCALE));
+  const dh = () => Math.max(1, Math.floor(size.y * DEPTH_SCALE));
+
+  const depthTarget = new THREE.WebGLRenderTarget(dw(), dh());
+  depthTarget.depthTexture = new THREE.DepthTexture(dw(), dh());
   depthTarget.depthTexture.type = THREE.UnsignedShortType;
 
   /* ---------------- passes ---------------- */
@@ -84,6 +91,14 @@ export function createRenderPipeline(
 
   /* ---------------- preset application ---------------- */
 
+  // Every shipped district must have a preset. The fallback exists so a typo
+  // can't black-screen the game, but silently inheriting another district's
+  // grade is how six districts ended up rendering through Delhi's haze.
+  if (!RENDER_PRESETS[districtId] && process.env.NODE_ENV !== "production") {
+    console.warn(
+      `[render] No grade preset for district "${districtId}" — falling back. Add one to fx/presets.ts.`
+    );
+  }
   let current: RenderPreset = RENDER_PRESETS[districtId] ?? Object.values(RENDER_PRESETS)[0];
 
   function apply(p: RenderPreset) {
@@ -149,7 +164,8 @@ export function createRenderPipeline(
     resize(w, h) {
       composer.setSize(w, h);
       bloom.setSize(w, h);
-      depthTarget.setSize(w, h);
+      size.set(w, h);
+      depthTarget.setSize(dw(), dh());
       grade.uniforms.cameraNear.value = camera.near;
       grade.uniforms.cameraFar.value = camera.far;
     },
