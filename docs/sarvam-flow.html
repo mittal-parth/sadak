@@ -19,97 +19,137 @@
       --game-bg: #fef3c7;
       --game-border: #fcd34d;
       --soft: #64748b;
+      --soft-bg: #f8fafc;
       --soft-border: #cbd5e1;
       --arrow: #94a3b8;
+      --card: #fff;
     }
 
     * { box-sizing: border-box; }
 
-    html, body { height: 100%; margin: 0; }
-
     body {
+      margin: 0;
       font-family: "Segoe UI", system-ui, sans-serif;
       background: var(--bg);
       color: var(--text);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0.5rem;
+      line-height: 1.4;
+      padding: 1rem 1.25rem 1.25rem;
     }
 
-    .board { width: min(1160px, 100%); }
+    .board {
+      max-width: 1240px;
+      margin: 0 auto;
+    }
 
     header {
+      margin-bottom: 0.75rem;
+    }
+
+    header h1 {
+      font-size: 1.45rem;
+      margin: 0 0 0.25rem;
+      font-weight: 700;
+    }
+
+    header .lead {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+      max-width: 52rem;
+    }
+
+    .section-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      font-weight: 600;
+      margin: 0 0 0.4rem;
+    }
+
+    .journey {
       display: flex;
       flex-wrap: wrap;
-      justify-content: space-between;
       align-items: center;
-      gap: 0.25rem 1rem;
-      margin-bottom: 0.4rem;
+      justify-content: flex-start;
+      gap: 0.35rem;
+      margin-bottom: 0.85rem;
     }
 
-    header h1 { font-size: 1.05rem; margin: 0; font-weight: 700; }
+    .journey .step {
+      background: var(--soft-bg);
+      border: 1px solid var(--soft-border);
+      border-radius: 8px;
+      padding: 0.4rem 0.55rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--soft);
+      text-align: center;
+      flex: 1 1 100px;
+      min-width: 88px;
+    }
 
-    .journey { font-size: 0.64rem; color: var(--soft); font-weight: 600; }
+    .journey .arr {
+      color: var(--arrow);
+      font-size: 0.95rem;
+      flex-shrink: 0;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr min(300px, 32%);
+      gap: 0.85rem;
+      align-items: start;
+    }
 
     .canvas {
-      background: #fff;
+      background: var(--card);
       border: 1px solid var(--soft-border);
       border-radius: 12px;
-      padding: 0.5rem 0.6rem 0.4rem;
+      padding: 0.75rem 0.65rem;
     }
 
-    .rail {
+    .rails {
       display: grid;
-      grid-template-columns: 42px repeat(4, 1fr);
-      gap: 0.2rem 0.35rem;
+      grid-template-columns: 48px 1fr 16px 1fr 16px 1fr 16px 1fr;
+      gap: 0.35rem 0;
       align-items: center;
-      margin-bottom: 0.22rem;
     }
-
-    .rail:last-of-type { margin-bottom: 0; }
 
     .tag {
-      font-size: 0.56rem;
+      font-size: 0.6rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.04em;
       text-align: right;
-      padding-right: 0.2rem;
+      padding-right: 0.35rem;
     }
 
-    .tag.you { color: var(--player); }
-    .tag.sarvam { color: var(--sarvam); }
-    .tag.game { color: var(--game); }
+    .tag.you { color: var(--player); grid-row: 1; }
+    .tag.sarvam { color: var(--sarvam); grid-row: 2; }
+    .tag.game { color: var(--game); grid-row: 3; }
 
-    .slot {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 1.85rem;
-    }
-
-    .slot.grow { grid-column: span 1; }
-
-    .hflow {
-      display: flex;
-      align-items: center;
-      width: 100%;
-      gap: 0.2rem;
-    }
-
-    .arr { color: var(--arrow); font-size: 0.9rem; flex-shrink: 0; }
+    .arr { color: var(--arrow); text-align: center; font-size: 1rem; }
 
     .node {
-      flex: 1;
-      border-radius: 8px;
-      padding: 0.32rem 0.35rem;
+      border-radius: 10px;
+      padding: 0.5rem 0.45rem;
       text-align: center;
-      min-width: 0;
+      height: 100%;
     }
 
-    .node .t { font-size: 0.64rem; font-weight: 700; line-height: 1.15; }
-    .node .c { font-size: 0.54rem; color: var(--muted); margin-top: 0.06rem; }
+    .node .t {
+      font-size: 0.78rem;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 0.2rem;
+    }
+
+    .node .c {
+      font-size: 0.68rem;
+      color: var(--muted);
+      line-height: 1.3;
+    }
 
     .node.player { background: var(--player-bg); border: 2px solid var(--player-border); }
     .node.player .t { color: var(--player); }
@@ -118,115 +158,231 @@
     .node.game { background: var(--game-bg); border: 2px solid var(--game-border); }
     .node.game .t { color: var(--game); }
 
-    .up {
-      font-size: 0.55rem;
+    .link-up {
+      font-size: 0.62rem;
       color: var(--sarvam);
       text-align: center;
-      line-height: 1;
-      margin-bottom: 0.05rem;
+      margin-bottom: 0.15rem;
+      font-weight: 600;
     }
 
-    .branch {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-wrap: wrap;
-      gap: 0.3rem;
-      margin-top: 0.35rem;
-      padding-top: 0.32rem;
-      border-top: 1px dashed var(--soft-border);
-      font-size: 0.6rem;
+    .revisit {
+      margin-top: 0.75rem;
+      padding: 0.65rem 0.75rem;
+      border-radius: 10px;
+      border: 1px dashed var(--sarvam-border);
+      background: var(--soft-bg);
+    }
+
+    .revisit h3 {
+      margin: 0 0 0.35rem;
+      font-size: 0.82rem;
+      color: var(--text);
+    }
+
+    .revisit p {
+      margin: 0 0 0.5rem;
+      font-size: 0.72rem;
       color: var(--muted);
     }
 
-    .branch .pill {
+    .revisit-flow {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.72rem;
+    }
+
+    .pill {
       background: var(--sarvam-bg);
       color: var(--sarvam);
       font-weight: 600;
-      padding: 0.15rem 0.4rem;
-      border-radius: 6px;
+      padding: 0.3rem 0.55rem;
+      border-radius: 8px;
       border: 1px solid var(--sarvam-border);
     }
 
-    footer {
-      margin-top: 0.3rem;
-      font-size: 0.56rem;
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--soft-border);
+      border-radius: 12px;
+      padding: 0.65rem 0.75rem;
+    }
+
+    .card h3 {
+      margin: 0 0 0.5rem;
+      font-size: 0.78rem;
+      color: var(--sarvam);
+    }
+
+    .card ul {
+      margin: 0;
+      padding-left: 1rem;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+
+    .card li { margin-bottom: 0.4rem; }
+    .card li:last-child { margin-bottom: 0; }
+
+    .card li strong {
+      color: var(--text);
+      font-size: 0.72rem;
+    }
+
+    .behind h3 {
       color: var(--soft);
+      font-size: 0.75rem;
+    }
+
+    .note {
+      font-size: 0.68rem;
+      color: var(--soft);
+      font-style: italic;
+      line-height: 1.35;
+    }
+
+    legend {
+      display: block;
+      margin-top: 0.85rem;
+      padding-top: 0.65rem;
+      border-top: 1px solid var(--soft-border);
+      font-size: 0.72rem;
+      color: var(--muted);
       text-align: center;
+    }
+
+    legend strong { color: var(--text); }
+
+    @media (max-width: 900px) {
+      .main-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <div class="board">
     <header>
-      <h1>SADAK × Sarvam</h1>
-      <p class="journey">Sign in → district → reading language → walk → talk</p>
+      <h1>SADAK — how Sarvam helps you learn</h1>
+      <p class="lead">Walk a city, talk to locals, and practice real phrases. Sarvam handles hearing and speaking; SADAK handles scoring and progress.</p>
     </header>
 
-    <div class="canvas">
-      <!-- Player rail: full width horizontal -->
-      <div class="rail">
-        <div class="tag you">You</div>
-        <div class="slot" style="grid-column: span 4">
-          <div class="hflow">
-            <div class="node player"><div class="t">Meet local</div></div>
-            <span class="arr">→</span>
-            <div class="node player"><div class="t">Listen</div></div>
-            <span class="arr">→</span>
-            <div class="node player"><div class="t">Speak back</div></div>
-            <span class="arr">→</span>
-            <div class="node player"><div class="t">Next / done</div></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Sarvam rail: parallel under listen & speak -->
-      <div class="rail">
-        <div class="tag sarvam">Sarvam</div>
-        <div class="slot"></div>
-        <div class="slot">
-          <div>
-            <div class="up">↗ hear</div>
-            <div class="node sarvam"><div class="t">Text-to-speech</div></div>
-          </div>
-        </div>
-        <div class="slot"></div>
-        <div class="slot">
-          <div>
-            <div class="up">↗ check</div>
-            <div class="node sarvam"><div class="t">Speech-to-text</div></div>
-          </div>
-        </div>
-        <div class="slot"></div>
-      </div>
-
-      <!-- Game rail: score parallel under speak→next -->
-      <div class="rail">
-        <div class="tag game">Game</div>
-        <div class="slot"></div>
-        <div class="slot"></div>
-        <div class="slot"></div>
-        <div class="slot">
-          <div class="hflow">
-            <div class="node game"><div class="t">Scores you</div></div>
-            <span class="arr">→</span>
-            <span style="font-size:0.58rem;color:var(--muted)">then next</span>
-          </div>
-        </div>
-        <div class="slot"></div>
-      </div>
-
-      <div class="branch">
-        <span>Revisit branch:</span>
-        <span class="pill">Chat</span>
-        <span class="arr">→</span>
-        <span class="pill">Text-to-speech</span>
-        <span class="arr">↗</span>
-        <span>back into listen</span>
-      </div>
-
-      <footer>Pre-recorded lines · offline UI text · free-talk voice not on lesson screen yet</footer>
+    <p class="section-label">Getting into the game</p>
+    <div class="journey">
+      <div class="step">Sign in</div>
+      <span class="arr">→</span>
+      <div class="step">Pick a district &amp; difficulty</div>
+      <span class="arr">→</span>
+      <div class="step">Choose the language you read in</div>
+      <span class="arr">→</span>
+      <div class="step">Walk the city</div>
+      <span class="arr">→</span>
+      <div class="step">Talk to someone</div>
     </div>
+
+    <p class="section-label">One conversation lesson — three lanes at once</p>
+    <div class="main-grid">
+      <div class="canvas">
+        <div class="rails">
+          <div class="tag you">You</div>
+          <div class="node player">
+            <div class="t">Meet a local</div>
+            <div class="c">They give you a phrase to practice in their language.</div>
+          </div>
+          <div class="arr">→</div>
+          <div class="node player">
+            <div class="t">Listen</div>
+            <div class="c">You hear how the line should sound.</div>
+          </div>
+          <div class="arr">→</div>
+          <div class="node player">
+            <div class="t">Speak back</div>
+            <div class="c">Hold the mic and try the phrase yourself.</div>
+          </div>
+          <div class="arr">→</div>
+          <div class="node player">
+            <div class="t">Next or done</div>
+            <div class="c">Earn progress, retry, or finish the errand.</div>
+          </div>
+
+          <div class="tag sarvam">Sarvam</div>
+          <div></div>
+          <div></div>
+          <div>
+            <div class="link-up">↗ powers “listen”</div>
+            <div class="node sarvam">
+              <div class="t">Text-to-speech</div>
+              <div class="c">Speaks the line in the local language—or plays a saved recording if ready.</div>
+            </div>
+          </div>
+          <div></div>
+          <div></div>
+          <div>
+            <div class="link-up">↗ powers “speak back”</div>
+            <div class="node sarvam">
+              <div class="t">Speech-to-text</div>
+              <div class="c">Turns your voice into text the game can read and check.</div>
+            </div>
+          </div>
+          <div></div>
+          <div></div>
+
+          <div class="tag game">Game</div>
+          <div></div>
+          <div></div>
+          <div></div>
+          <div></div>
+          <div class="node game">
+            <div class="t">Scores you</div>
+            <div class="c">SADAK compares your attempt to the target phrase—not Sarvam.</div>
+          </div>
+          <div class="arr">→</div>
+          <div style="font-size:0.65rem;color:var(--muted);text-align:center;padding:0.25rem">then next</div>
+        </div>
+
+        <div class="revisit">
+          <h3>Coming back later</h3>
+          <p>If you’ve met this person before, the game remembers—and Sarvam helps with a warm welcome before the lesson continues.</p>
+          <div class="revisit-flow">
+            <span class="pill">Sarvam chat — short “remember you?” greeting</span>
+            <span class="arr">→</span>
+            <span class="pill">Sarvam text-to-speech — speaks it aloud</span>
+            <span class="arr">↗</span>
+            <span style="color:var(--muted)">joins the listen step above</span>
+          </div>
+        </div>
+      </div>
+
+      <aside class="sidebar">
+        <div class="card">
+          <h3>Where Sarvam shows up</h3>
+          <ul>
+            <li><strong>Speech-to-text</strong> — turns your spoken attempt into words the game checks against the lesson phrase.</li>
+            <li><strong>Text-to-speech</strong> — makes locals sound natural in the district’s language.</li>
+            <li><strong>Chat</strong> — writes a short, personal greeting when you revisit someone you’ve met before.</li>
+          </ul>
+        </div>
+        <div class="card behind">
+          <h3>Behind the scenes</h3>
+          <ul>
+            <li>Lesson lines can be pre-recorded with Sarvam text-to-speech ahead of time so replies feel instant when you play.</li>
+            <li>On-screen help in your reading language is prepared offline with Sarvam chat, then looked up in-game—no live translation while you play.</li>
+          </ul>
+        </div>
+        <p class="note">There is also a live free-talk voice experience in the project that is not connected to the current lesson screen yet.</p>
+      </aside>
+    </div>
+
+    <legend>
+      <strong>SADAK</strong> is a street-language learning game.
+      <strong>Sarvam</strong> provides speech-to-text, text-to-speech, and chat—the game handles scoring and progress.
+    </legend>
   </div>
 </body>
 </html>
