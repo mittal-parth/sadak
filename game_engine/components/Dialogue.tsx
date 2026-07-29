@@ -20,7 +20,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { lessonTierLabel } from "@/lib/game/levels";
+import { gloss, ui } from "@/lib/i18n/gloss";
+import { lessonTierUiKey } from "@/lib/i18n/ui-keys";
+import type { BaseLangCode } from "@/lib/i18n/base-lang";
 import { cn } from "@/lib/utils";
 import posthog from "posthog-js";
 import { ttsLookupKey } from "@/lib/tts/cache-keys";
@@ -30,6 +32,7 @@ type Phase = "recall" | "npc" | "player" | "result" | "finished";
 
 export default function Dialogue({
   district,
+  baseLang,
   target,
   priorMemory,
   onMemoryUpdate,
@@ -39,6 +42,7 @@ export default function Dialogue({
   ttsPrefetchRef,
 }: {
   district: District;
+  baseLang: BaseLangCode;
   target: LessonTarget;
   priorMemory: NpcTurn[];
   onMemoryUpdate: (turns: NpcTurn[]) => void;
@@ -285,6 +289,15 @@ export default function Dialogue({
     phase === "recall" && recallLine ? recallLine : step?.npc.native ?? "";
   const npcRoman = phase === "recall" ? null : step?.npc.roman;
   const npcEn = phase === "recall" ? null : step?.npc.en;
+  const npcGloss = npcEn ? gloss(npcEn, baseLang) : null;
+  const promptGloss = step?.prompt?.en ? gloss(step.prompt.en, baseLang) : null;
+  const objectiveBrief = gloss(target.brief, baseLang);
+  const completionNoteGloss = gloss(target.completionNote, baseLang);
+  const roleGloss = gloss(target.role, baseLang);
+  const tierLabel =
+    target.lessonTier != null
+      ? ui(lessonTierUiKey(target.lessonTier), baseLang)
+      : null;
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -300,7 +313,7 @@ export default function Dialogue({
           <div className="min-w-0 flex-1">
             <DialogTitle className="text-lg">{target.name}</DialogTitle>
             <DialogDescription>
-              {target.role} · learning{" "}
+              {roleGloss} · {ui("learning", baseLang)}{" "}
               <strong className="font-indic text-foreground">{district.native}</strong>
             </DialogDescription>
           </div>
@@ -308,7 +321,7 @@ export default function Dialogue({
             <div className="flex flex-nowrap items-center justify-end gap-1">
               {target.errandLevel != null && target.lessonTier != null && (
                 <Badge variant="neutral" className="shrink-0 text-[0.625rem] uppercase tracking-wide">
-                  Level {target.errandLevel}/4 · {lessonTierLabel(target.lessonTier)}
+                  {ui("level", baseLang)} {target.errandLevel}/4 · {tierLabel}
                 </Badge>
               )}
               <Badge variant="neutral" className="shrink-0">
@@ -317,14 +330,16 @@ export default function Dialogue({
             </div>
             <DialogClose className="rounded-base opacity-100 ring-offset-white focus:outline-hidden focus:ring-2 focus:ring-black focus:ring-offset-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
               <X />
-              <span className="sr-only">Close</span>
+              <span className="sr-only">{ui("close", baseLang)}</span>
             </DialogClose>
           </div>
         </DialogHeader>
 
         <Alert className="rounded-none border-x-0 border-t-0 shadow-none">
-          <AlertTitle className="text-xs uppercase tracking-widest">Objective</AlertTitle>
-          <AlertDescription>{target.brief}</AlertDescription>
+          <AlertTitle className="text-xs uppercase tracking-widest">
+            {ui("objective", baseLang)}
+          </AlertTitle>
+          <AlertDescription>{objectiveBrief}</AlertDescription>
         </Alert>
 
         {phase !== "finished" && step && (
@@ -334,7 +349,9 @@ export default function Dialogue({
                 <CardTitle className="text-[0.625rem] uppercase tracking-widest text-foreground/70">
                   {target.name}
                   {phase === "recall" && (
-                    <span className="ml-2 normal-case tracking-normal text-main">· remembers you</span>
+                    <span className="ml-2 normal-case tracking-normal text-main">
+                      {ui("remembersYou", baseLang)}
+                    </span>
                   )}
                 </CardTitle>
               </CardHeader>
@@ -345,9 +362,9 @@ export default function Dialogue({
                 {npcRoman && (
                   <p className="text-sm italic text-foreground/80">{npcRoman}</p>
                 )}
-                {npcEn && <p className="text-xs text-foreground/70">{npcEn}</p>}
+                {npcGloss && <p className="text-xs text-foreground/70">{npcGloss}</p>}
                 {npcSpeaking && (
-                  <span className="text-xs text-main animate-pulse">🔊 speaking…</span>
+                  <span className="text-xs text-main animate-pulse">{ui("speaking", baseLang)}</span>
                 )}
               </CardContent>
             </Card>
@@ -355,7 +372,7 @@ export default function Dialogue({
             <Card className="gap-2 py-4 text-right sm:text-right">
               <CardHeader className="px-4 pb-0">
                 <CardTitle className="text-[0.625rem] uppercase tracking-widest text-foreground/70">
-                  You
+                  {ui("you", baseLang)}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-1 px-4 max-sm:text-left">
@@ -379,18 +396,18 @@ export default function Dialogue({
                         );
                       })}
                     </p>
-                    <p className="text-xs text-foreground/70">{step.prompt.en}</p>
+                    <p className="text-xs text-foreground/70">{promptGloss}</p>
                   </>
                 ) : (
                   <p className="text-base italic text-foreground/80">…</p>
                 )}
                 {attempt && (
                   <p className="text-xs italic text-foreground/70">
-                    You said: “{attempt.transcript}”
+                    {ui("youSaid", baseLang)} “{attempt.transcript}”
                   </p>
                 )}
                 {heardNothing && (
-                  <p className="text-xs text-chart-2">Didn&apos;t catch that — try again.</p>
+                  <p className="text-xs text-chart-2">{ui("didntCatch", baseLang)}</p>
                 )}
               </CardContent>
             </Card>
@@ -402,7 +419,7 @@ export default function Dialogue({
             <p className="min-w-0 text-sm text-foreground/80">
               <strong className="text-xl text-main">+{attempt.points} pts</strong>
               {attempt.points === 0 && (
-                <span className="ml-2 text-foreground/70">Say it again when you&apos;re ready.</span>
+                <span className="ml-2 text-foreground/70">{ui("sayAgainReady", baseLang)}</span>
               )}
             </p>
             <div className="flex shrink-0 items-center gap-2">
@@ -414,18 +431,22 @@ export default function Dialogue({
                   sound="tap"
                   onClick={playPromptPronunciation}
                   disabled={ttsPlaying}
-                  aria-label={ttsPlaying ? "Playing pronunciation" : "Hear correct pronunciation"}
+                  aria-label={
+                    ttsPlaying
+                      ? ui("playingPronunciation", baseLang)
+                      : ui("hearPronunciation", baseLang)
+                  }
                 >
                   <Volume2 className="size-4" aria-hidden />
                 </Button>
               )}
               {attempt.points === 0 ? (
                 <Button type="button" onClick={retryLine}>
-                  Try again
+                  {ui("tryAgain", baseLang)}
                 </Button>
               ) : (
                 <Button type="button" onClick={advance}>
-                  Continue →
+                  {ui("continue", baseLang)}
                 </Button>
               )}
             </div>
@@ -435,16 +456,16 @@ export default function Dialogue({
         {phase === "finished" && (
           <div className="flex flex-col items-center gap-2 border-t-2 border-border px-4 py-6 text-center">
             <Badge className="size-10 justify-center text-lg">✓</Badge>
-            <h3 className="text-xl font-heading">Errand complete</h3>
+            <h3 className="text-xl font-heading">{ui("errandComplete", baseLang)}</h3>
             <p className="text-sm text-foreground/80">
-              {gradedCount}/{stepsGraded} lines scored · average accuracy{" "}
+              {gradedCount}/{stepsGraded} {ui("linesScored", baseLang)}{" "}
               <strong>{avgAccuracy}%</strong>
             </p>
             <p className="font-base text-chart-4">
-              +₹{target.reward} · {target.completionNote}
+              +₹{target.reward} · {completionNoteGloss}
             </p>
             <Button type="button" className="mt-2 w-full max-w-xs" onClick={onClose}>
-              Done
+              {ui("done", baseLang)}
             </Button>
           </div>
         )}
@@ -474,7 +495,7 @@ export default function Dialogue({
                 void onMicUp();
               }}
               disabled={voice.transcribing}
-              aria-label="Hold to speak"
+              aria-label={ui("holdToSpeak", baseLang)}
             >
               {voice.transcribing ? "···" : voice.recording ? "◉" : "🎙"}
             </Button>
@@ -485,13 +506,14 @@ export default function Dialogue({
                 </span>
                 <span className="text-foreground/70">
                   {" "}
-                  · {live.verdicts.filter((v) => v === "green").length}/{live.verdicts.length} words
+                  · {live.verdicts.filter((v) => v === "green").length}/{live.verdicts.length}{" "}
+                  {ui("words", baseLang)}
                 </span>
               </p>
             )}
             <p className="text-xs text-foreground/70">
               {voice.transcribing ? (
-                "Transcribing…"
+                ui("transcribing", baseLang)
               ) : voice.recording ? (
                 voice.partial ? (
                   <span className="italic">
@@ -499,10 +521,10 @@ export default function Dialogue({
                     <span className="animate-pulse">▍</span>
                   </span>
                 ) : (
-                  "Listening…"
+                  ui("listening", baseLang)
                 )
               ) : (
-                "Hold to speak the line above"
+                ui("holdToSpeakLine", baseLang)
               )}
             </p>
           </div>

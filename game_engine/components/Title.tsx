@@ -5,6 +5,13 @@ import Image from "next/image";
 import type { District } from "@/lib/game/districts";
 import { DISTRICT_COVER_IMAGES } from "@/lib/game/district-covers";
 import type { ComfortLevel } from "@/lib/game/levels";
+import {
+  BASE_LANG_OPTIONS,
+  readStoredBaseLang,
+  writeStoredBaseLang,
+  type BaseLangCode,
+} from "@/lib/i18n/base-lang";
+import { gloss } from "@/lib/i18n/gloss";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -71,7 +78,12 @@ export default function Title({
   onEnter,
   defaultDistrictId,
 }: {
-  onEnter: (districtId: string, comfort: ComfortLevel, cityLabel?: string) => void;
+  onEnter: (
+    districtId: string,
+    comfort: ComfortLevel,
+    cityLabel: string | undefined,
+    baseLang: BaseLangCode,
+  ) => void;
   defaultDistrictId?: string;
 }) {
   const [summaries, setSummaries] = useState<DistrictSummary[]>([]);
@@ -81,6 +93,11 @@ export default function Title({
   const [picked, setPicked] = useState<District | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [comfort, setComfort] = useState<ComfortLevel>("medium");
+  const [baseLang, setBaseLang] = useState<BaseLangCode>("en-IN");
+
+  useEffect(() => {
+    setBaseLang(readStoredBaseLang());
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -148,8 +165,9 @@ export default function Title({
   const enter = useCallback(() => {
     if (!pickedId) return;
     getAudioContext();
-    onEnter(pickedId, comfort, pickedSummary?.city);
-  }, [comfort, onEnter, pickedId, pickedSummary?.city]);
+    writeStoredBaseLang(baseLang);
+    onEnter(pickedId, comfort, pickedSummary?.city, baseLang);
+  }, [baseLang, comfort, onEnter, pickedId, pickedSummary?.city]);
 
   if (listLoading) {
     return (
@@ -307,11 +325,71 @@ export default function Title({
               </div>
             </section>
 
+            <section className="mt-10" aria-label="Instruction language">
+              <Step
+                n={2}
+                title="I understand…"
+                hint="Instructions and meanings appear in this language."
+              />
+              <div
+                className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4"
+                role="radiogroup"
+                aria-label="Instruction language"
+              >
+                {BASE_LANG_OPTIONS.map((opt) => {
+                  const on = baseLang === opt.code;
+                  return (
+                    <button
+                      key={opt.code}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      className="cursor-pointer rounded-base border-0 bg-transparent p-0 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      onClick={() => {
+                        playSfx("tap");
+                        setBaseLang(opt.code);
+                        writeStoredBaseLang(opt.code);
+                      }}
+                    >
+                      <Card
+                        className={cn(
+                          "relative justify-end gap-2 overflow-hidden py-4 transition-all bg-secondary-background",
+                          "hover:translate-x-boxShadowX hover:translate-y-boxShadowY hover:shadow-none",
+                          on &&
+                            "-translate-x-boxShadowX -translate-y-boxShadowY shadow-[8px_8px_0px_0px_var(--border)] outline-4 -outline-offset-4 outline-main hover:-translate-x-boxShadowX hover:-translate-y-boxShadowY hover:shadow-[8px_8px_0px_0px_var(--border)]",
+                        )}
+                      >
+                        {on && (
+                          <Badge className="absolute right-3 top-3 z-20 rotate-3 shadow-shadow">
+                            Picked
+                          </Badge>
+                        )}
+                        <CardContent className="relative flex flex-col gap-1 px-4">
+                          <span
+                            className={cn(
+                              "font-indic text-lg font-heading",
+                              opt.code === "en-IN" && "font-sans",
+                            )}
+                            lang={opt.code.slice(0, 2)}
+                          >
+                            {opt.native}
+                          </span>
+                          <span className="text-xs uppercase tracking-widest text-foreground/70">
+                            {opt.label}
+                          </span>
+                        </CardContent>
+                      </Card>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
             {/* Secondary choice — a segmented control, not three more cards,
                 so it cannot compete with the district grid. */}
             <section className="mt-10" aria-label="Language comfort">
               <Step
-                n={2}
+                n={3}
                 title="Set your starting level"
                 hint={`How much ${pickedSummary?.languageLabel ?? "of the language"} do you already have?`}
               />
@@ -415,7 +493,9 @@ export default function Title({
                           >
                             {p.native}
                           </span>
-                          <em className="text-xs not-italic text-foreground/70">{p.en}</em>
+                          <em className="text-xs not-italic text-foreground/70">
+                            {gloss(p.en, baseLang)}
+                          </em>
                         </li>
                       ))}
                     </ul>

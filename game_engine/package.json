@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "generate:seed-districts": "tsx scripts/generate-seed-districts.ts",
-    "warm-tts-cache": "tsx scripts/warm-tts-cache.ts"
+    "warm-tts-cache": "tsx scripts/warm-tts-cache.ts",
+    "generate:base-lang-glosses": "tsx scripts/generate-base-lang-glosses.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

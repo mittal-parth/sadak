@@ -13,6 +13,8 @@ import {
   type StreetTask,
 } from "@/lib/game/tasks";
 import type { ComfortLevel } from "@/lib/game/levels";
+import type { BaseLangCode } from "@/lib/i18n/base-lang";
+import { readStoredBaseLang } from "@/lib/i18n/base-lang";
 import type { DistrictProgress } from "@/lib/game/progress";
 import { errandLevelNumber, lessonTierFor } from "@/lib/game/levels";
 import { useGameAudio } from "@/lib/audio/useGameAudio";
@@ -63,6 +65,7 @@ export default function GameShell() {
   // instead of always resetting to DISTRICTS[0].
   const [lastDistrictId, setLastDistrictId] = useState<string | undefined>();
   const [comfort, setComfort] = useState<ComfortLevel>("medium");
+  const [baseLang, setBaseLang] = useState<BaseLangCode>("en-IN");
   const [tel, setTel] = useState<Telemetry | null>(null);
   // The engine's per-frame state object. Held in React state only so a render
   // happens once when the engine is created; the object itself is mutated in
@@ -134,8 +137,17 @@ export default function GameShell() {
     }
   }, []);
 
+  useEffect(() => {
+    setBaseLang(readStoredBaseLang());
+  }, []);
+
   const enterDistrict = useCallback(
-    async (districtId: string, pickedComfort: ComfortLevel, cityLabel?: string) => {
+    async (
+      districtId: string,
+      pickedComfort: ComfortLevel,
+      cityLabel: string | undefined,
+      pickedBaseLang: BaseLangCode,
+    ) => {
       setEntering(true);
       setEnteringCity(cityLabel);
       const startedAt = Date.now();
@@ -173,6 +185,7 @@ export default function GameShell() {
         setTaskFinale(districtPayload.taskPack.finale);
         setLastDistrictId(districtId);
         setComfort(pickedComfort);
+        setBaseLang(pickedBaseLang);
         setCash(saved.cash);
         setXp(saved.xp);
         setCompleted(new Set(saved.completedTaskIds));
@@ -184,6 +197,7 @@ export default function GameShell() {
           district_name: districtPayload.district.name,
           language: districtPayload.district.language,
           comfort_level: pickedComfort,
+          base_language: pickedBaseLang,
           task_count: districtPayload.tasks.length,
           prior_cash: saved.cash,
           prior_xp: saved.xp,
@@ -448,6 +462,7 @@ export default function GameShell() {
 
       <Hud
         district={district}
+        baseLang={baseLang}
         tasks={tasks}
         tel={tel}
         live={live}
@@ -563,6 +578,7 @@ export default function GameShell() {
         <Dialogue
           key={talking.id}
           district={district}
+          baseLang={baseLang}
           target={talkingTarget}
           priorMemory={npcMemory[memoryKey(district.id, talking.id)] ?? []}
           onMemoryUpdate={(turns) => mergeNpcMemory(talking.id, turns)}
