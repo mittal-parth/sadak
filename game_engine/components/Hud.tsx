@@ -15,7 +15,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
-import { PanelLeftClose, PanelLeftOpen, Volume2, VolumeX } from "lucide-react";
+import { LocateFixed, PanelLeftClose, PanelLeftOpen, Volume2, VolumeX } from "lucide-react";
 
 const MAP_PX = 168;
 const MAP_PX_MOBILE = 80;
@@ -253,6 +253,34 @@ function Minimap({
   return <canvas ref={ref} style={{ width: size, height: size }} />;
 }
 
+function MinimapPanel({
+  live,
+  tasks,
+  size,
+  onRecenter,
+}: {
+  live: LiveState | null;
+  tasks: TaskSnapshot[];
+  size: number;
+  onRecenter: () => void;
+}) {
+  return (
+    <div className="relative inline-block">
+      <Minimap live={live} tasks={tasks} size={size} />
+      <Button
+        variant="neutral"
+        size="icon"
+        className="absolute right-0.5 bottom-0.5 size-7 min-w-0"
+        sound="tap"
+        onClick={onRecenter}
+        aria-label="Recentre"
+      >
+        <LocateFixed className="size-3.5" aria-hidden />
+      </Button>
+    </div>
+  );
+}
+
 function HudCard({
   className,
   children,
@@ -345,6 +373,7 @@ export default function Hud({
   phrasesOpen,
   onTogglePhrases,
   onMenu,
+  onRecenter,
   mobilePlay,
   panelsOpen,
   onTogglePanels,
@@ -365,6 +394,7 @@ export default function Hud({
   phrasesOpen: boolean;
   onTogglePhrases: () => void;
   onMenu: () => void;
+  onRecenter: () => void;
   mobilePlay: boolean;
   panelsOpen: boolean;
   onTogglePanels: () => void;
@@ -436,7 +466,12 @@ export default function Hud({
             {tel && (
               <HudCard className="pointer-events-auto p-1">
                 <CardContent className="px-0 py-0">
-                  <Minimap live={live} tasks={tel.tasks} size={mapSize} />
+                  <MinimapPanel
+                    live={live}
+                    tasks={tel.tasks}
+                    size={mapSize}
+                    onRecenter={onRecenter}
+                  />
                 </CardContent>
               </HudCard>
             )}
@@ -587,7 +622,12 @@ export default function Hud({
             {tel && (
               <HudCard className="p-2">
                 <CardContent className="px-2 py-0">
-                  <Minimap live={live} tasks={tel.tasks} size={mapSize} />
+                  <MinimapPanel
+                    live={live}
+                    tasks={tel.tasks}
+                    size={mapSize}
+                    onRecenter={onRecenter}
+                  />
                 </CardContent>
               </HudCard>
             )}

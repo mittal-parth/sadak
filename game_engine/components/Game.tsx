@@ -460,6 +460,7 @@ export default function GameShell() {
         phrasesOpen={phrasesOpen}
         onTogglePhrases={() => setPhrasesOpen((p) => !p)}
         onMenu={() => setMenuOpen(true)}
+        onRecenter={() => gameRef.current?.recenter()}
         mobilePlay={mobilePlay}
         panelsOpen={hudPanelsOpen}
         onTogglePanels={() => setHudPanelsOpen((o) => !o)}

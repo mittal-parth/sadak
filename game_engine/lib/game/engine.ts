@@ -78,6 +78,9 @@ const PLAYER_LOOK_H = 2.3;
 /** Feet height when standing. */
 const PLAYER_BASE_Y = 0.26;
 
+/** Player spawn south of the chowk, facing north. */
+const SPAWN = { x: CHOWK.x, z: CHOWK.z - 16 };
+
 // Jump. Tuned as a hop rather than a leap — this is a street, not a platformer,
 // and a big arc fights the shallow chase camera.
 const JUMP_SPEED = 5.4;
@@ -303,7 +306,7 @@ export class Game {
   private district: District;
 
   private player = new THREE.Group();
-  private playerPos = new THREE.Vector3(CHOWK.x, 0, CHOWK.z - 16);
+  private playerPos = new THREE.Vector3(SPAWN.x, 0, SPAWN.z);
   private velocity = new THREE.Vector3();
   private yaw = 0;
   // Lower than it was (0.28). Camera height is 2.8 + pitch * 5 while the aim
@@ -338,7 +341,7 @@ export class Game {
   // churn at 60Hz.
   private readonly tmpDir = new THREE.Vector3();
   private readonly tmpCam = new THREE.Vector3();
-  private readonly lookTarget = new THREE.Vector3(CHOWK.x, PLAYER_LOOK_H, CHOWK.z - 16);
+  private readonly lookTarget = new THREE.Vector3(SPAWN.x, PLAYER_LOOK_H, SPAWN.z);
   private camFov = 55;
 
   private colliders: Box[] = [];
@@ -1337,6 +1340,48 @@ export class Game {
 
   public markDone(npcId: string) {
     this.done.add(npcId);
+  }
+
+  /** Snap back to the chowk spawn pose (position, facing, camera). */
+  public recenter() {
+    this.playerPos.set(SPAWN.x, 0, SPAWN.z);
+    this.velocity.set(0, 0, 0);
+    this.yaw = 0;
+    this.facing = 0;
+    this.pitch = 0.16;
+    this.pendingYaw = 0;
+    this.pendingPitch = 0;
+    this.turnRate = 0;
+    this.jumpY = 0;
+    this.jumpVel = 0;
+    this.jumpQueued = false;
+    this.air = 0;
+    this.walkPhase = 0;
+    this.gait = 0;
+    this.lean = 0;
+    this.setVirtualMove(0, 0);
+
+    this.player.position.set(SPAWN.x, PLAYER_BASE_Y, SPAWN.z);
+    this.player.rotation.y = 0;
+
+    const dist = 9;
+    const shoulder = 0.9;
+    const height = 2.8 + this.pitch * 5;
+    this.camera.position.set(
+      SPAWN.x - Math.sin(0) * dist + -Math.cos(0) * shoulder,
+      height,
+      SPAWN.z - Math.cos(0) * dist + Math.sin(0) * shoulder
+    );
+    this.lookTarget.set(SPAWN.x, PLAYER_LOOK_H, SPAWN.z);
+    this.camera.lookAt(this.lookTarget);
+    this.camFov = 55;
+    this.camera.fov = 55;
+    this.camera.updateProjectionMatrix();
+
+    this.live.x = SPAWN.x;
+    this.live.z = SPAWN.z;
+    this.live.heading = 0;
+    this.live.speed = 0;
   }
 
   public releasePointer() {
