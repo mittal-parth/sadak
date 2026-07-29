@@ -40,8 +40,33 @@ import {
   makePandalFrame,
   makeHandRickshaw,
 } from "./kolkata";
+import {
+  makeCharminar,
+  makeChineseFishingNet,
+  makeArtDecoCinema,
+  makePolHouse,
+  makeGurdwara,
+  makeKalingaDeul,
+} from "./cities";
 
-export type Landmark = "delhi" | "chennai" | "bengaluru" | "kolkata";
+/**
+ * One value per shipped district. This used to be four values covering ten
+ * districts, which meant Hyderabad, Ahmedabad, Amritsar and Mumbai all drew
+ * Delhi's bazaar gate and Bhubaneswar drew Kolkata's trams — five cities
+ * dressed identically. Adding a district means adding a value here and a case
+ * in getDistrictKit below.
+ */
+export type Landmark =
+  | "delhi"
+  | "chennai"
+  | "bengaluru"
+  | "kolkata"
+  | "hyderabad"
+  | "kochi"
+  | "mumbai"
+  | "ahmedabad"
+  | "amritsar"
+  | "bhubaneswar";
 
 export type DistrictKit = {
   hero: Array<() => THREE.Group>;
@@ -133,6 +158,51 @@ export function getDistrictKit(landmark: Landmark, mats?: MaterialLibrary): Dist
         vehicles: [() => makeAmbassadorTaxi(al, nextSeed()), () => makeTramWithPantograph(al, nextSeed())],
         streetProps: [() => makeHandRickshaw(al, nextSeed())],
       };
+
+    // The six seed districts. Each leads with the one silhouette that names
+    // the city, then borrows a neighbouring kit's vehicles and street props —
+    // an auto-rickshaw is an auto-rickshaw everywhere, the skyline is not.
+    case "hyderabad":
+      return {
+        hero: [() => makeCharminar(al, nextSeed()), () => makeBazaarGate(al, nextSeed())],
+        vehicles: [() => makeCycleRickshaw(al, nextSeed())],
+        streetProps: [() => makeJalebiStall(al, nextSeed()), () => makeStreetMandir(al, nextSeed())],
+      };
+
+    case "kochi":
+      return {
+        hero: [() => makeChineseFishingNet(al, nextSeed()), () => makeCoconutPalm(al, nextSeed())],
+        vehicles: [() => makeCatamaran(al, nextSeed())],
+        streetProps: [() => makeTiffinCart(al, nextSeed()), () => makeCoconutPalm(al, nextSeed())],
+      };
+
+    case "mumbai":
+      return {
+        hero: [() => makeArtDecoCinema(al, nextSeed()), () => makeMetroPillar(al, nextSeed())],
+        vehicles: [() => makeAmbassadorTaxi(al, nextSeed())],
+        streetProps: [() => makeScaffolding(al, nextSeed()), () => makeTiffinCart(al, nextSeed())],
+      };
+
+    case "ahmedabad":
+      return {
+        hero: [() => makePolHouse(al, nextSeed()), () => makeHaveliBalcony(al, nextSeed())],
+        vehicles: [() => makeCycleRickshaw(al, nextSeed())],
+        streetProps: [() => makeJalebiStall(al, nextSeed()), () => makeStreetMandir(al, nextSeed())],
+      };
+
+    case "amritsar":
+      return {
+        hero: [() => makeGurdwara(al, nextSeed()), () => makeBazaarGate(al, nextSeed())],
+        vehicles: [() => makeCycleRickshaw(al, nextSeed())],
+        streetProps: [() => makeJalebiStall(al, nextSeed()), () => makeStreetMandir(al, nextSeed())],
+      };
+
+    case "bhubaneswar":
+      return {
+        hero: [() => makeKalingaDeul(al, nextSeed()), () => makeStreetMandir(al, nextSeed())],
+        vehicles: [() => makeHandRickshaw(al, nextSeed())],
+        streetProps: [() => makeTiffinCart(al, nextSeed()), () => makeStreetMandir(al, nextSeed())],
+      };
   }
 }
 
@@ -145,6 +215,14 @@ export {
   makeStreetMandir,
 } from "./delhi";
 export { makeGopuram, makeCatamaran, makeCoconutPalm, makeTiffinCart, makeTiffinStall } from "./chennai";
+export {
+  makeCharminar,
+  makeChineseFishingNet,
+  makeArtDecoCinema,
+  makePolHouse,
+  makeGurdwara,
+  makeKalingaDeul,
+} from "./cities";
 export {
   makeTechParkSlab,
   makeScaffolding,

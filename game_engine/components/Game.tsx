@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Game, type Telemetry } from "@/lib/game/engine";
+import { Game, type LiveState, type Telemetry } from "@/lib/game/engine";
 import type { District } from "@/lib/game/districts";
 import {
   errandIndexForTask,
@@ -64,6 +64,10 @@ export default function GameShell() {
   const [lastDistrictId, setLastDistrictId] = useState<string | undefined>();
   const [comfort, setComfort] = useState<ComfortLevel>("medium");
   const [tel, setTel] = useState<Telemetry | null>(null);
+  // The engine's per-frame state object. Held in React state only so a render
+  // happens once when the engine is created; the object itself is mutated in
+  // place by the engine and read by the minimap's own rAF, never diffed.
+  const [live, setLive] = useState<LiveState | null>(null);
   const [talking, setTalking] = useState<StreetTask | null>(null);
   const [cash, setCash] = useState(0);
   const [xp, setXp] = useState(0);
@@ -268,6 +272,7 @@ export default function GameShell() {
       setTel(t);
     });
     gameRef.current = game;
+    setLive(game.live);
     if (process.env.NODE_ENV !== "production") {
       (window as unknown as Record<string, unknown>).__game = game;
     }
@@ -276,6 +281,7 @@ export default function GameShell() {
     return () => {
       game.dispose();
       gameRef.current = null;
+      setLive(null);
     };
   }, [district, tasks]);
 
@@ -444,6 +450,7 @@ export default function GameShell() {
         district={district}
         tasks={tasks}
         tel={tel}
+        live={live}
         cash={cash}
         xp={xp}
         artifacts={artifacts}

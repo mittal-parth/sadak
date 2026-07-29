@@ -15,6 +15,14 @@
 import * as THREE from "three";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { mulberry32 } from "./props";
+import {
+  makeArchedOpening,
+  makeChhajja,
+  makeChhatri,
+  makeJaliPanel,
+  makeJharokha,
+} from "./arch-details";
+import type { ArchStyle } from "./districts";
 
 const FLOOR_H = 3.2;
 const GROUND_H = 4.2; // shopfronts are taller than flats
@@ -60,7 +68,8 @@ function window(
   facing: 1 | -1,
   ww: number,
   wh: number,
-  rand: () => number
+  rand: () => number,
+  style: ArchStyle = "modern"
 ) {
   const reveal = 0.22; // how deep the opening sits
   const frame = 0.12;
@@ -76,11 +85,22 @@ function window(
   // Sill, proud of the facade. Catches light, drips a stain in the texture.
   shell.push(slab(ww + frame * 3, 0.1, 0.26, cx, cy - wh / 2 - 0.06, zOuter + facing * 0.06));
 
+  // Arched head, where the district's architecture calls for one.
+  makeArchedOpening(shell, cx, cy + wh / 2, zOuter, facing, ww + frame * 2, style);
+
   glass.push(slab(ww, wh, 0.05, cx, cy, zGlass));
 
-  // Mullion, and sometimes a security grille: very common, and it reads.
+  // Mullion, then either a plain grille or — on some windows — a jali screen
+  // in front of the glass, which is what the grille is standing in for.
   metal.push(slab(0.05, wh, 0.06, cx, cy, zGlass - facing * 0.04));
-  if (rand() > 0.55) {
+
+  const r = rand();
+  if (style !== "modern" && r > 0.72) {
+    // Jali infill. Backing goes into metal (dark painted timber/stone reads
+    // fine there); the lattice studs go into shell so they pick up the wall
+    // colour and stand out against the recess.
+    makeJaliPanel(metal, shell, cx, cy, zGlass, -facing as 1 | -1, ww, wh, 0.24);
+  } else if (r > 0.4) {
     const bars = 3;
     for (let i = 1; i <= bars; i++) {
       metal.push(
@@ -167,10 +187,17 @@ export function buildBuildingParts(
   w: number,
   d: number,
   floors: number,
-  seed: number
+  seed: number,
+  style: ArchStyle = "modern"
 ): BuildingParts {
   const rand = mulberry32(seed);
   const height = GROUND_H + floors * FLOOR_H;
+
+  // Decided once per building rather than per window, so a terrace reads as a
+  // row of coherent buildings instead of a jumble of unrelated details.
+  const hasChhajja = style !== "modern" && rand() > 0.35;
+  const hasJharokha = (style === "mughal" || style === "colonial") && floors >= 2 && rand() > 0.62;
+  const hasChhatri = style === "mughal" && rand() > 0.55;
 
   const shell: THREE.BufferGeometry[] = [];
   const glass: THREE.BufferGeometry[] = [];
@@ -194,34 +221,92 @@ export function buildBuildingParts(
   shell.push(slab(w + 0.45, 0.3, d + 0.45, 0, height + 0.15, 0));
   shell.push(slab(w + 0.2, 0.75, d + 0.2, 0, height + 0.6, 0));
 
-  // The two long faces get full treatment; the returns get windows only.
-  const faces: Array<{ axis: "z"; faceZ: number; facing: 1 | -1; span: number }> = [
-    { axis: "z", faceZ: d / 2, facing: 1, span: w },
-    { axis: "z", faceZ: -d / 2, facing: -1, span: w },
+  // Long faces get shopfronts and the full detail set. The returns — the ends
+  // of a terrace, which the player walks straight past at every corner — used
+  // to get nothing at all despite the old comment claiming they got windows.
+  const faces: Array<{
+    faceZ: number;
+    facing: 1 | -1;
+    span: number;
+    rotate: boolean;
+    shops: boolean;
+  }> = [
+    { faceZ: d / 2, facing: 1, span: w, rotate: false, shops: true },
+    { faceZ: -d / 2, facing: -1, span: w, rotate: false, shops: true },
+    { faceZ: w / 2, facing: 1, span: d, rotate: true, shops: false },
+    { faceZ: -w / 2, facing: -1, span: d, rotate: true, shops: false },
   ];
 
   for (const face of faces) {
+    // Return faces are generated in the same local frame as the long faces and
+    // then rotated a quarter turn into place, so there is only one code path.
+    const rotShell: THREE.BufferGeometry[] = [];
+    const rotGlass: THREE.BufferGeometry[] = [];
+    const rotMetal: THREE.BufferGeometry[] = [];
+    const outShell = face.rotate ? rotShell : shell;
+    const outGlass = face.rotate ? rotGlass : glass;
+    const outMetal = face.rotate ? rotMetal : metal;
+
     const bays = Math.max(1, Math.floor(face.span / 3.2));
     const bayW = face.span / bays;
 
-    // Ground floor: shops.
-    for (let b = 0; b < bays; b++) {
-      const cx = -face.span / 2 + bayW * (b + 0.5);
-      shopfront(shell, glass, metal, signage, cx, face.faceZ, face.facing, bayW * 0.82, rand);
+    if (face.shops) {
+      for (let b = 0; b < bays; b++) {
+        const cx = -face.span / 2 + bayW * (b + 0.5);
+        shopfront(shell, glass, metal, signage, cx, face.faceZ, face.facing, bayW * 0.82, rand);
+      }
     }
 
     // Upper floors: windows, some with balconies.
     for (let f = 0; f < floors; f++) {
       const cy = GROUND_H + f * FLOOR_H + FLOOR_H / 2;
+
+      // A chhajja runs the full width of the floor rather than per-window: it
+      // is a continuous eave in real construction, and the unbroken shadow
+      // line is what makes it read from across the street.
+      if (hasChhajja && face.shops) {
+        makeChhajja(outShell, 0, cy + 1.05, face.faceZ, face.facing, face.span * 0.96, 0.5);
+      }
+
       for (let b = 0; b < bays; b++) {
         const cx = -face.span / 2 + bayW * (b + 0.5);
         const ww = Math.min(1.5, bayW * 0.5);
-        window(shell, glass, metal, cx, cy, face.faceZ, face.facing, ww, 1.5, rand);
 
-        if (rand() > 0.62) {
+        // One jharokha per building, centred, on an upper floor of a street
+        // face — any more and it stops reading as a special feature.
+        if (hasJharokha && face.shops && f === 1 && b === Math.floor(bays / 2)) {
+          makeJharokha(
+            outShell,
+            outMetal,
+            outShell,
+            cx,
+            cy,
+            face.faceZ,
+            face.facing,
+            Math.min(2.4, bayW * 0.85),
+            1.9
+          );
+          continue;
+        }
+
+        window(outShell, outGlass, outMetal, cx, cy, face.faceZ, face.facing, ww, 1.5, rand, style);
+
+        if (face.shops && rand() > 0.62) {
           balcony(shell, metal, cx, GROUND_H + f * FLOOR_H + 0.1, face.faceZ, face.facing, bayW * 0.8);
         }
       }
+    }
+
+    if (face.rotate) {
+      const spin = (list: THREE.BufferGeometry[], into: THREE.BufferGeometry[]) => {
+        for (const g of list) {
+          g.rotateY(Math.PI / 2);
+          into.push(g);
+        }
+      };
+      spin(rotShell, shell);
+      spin(rotGlass, glass);
+      spin(rotMetal, metal);
     }
   }
 
@@ -241,6 +326,18 @@ export function buildBuildingParts(
   if (rand() > 0.4) {
     shell.push(
       slab(2.2, 2.2, 2.2, (rand() - 0.5) * (w - 3), height + 2.1, (rand() - 0.5) * (d - 3))
+    );
+  }
+
+  // Chhatri on the parapet corner, where the district's architecture has one.
+  if (hasChhatri) {
+    const s = 0.55 + rand() * 0.25;
+    makeChhatri(
+      shell,
+      (rand() > 0.5 ? 1 : -1) * (w / 2 - 0.9),
+      height + 1.0,
+      (rand() > 0.5 ? 1 : -1) * (d / 2 - 0.9),
+      s
     );
   }
 

@@ -18,22 +18,46 @@ export default function VirtualJoystick({ className, onMove, disabled }: Props) 
   const baseRef = useRef<HTMLDivElement | null>(null);
   const touchId = useRef<number | null>(null);
   const knobRef = useRef({ x: 0, y: 0 });
+  /** Low-passed stick output — see emit(). */
+  const smoothed = useRef({ x: 0, y: 0 });
 
   const emit = useCallback(
     (x: number, y: number) => {
       let nx = x / RADIUS;
       let ny = y / RADIUS;
-      const len = Math.hypot(nx, ny);
+      let len = Math.hypot(nx, ny);
       if (len > 1) {
         nx /= len;
         ny /= len;
+        len = 1;
       }
       if (len < DEAD) {
+        smoothed.current.x = 0;
+        smoothed.current.y = 0;
         onMove(0, 0);
         return;
       }
+
+      // Rescale past the deadzone instead of cutting at it. The old version
+      // returned the raw vector the moment it cleared DEAD, so output jumped
+      // discontinuously from 0 to 0.12 magnitude at the threshold — the stick
+      // had no slow speeds at all.
+      const dirX = nx / len;
+      const dirY = ny / len;
+      const scaled = (len - DEAD) / (1 - DEAD);
+
+      // Mild expo, for fine control near centre and full speed at the rim.
+      const curved = scaled * scaled * 0.65 + scaled * 0.35;
+
+      // One-pole low-pass on the pointer stream. Every pointermove event goes
+      // straight into the movement target, so raw touch jitter is otherwise
+      // fed directly to the character.
+      const s = smoothed.current;
+      s.x += (dirX * curved - s.x) * 0.45;
+      s.y += (dirY * curved - s.y) * 0.45;
+
       // Screen Y is down; game forward is +Z in world space via engine mapping.
-      onMove(-ny, nx);
+      onMove(-s.y, s.x);
     },
     [onMove]
   );
@@ -41,6 +65,7 @@ export default function VirtualJoystick({ className, onMove, disabled }: Props) 
   const reset = useCallback(() => {
     touchId.current = null;
     knobRef.current = { x: 0, y: 0 };
+    smoothed.current = { x: 0, y: 0 };
     const knob = baseRef.current?.querySelector("[data-joystick-knob]") as HTMLElement | null;
     if (knob) {
       knob.style.transform = "translate(-50%, -50%)";

@@ -10,6 +10,7 @@ import type { MaterialLibrary } from "./materials";
 import { createClutter, type Clutter } from "./clutter";
 import { makeCar, TRAFFIC_KINDS, type VehicleMaterials } from "./vehicles";
 import { makeBazaarGate, makeHaveliBalcony, makeIndiaGate } from "./assets/delhi";
+import { getDistrictKit } from "./assets";
 
 /**
  * Two lanes each way plus a parking strip. The old 9m gully put the facades
@@ -66,18 +67,25 @@ function makeStructure(
   mats?: MaterialLibrary
 ): THREE.Group {
   const g = new THREE.Group();
-  const parts = buildBuildingParts(w, d, floors, seed);
+  const parts = buildBuildingParts(w, d, floors, seed, theme.archStyle);
   const wall = theme.buildings[seed % theme.buildings.length];
 
   const shellMat = mats
     ? mats.tint(seed % 3 === 0 ? "painted_plaster" : "weathered_plaster", wall)
     : new THREE.MeshLambertMaterial({ color: wall });
 
+  // Glass takes its colour from the district's horizon rather than a fixed
+  // navy. There is no environment map in this scene — the old envMapIntensity
+  // here was a no-op — so a window can only reflect the sky if we put the sky
+  // in it by hand. Without this every window reads as a black hole punched in
+  // a brightly lit facade.
+  const skyTint = new THREE.Color(theme.sky[2]);
   const glassMat = new THREE.MeshStandardMaterial({
-    color: 0x2b3d4a,
-    roughness: 0.15,
-    metalness: 0.1,
-    envMapIntensity: 1.2,
+    color: skyTint.clone().multiplyScalar(0.55),
+    roughness: 0.12,
+    metalness: 0.25,
+    emissive: skyTint,
+    emissiveIntensity: 0.18,
   });
 
   const metalMat = mats
@@ -421,7 +429,7 @@ export function buildCity(
   const signals = addJunctionSignals(group, colliders);
   // Landmarks before parked cars: a gate pier stands in the parking strip,
   // and the parking pass skips any spot that overlaps an existing collider.
-  addLandmarks(group, colliders, theme, rand);
+  addLandmarks(group, colliders, theme, rand, mats);
   addParkedCars(group, colliders, lines, rand, vehicleMats);
 
   // Street clutter goes last: it needs the finished collider list so nothing
@@ -436,11 +444,12 @@ export function buildCity(
     chowk: CHOWK,
     worldLimit: WORLD_LIMIT,
     pavementY: 0.26,
-    // Well under half the module's default scatter. At 1.0 the pavement is
-    // wall-to-wall props and the street stops reading as walkable; this leaves
-    // clear ground between things, which is what makes the ones that are there
-    // register as objects rather than texture.
-    density: 0.34,
+    // Half the module's default scatter. At 1.0 the pavement is wall-to-wall
+    // props and the street stops reading as walkable; this leaves clear ground
+    // between things, which is what makes the ones that are there register as
+    // objects rather than texture. Raised from 0.34 — with the brighter grade
+    // the street had gone from atmospheric to bare.
+    density: 0.5,
   });
 
   return { group, colliders, roadLines: lines, clutter, signals };
@@ -550,14 +559,55 @@ function addLandmarks(
   group: THREE.Group,
   colliders: Box[],
   theme: Theme,
-  rand: () => number
+  rand: () => number,
+  mats?: MaterialLibrary
 ) {
-  const place = (mesh: THREE.Group, x: number, z: number, rot: number, hw: number, hd: number) => {
+  // Delhi was the only district using its real asset kit; the other three were
+  // dressed with the plain box-and-cone props while their hero geometry —
+  // Gopuram, TechParkSlab, MetroPillar, ColonialFacade, PandalFrame — sat in
+  // assets/ built but never instantiated, reachable only from the preview
+  // script.
+  const kit = getDistrictKit(theme.landmark, mats);
+  const place = (
+    mesh: THREE.Group,
+    x: number,
+    z: number,
+    rot: number,
+    hw: number,
+    hd: number,
+    scale = 1
+  ) => {
     mesh.position.set(x, 0.22, z);
     mesh.rotation.y = rot;
+    if (scale !== 1) mesh.scale.setScalar(scale);
     group.add(mesh);
     colliders.push({ x, z, hw, hd });
   };
+
+  /**
+   * Where a district's signature monument goes.
+   *
+   * The player spawns at (CHOWK.x, CHOWK.z - 16) facing north, so this sits
+   * dead ahead at about 24m — the first thing they see on entering. Landmarks
+   * used to be scattered on the block edges and, for several districts, off to
+   * one side behind a terrace, which is why every city opened on the same
+   * anonymous row of shopfronts.
+   */
+  // Far enough back that a ~25m tower fits inside the 55° frame from spawn.
+  // Closer than this and the player stands under the monument seeing only
+  // piers; the north road starts around z = 46.5, so this is also the last
+  // place a hero can sit without straddling traffic.
+  const HERO_Z = CHOWK.z + 15;
+
+  /**
+   * Modest on purpose. The chase camera sits at y≈4.2 and aims DOWN at the
+   * player's chest, so the top of frame at HERO_Z is only about 15m up —
+   * scaling a monument past that just fills the view with anonymous stonework
+   * and crops the silhouette that identifies it. What made landmarks
+   * unrecognisable was never their size; it was that several sat off on a side
+   * avenue behind a terrace where the player never saw them at all.
+   */
+  const TOWER_SCALE = 1.15;
 
   // Roads bounding the chowk block.
   const west = 0;
@@ -578,45 +628,151 @@ function addLandmarks(
         colliders.push({ x: west + px, z: CHOWK.z, hw: 1.3, hd: 1.3 });
       }
 
-      // Haveli facade on the chowk block's north edge, facing south into the
-      // square — it was previously centred on the north road, blocking it.
-      place(makeHaveliBalcony(), CHOWK.x, north - JUNCTION_HALF - 2.0, Math.PI, 3.3, 2.2);
+      // India Gate faces the square as the monument the player walks toward on
+      // spawn. Its 5m passage is too narrow to straddle a trafficked road.
+      place(makeIndiaGate(), CHOWK.x, HERO_Z, Math.PI, 5.4, 1.6, 1.2);
 
-      // India Gate as a monument on the square's south edge, facing the
-      // chowk. Its 5m passage is too narrow to straddle a trafficked road,
-      // mid-block it clips the building terraces, and the east edge is where
-      // the auto errand parks its rickshaw.
-      place(makeIndiaGate(), CHOWK.x, south + JUNCTION_HALF + 1.6, 0, 4.4, 1.2);
+      // Haveli beside it, close enough that the jharokha and jali screen read.
+      place(makeHaveliBalcony(), CHOWK.x - 19, CHOWK.z + 3, Math.PI / 2, 2.2, 3.3);
       break;
     }
 
-    case "chennai":
-      // Boats hauled up on the sand beside the southern shore road.
+    case "chennai": {
+      // Gopuram dominating the square. A temple tower that does not clear the
+      // surrounding terraces is not a temple tower.
+      place(kit.hero[0](), CHOWK.x, HERO_Z, Math.PI, 4.4, 3.2, 1.25);
+
+      // Palms along the southern shore road, between the beached boats.
       for (let i = 0; i < 3; i++) {
-        place(
-          makeBoat(),
-          CHOWK.x - 22 + i * 24,
-          south - 11,
-          -0.5 + rand() * 1.0,
-          1.4,
-          4
-        );
+        place(kit.hero[1](), CHOWK.x - 26 + i * 26, south - 13, rand() * 6.28, 0.5, 0.5, 1.3);
+      }
+      for (let i = 0; i < 2; i++) {
+        place(makeBoat(), CHOWK.x - 14 + i * 28, south - 11, -0.5 + rand() * 1.0, 1.4, 4);
       }
       break;
+    }
 
-    case "bengaluru":
-      // Hoardings on the junction corners around the chowk.
+    case "bengaluru": {
+      // Tech park slab facing the square, metro viaduct pillars marching up
+      // the east avenue — the two things that actually define this city.
+      place(kit.hero[0](), CHOWK.x, HERO_Z, Math.PI, 6.5, 4.0, 1.15);
+      for (let i = 0; i < 3; i++) {
+        place(kit.hero[1](), east + 8, CHOWK.z - 30 + i * 30, 0, 1.1, 1.1, 1.4);
+      }
+
+      // Hoardings kept on two corners — they were the whole district before.
       place(makeBillboard(Math.floor(rand() * 1e6)), east + 9, south - 9, -0.6, 3.2, 0.4);
       place(makeBillboard(Math.floor(rand() * 1e6)), west - 9, north + 9, 2.4, 3.2, 0.4);
-      place(makeBillboard(Math.floor(rand() * 1e6)), east + 9, north + 9, 3.6, 3.2, 0.4);
       break;
+    }
 
-    case "kolkata":
+    case "kolkata": {
+      // Colonial facade facing the square; a puja pandal frame beside it.
+      place(kit.hero[0](), CHOWK.x, HERO_Z, Math.PI, 4.6, 3.2, 1.2);
+      place(kit.hero[1](), CHOWK.x - 18, CHOWK.z + 4, 0.3, 3.4, 3.4, 1.3);
+
       // Trams running the avenue along the east side of the chowk.
       for (let i = 0; i < 3; i++) {
         place(makeTram(), east - ROAD_W / 4, CHOWK.z - 34 + i * 34, 0, 1.5, 5);
       }
       break;
+    }
+
+    case "hyderabad": {
+      // The Charminar is a chowk monument — it stands at a crossing with roads
+      // running under it — so it belongs in the middle of the square, not off
+      // on an avenue where a terrace hides it. Colliders on the four piers
+      // only, leaving the arched passages walkable.
+      const cm = kit.hero[0]();
+      cm.position.set(CHOWK.x, 0.02, HERO_Z);
+      cm.scale.setScalar(TOWER_SCALE);
+      group.add(cm);
+      const pier = 4.2 * TOWER_SCALE;
+      for (const px of [-pier, pier]) {
+        for (const pz of [-pier, pier]) {
+          colliders.push({ x: CHOWK.x + px, z: HERO_Z + pz, hw: 2.0, hd: 2.0 });
+        }
+      }
+      // Bazaar gate arches over the west avenue, as in Delhi.
+      const hyGate = kit.hero[1]();
+      hyGate.position.set(west, 0.02, CHOWK.z);
+      group.add(hyGate);
+      for (const px of [-5, 5]) {
+        colliders.push({ x: west + px, z: CHOWK.z, hw: 1.3, hd: 1.3 });
+      }
+      break;
+    }
+
+    case "kochi": {
+      // Nets only read as Kochi when they are a row all cantilevered the same
+      // way, so they go across the top of the square facing the player rather
+      // than off on a side road where you would see one at an angle.
+      for (let i = 0; i < 3; i++) {
+        place(kit.hero[0](), CHOWK.x - 16 + i * 16, HERO_Z + 2, 0, 2.2, 5.5, 1.2);
+      }
+      for (let i = 0; i < 4; i++) {
+        place(kit.hero[1](), CHOWK.x - 24 + i * 16, south - 6, rand() * 6.28, 0.5, 0.5, 1.3);
+      }
+      break;
+    }
+
+    case "mumbai": {
+      // Cinema facing the square, its Deco fin above the roofline; metro
+      // viaduct marching up the east avenue behind it.
+      place(kit.hero[0](), CHOWK.x, HERO_Z, Math.PI, 5.6, 3.8, 1.15);
+      for (let i = 0; i < 3; i++) {
+        place(kit.hero[1](), east + 8, CHOWK.z - 30 + i * 30, 0, 1.1, 1.1, 1.4);
+      }
+      break;
+    }
+
+    case "ahmedabad": {
+      // A pol is a street of these, not one hero object — so a short terrace of
+      // them faces the square, close enough that the carved timber balconies
+      // and turned balusters actually read.
+      for (let i = 0; i < 3; i++) {
+        place(kit.hero[0](), CHOWK.x - 13 + i * 13, HERO_Z, Math.PI, 3.6, 2.9, 1.1);
+      }
+      place(kit.hero[1](), CHOWK.x - 20, CHOWK.z - 6, Math.PI / 2, 2.2, 3.3);
+      break;
+    }
+
+    case "amritsar": {
+      // The gurdwara sits alone in the middle of the square, approached across
+      // open ground — that isolation is most of how it reads.
+      place(kit.hero[0](), CHOWK.x, HERO_Z, Math.PI, 6.2, 6.2, 1.3);
+      const gate = kit.hero[1]();
+      gate.position.set(west, 0.02, CHOWK.z);
+      group.add(gate);
+      for (const px of [-5, 5]) {
+        colliders.push({ x: west + px, z: CHOWK.z, hw: 1.3, hd: 1.3 });
+      }
+      break;
+    }
+
+    case "bhubaneswar": {
+      // Temple town: the deul towers over the square, smaller shrines around it.
+      //
+      // Rotation 0, not PI: a real temple puts the assembly hall in front of
+      // the tower, but from this low camera the hall then stands directly
+      // between the player and the one silhouette that identifies the city. So
+      // the spire goes nearest and the hall sits behind it.
+      place(kit.hero[0](), CHOWK.x, HERO_Z - 3, 0, 4.4, 7.0, 1.0);
+      // Shrines to the sides. The player spawns at (CHOWK.x, CHOWK.z - 16),
+      // which is almost exactly `south + JUNCTION_HALF + 3` — anything placed
+      // there lands in the player's lap and blocks the whole view.
+      for (let i = 0; i < 4; i++) {
+        place(
+          kit.hero[1](),
+          CHOWK.x + (i % 2 ? 17 : -17),
+          CHOWK.z - 10 + Math.floor(i / 2) * 16,
+          rand() * 6.28,
+          1.2,
+          1.2
+        );
+      }
+      break;
+    }
   }
 }
 

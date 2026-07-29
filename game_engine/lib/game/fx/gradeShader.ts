@@ -108,21 +108,30 @@ export const GradeShader = {
       float b = texture2D(tDiffuse, vUv + dir).b;
       vec3 color = vec3(r, g, b);
 
-      // --- depth haze: exponential-squared against linear view distance,
-      // warmed and thickened toward a screen-space horizon band so distant
-      // geometry recedes instead of holding full contrast to the far plane.
+      // --- depth haze: exponential-squared against linear view distance.
+      //
+      // The horizon term only ever *scales* the distance-derived fog factor,
+      // it is never added to it and never tints the haze colour on its own.
+      // Adding it independently (as this used to) painted a permanent milky
+      // band across the middle of every frame regardless of what the camera
+      // was actually looking at, which read as smog even at zero density.
       float rawDepth = texture2D(tDepth, vUv).x;
       float viewDist = linearizeDepth(rawDepth);
       float fogFactor = 1.0 - exp(-uHazeDensity * uHazeDensity * viewDist * viewDist);
-      fogFactor = clamp(fogFactor, 0.0, 0.92);
+
+      // Background pixels: the sky dome writes no depth, so these sit at the
+      // far plane and used to come back fully hazed — the sky gradient was
+      // being painted over with haze colour on every frame. Nothing was drawn
+      // there, so there is no depth to cue; leave the sky alone.
+      fogFactor *= step(rawDepth, 0.9999);
 
       // Horizon band: screen space, roughly where sky meets ground in this
-      // over-the-shoulder camera (slightly above vertical centre).
+      // over-the-shoulder camera (slightly above vertical centre). Purely a
+      // multiplier, so near geometry sitting on that scanline stays clear.
       float horizonDist = abs(vUv.y - 0.42);
       float horizon = uHazeHorizonBoost * exp(-horizonDist * horizonDist * 18.0);
-      vec3 hazeColor = uHazeColor + horizon * 0.15;
-      float mixAmount = clamp(fogFactor + horizon * fogFactor, 0.0, 0.95);
-      color = mix(color, hazeColor, mixAmount);
+      float mixAmount = clamp(fogFactor * (1.0 + horizon), 0.0, 0.65);
+      color = mix(color, uHazeColor, mixAmount);
 
       // --- lift / gamma / gain
       color = color + uLift * (1.0 - color);

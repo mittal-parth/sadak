@@ -1,4 +1,5 @@
 import type { LangCode } from "@/lib/sarvam";
+import type { Landmark } from "./assets";
 import { SIX_SEED_DISTRICTS } from "./districts-six";
 
 /**
@@ -11,6 +12,13 @@ import { SIX_SEED_DISTRICTS } from "./districts-six";
  * clue, then a gated confrontation that only unlocks once you hold all three.
  * NPC positions are offsets from the centre of the chowk, not world coords.
  */
+
+/**
+ * The Indian architectural family a district's ordinary buildings draw from.
+ * Drives which details buildings.ts hangs off a facade — arch head shape,
+ * whether rooftops get chhatris, how much jali appears.
+ */
+export type ArchStyle = "mughal" | "dravidian" | "colonial" | "modern";
 
 export type Theme = {
   /** Five sky gradient stops, zenith → horizon. */
@@ -27,10 +35,23 @@ export type Theme = {
   leaf: number;
   trunk: number;
   sunColour: number;
+  /**
+   * Keep this high (1.7-2.3) and `ambient` low. Crisp directional light is
+   * what gives buildings form; a big flat ambient term washes it out and no
+   * amount of colour grading downstream gets the contrast back.
+   */
   sunIntensity: number;
+  /** Flat fill. 0.26-0.36 — deliberately small, see `sunIntensity`. */
   ambient: number;
   hemiSky: number;
   hemiGround: number;
+  /** Sky-bounce strength, ~0.45-0.65. Was hardcoded 0.55 in engine.ts. */
+  hemiIntensity: number;
+  /**
+   * Which architectural vocabulary the ordinary street buildings use, so
+   * Hyderabad and Amritsar do not read the same as Kochi. See arch-details.ts.
+   */
+  archStyle: ArchStyle;
   /**
    * Moving traffic, per vehicle class. These are deliberately low: the road
    * grid is only so long, and a lane packed bumper-to-bumper reads as a car
@@ -42,8 +63,9 @@ export type Theme = {
   /** Canopy colour of the auto-rickshaws in this city. */
   autoCanopy: number;
   exposure: number;
-  /** District-specific street furniture, so the cities do not read alike. */
-  landmark: "delhi" | "chennai" | "bengaluru" | "kolkata";
+  /** District-specific street furniture, so the cities do not read alike.
+   *  One value per district — see assets/index.ts `Landmark`. */
+  landmark: Landmark;
 };
 
 export type Mission = {
@@ -151,27 +173,29 @@ not finished paying, was taken from outside the chai stall before dawn. Three
 people on this street saw a piece of what happened. None of them will simply
 tell you.`,
   theme: {
-    sky: ["#1b3b5a", "#4a7fa0", "#c98b4b", "#e8a04f", "#f0c07a"],
+    sky: ["#2f7fc4", "#5aa6dd", "#95c9ea", "#d6e9f5", "#f6e6c8"],
     fog: 0xd9a066,
     fogNear: 60,
-    ground: 0x9c8f77,
-    pavement: 0xb9ae97,
-    plaza: 0xc2b49a,
-    tarmac: 0x33363b,
-    lane: 0xd6c98a,
-    buildings: [0xd9c8a9, 0xc9a227, 0xb5651d, 0xa8c3a0, 0xd68f8f, 0xe8d6b3, 0xcfa27b],
-    canopies: [0xe74c3c, 0x27ae60, 0xe67e22],
-    leaf: 0x2f6b34,
-    trunk: 0x5b4632,
-    sunColour: 0xffcf94,
-    sunIntensity: 1.35,
-    ambient: 0.62,
-    hemiSky: 0xbfd8ef,
-    hemiGround: 0xb08040,
+    ground: 0xbaa98c,
+    pavement: 0xd2c7ae,
+    plaza: 0xdccdb0,
+    tarmac: 0x4a4d54,
+    lane: 0xf0e6b8,
+    buildings: [0xf2e3c4, 0xf5c53a, 0xe0722f, 0x8fc9a6, 0xf28fa0, 0xfaeecd, 0xe89b62],
+    canopies: [0xf0392b, 0x1fbf6b, 0xff8c1a],
+    leaf: 0x4f9b3f,
+    trunk: 0x6b5238,
+    sunColour: 0xfff0d0,
+    sunIntensity: 2.05,
+    ambient: 0.3,
+    hemiSky: 0xcfe6ff,
+    hemiGround: 0xc79a63,
+    hemiIntensity: 0.55,
+    archStyle: "mughal",
     autos: 9,
     cars: 6,
     autoCanopy: 0xf5c518,
-    exposure: 1.12,
+    exposure: 1.1,
     landmark: "delhi",
   },
   phrases: [
@@ -374,27 +398,29 @@ market, vanished from the shore road while the boats were coming in. Without it
 the catch rots by noon. Three people saw fragments. The sea is loud and nobody
 wants to be the one who spoke.`,
   theme: {
-    sky: ["#0d4f7c", "#2e86c1", "#7fb8d8", "#cfe3ef", "#f4ecd8"],
+    sky: ["#1f8ad0", "#43a8e4", "#87ccf0", "#ccebf9", "#faf0dc"],
     fog: 0xd5e2e8,
     fogNear: 80,
-    ground: 0xd8c9a3,
-    pavement: 0xcfc3a8,
-    plaza: 0xdccfb0,
-    tarmac: 0x3a3d42,
-    lane: 0xf0ead6,
-    buildings: [0xf2f0e6, 0xa8d0d8, 0xe8b4a0, 0xf5d76e, 0xc8dcc0, 0xe0e4e8, 0xd9a8b8],
-    canopies: [0x2980b9, 0xf1c40f, 0x16a085],
-    leaf: 0x3d7a42,
-    trunk: 0x6b5340,
-    sunColour: 0xfff4dc,
-    sunIntensity: 1.55,
-    ambient: 0.72,
-    hemiSky: 0xd6ecf7,
-    hemiGround: 0xc9b48a,
+    ground: 0xe6d7ac,
+    pavement: 0xdcd0b2,
+    plaza: 0xe8dbb8,
+    tarmac: 0x4d5158,
+    lane: 0xfdf6e2,
+    buildings: [0xfbf8ec, 0x74cfe0, 0xff9d80, 0xffd93d, 0xa8e6a0, 0xe8eef2, 0xf49ac0],
+    canopies: [0x1f8fd4, 0xffd400, 0x00b894],
+    leaf: 0x54ab4e,
+    trunk: 0x7a5f46,
+    sunColour: 0xfff8e8,
+    sunIntensity: 2.25,
+    ambient: 0.32,
+    hemiSky: 0xdff2ff,
+    hemiGround: 0xd8c49a,
+    hemiIntensity: 0.6,
+    archStyle: "dravidian",
     autos: 7,
     cars: 7,
     autoCanopy: 0xf5c518,
-    exposure: 1.2,
+    exposure: 1.14,
     landmark: "chennai",
   },
   phrases: marinaPhrases,
@@ -532,27 +558,33 @@ insured by nobody. It went missing during the evening rain, with the day's cash
 bag still under the seat. He has eleven hours before the rental company calls it
 theft and puts it on him.`,
   theme: {
-    sky: ["#39414d", "#5a6672", "#828c96", "#a8b2ba", "#c4ccd2"],
+    // Was the monsoon-overcast district: a pure grey sky ramp, seven
+    // desaturated grey-green buildings, sun 0.70 against ambient 0.85. Now
+    // the garden city on a clear morning — the greenest district, not the
+    // greyest.
+    sky: ["#2a86cf", "#54a9e6", "#8ecdf2", "#c9e8f8", "#eff8e4"],
     fog: 0x9aa3ab,
     fogNear: 45,
-    ground: 0x6f7468,
-    pavement: 0x8d8f86,
-    plaza: 0x969a90,
-    tarmac: 0x24272b,
-    lane: 0xb8bcc0,
-    buildings: [0x8d9a94, 0xa89f8c, 0x7f8c99, 0xb0a89a, 0x94a08a, 0xa0968e, 0x86928c],
-    canopies: [0x2c3e50, 0x7f8c8d, 0x34495e],
-    leaf: 0x2a5c30,
-    trunk: 0x4a3a2e,
-    sunColour: 0xd8e0e8,
-    sunIntensity: 0.7,
-    ambient: 0.85,
-    hemiSky: 0xb8c4cc,
-    hemiGround: 0x6a6f66,
+    ground: 0xa8a88e,
+    pavement: 0xc6c8b8,
+    plaza: 0xcdd0be,
+    tarmac: 0x474b50,
+    lane: 0xeef0e2,
+    buildings: [0xf6f1de, 0xffcf4d, 0x6fc7b0, 0xef7d63, 0xbde08a, 0xf5f0e4, 0x8bb8e8],
+    canopies: [0x1fa87a, 0xff9f1c, 0xe23c48],
+    leaf: 0x4fae42,
+    trunk: 0x66503c,
+    sunColour: 0xfff6e4,
+    sunIntensity: 1.9,
+    ambient: 0.3,
+    hemiSky: 0xd4ecff,
+    hemiGround: 0x9aa87e,
+    hemiIntensity: 0.58,
+    archStyle: "modern",
     autos: 8,
     cars: 9,
     autoCanopy: 0xe8c518,
-    exposure: 1.0,
+    exposure: 1.12,
     landmark: "bengaluru",
   },
   phrases: majesticPhrases,
@@ -688,27 +720,30 @@ It went missing from the para on the night before Puja, with his father's
 photograph still clipped to the sun visor. He wants the photograph more than the
 car, though he will not say so.`,
   theme: {
-    sky: ["#241a33", "#4d3352", "#8f4a4f", "#c96a48", "#e59f6a"],
+    // Late afternoon rather than murky dusk — the warmth stays, the mud goes.
+    sky: ["#3f7fc9", "#7a9fd8", "#c4a0c8", "#f0b48a", "#ffd9a8"],
     fog: 0xb87a5a,
     fogNear: 50,
-    ground: 0x7a6a5c,
-    pavement: 0xa39181,
-    plaza: 0xab9887,
-    tarmac: 0x2f2c2e,
-    lane: 0xc9b98a,
-    buildings: [0xb5544a, 0xd4a55c, 0x8a9c6a, 0xc98f6a, 0xa06858, 0xd8c48a, 0x94766a],
-    canopies: [0xc0392b, 0xd4a55c, 0x8a6a4a],
-    leaf: 0x2c5e33,
-    trunk: 0x4a382a,
-    sunColour: 0xffb878,
-    sunIntensity: 1.05,
-    ambient: 0.6,
-    hemiSky: 0xa88ab0,
-    hemiGround: 0x8a6048,
+    ground: 0xa89380,
+    pavement: 0xd0bba6,
+    plaza: 0xd8c3ac,
+    tarmac: 0x4a4448,
+    lane: 0xefdcae,
+    buildings: [0xe8635a, 0xf5c45e, 0xa8c46a, 0xf0a878, 0xd4796a, 0xf7e6ae, 0xc09a86],
+    canopies: [0xe0392b, 0xf5c45e, 0xb5793f],
+    leaf: 0x479a3e,
+    trunk: 0x5c4636,
+    sunColour: 0xffdcae,
+    sunIntensity: 1.85,
+    ambient: 0.3,
+    hemiSky: 0xc6d6f0,
+    hemiGround: 0xb08466,
+    hemiIntensity: 0.52,
+    archStyle: "colonial",
     autos: 6,
     cars: 8,
     autoCanopy: 0xf5c518,
-    exposure: 1.15,
+    exposure: 1.12,
     landmark: "kolkata",
   },
   phrases: parkGullyPhrases,

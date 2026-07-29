@@ -60,9 +60,13 @@ export function buildWeatheredPlaster(seed: number, size = SIZE): SurfaceBuild {
 
       h[i] = clamp01(height);
 
+      // Grime is halved from where it started. The old ramp took the bottom
+      // of every wall down far enough that the district tint multiplied into
+      // mud; keeping the map high-key is what lets a saturated tint read as
+      // that saturated colour.
       const streakAmt = streak(u, v * 0.4);
-      const grime = clamp01(v * 0.85 + streakAmt * 0.4 - 0.2) * 0.5;
-      const base = 0.82 + (stucco(u, v) - 0.5) * 0.18 - crack * 0.3;
+      const grime = clamp01(v * 0.85 + streakAmt * 0.4 - 0.2) * 0.26;
+      const base = 0.9 + (stucco(u, v) - 0.5) * 0.14 - crack * 0.22;
       const lum = clamp01(base * (1 - grime));
       r[i] = lum;
       g[i] = lum * 0.985;
@@ -129,7 +133,7 @@ export function buildConcrete(seed: number, size = SIZE): SurfaceBuild {
       let height = blotch(u, v) * 0.6 + speck(u, v) * 0.4 - seam;
       h[i] = clamp01(height);
 
-      const g0 = 0.62 + (blotch(u, v) - 0.5) * 0.22 + (speck(u, v) - 0.5) * 0.08 - seam * 0.5;
+      const g0 = 0.74 + (blotch(u, v) - 0.5) * 0.2 + (speck(u, v) - 0.5) * 0.08 - seam * 0.5;
       const lum = clamp01(g0);
       r[i] = lum * 1.0;
       g[i] = lum * 0.99;
@@ -225,10 +229,14 @@ export function buildAsphalt(seed: number, size = SIZE): SurfaceBuild {
       h[i] = clamp01(height);
 
       // Oil sheen: a soft dark band down the middle of the tile (wheel track).
+      // Softened along with the overall lift — at the old strength it read as
+      // a permanent wet stripe down every road.
       const laneDist = Math.abs(u - 0.5);
-      const oil = clamp01(1 - laneDist * 4) * 0.5;
+      const oil = clamp01(1 - laneDist * 4) * 0.32;
 
-      const lum = clamp01(0.16 + patch(u, v) * 0.05 + stone * 0.22 - oil * 0.06 + crack * 0.08);
+      // Road is the largest single surface in frame. At 0.16 base luminance it
+      // dragged the whole image down; sun-bleached tarmac sits nearer 0.26.
+      const lum = clamp01(0.26 + patch(u, v) * 0.06 + stone * 0.24 - oil * 0.05 + crack * 0.08);
       r[i] = lum * 1.02;
       g[i] = lum * 1.0;
       b[i] = lum * 0.98;
@@ -467,10 +475,12 @@ export function buildDryMud(seed: number, size = SIZE): SurfaceBuild {
       let height = 0.5 + patch(u, v) * 0.3 - crack * 0.55;
       h[i] = clamp01(height);
 
-      const base = 0.5 + (patch(u, v) - 0.5) * 0.25 - crack * 0.35;
-      r[i] = clamp01(base * 1.15);
-      g[i] = clamp01(base * 0.92);
-      b[i] = clamp01(base * 0.68);
+      // This is the world ground plane, so its value sets the floor for the
+      // whole frame. Lifted and warmed to sun-dry earth rather than wet mud.
+      const base = 0.66 + (patch(u, v) - 0.5) * 0.22 - crack * 0.3;
+      r[i] = clamp01(base * 1.12);
+      g[i] = clamp01(base * 0.95);
+      b[i] = clamp01(base * 0.74);
 
       rough[i] = clamp01(0.88 + crack * 0.1);
     }

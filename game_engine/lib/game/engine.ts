@@ -6,7 +6,13 @@ import {
 import type { Clutter } from "./clutter";
 import { makeAuto, setSignalPhase, mulberry32 } from "./props";
 import { makeMissionShopStall, makeStreetMandir } from "./assets/index";
-import { makePerson, makeIdlePose, setWalkPhase, type PersonPreset } from "./people";
+import {
+  makePerson,
+  makeIdlePose,
+  setIdlePhase,
+  setWalkPhase,
+  type PersonPreset,
+} from "./people";
 import {
   createVehicleMaterials, makeCar, TRAFFIC_KINDS,
   type CarKind, type VehicleMaterials,
@@ -35,9 +41,62 @@ export type Telemetry = {
   speed: number;
 };
 
+/**
+ * Per-frame player state, for consumers that need 60Hz without a React
+ * render — the minimap, essentially.
+ *
+ * This is a single object mutated in place, never reallocated, and it is
+ * deliberately NOT React state. Telemetry used to be pushed into setState on
+ * every frame, which re-rendered the whole HUD tree 60 times a second inside
+ * the rAF callback. Anything that needs smooth motion reads this and draws
+ * from its own rAF; anything that changes rarely comes through Telemetry.
+ */
+export type LiveState = {
+  x: number;
+  z: number;
+  heading: number;
+  speed: number;
+};
+
+/** How often the React-facing telemetry is pushed. Changes that matter for
+ *  input (the nearby task) bypass this and emit immediately. */
+const TELEMETRY_HZ = 10;
+
 const TALK_RADIUS = 4.5;
 const PLAYER_RADIUS = 0.55;
 const TURN_SPEED = 2.1; // radians/sec for keyboard camera turn
+
+/**
+ * Movement feel. Walk was 5.2 m/s, which at a 9m camera distance is a sprint
+ * that reads as twitchy — a real walk is nearer 1.4 m/s and a game walk that
+ * still feels responsive sits around 3.5.
+ */
+const WALK_SPEED = 4.6;
+const SPRINT_SPEED = 9.5;
+/** Height on the player the camera aims at. */
+const PLAYER_LOOK_H = 2.3;
+/** Feet height when standing. */
+const PLAYER_BASE_Y = 0.26;
+
+// Jump. Tuned as a hop rather than a leap — this is a street, not a platformer,
+// and a big arc fights the shallow chase camera.
+const JUMP_SPEED = 5.4;
+const GRAVITY = 16;
+
+/** Cell size of the static-collider lookup grid, in world units. */
+const COLLIDER_CELL = 8;
+
+/** Shortest-arc angular damp. Without the wrap, turning past ±π spins the
+ *  long way round — the classic "character pirouettes on a heading flip". */
+function dampAngle(current: number, target: number, k: number, dt: number): number {
+  let delta = target - current;
+  delta = Math.atan2(Math.sin(delta), Math.cos(delta));
+  return current + delta * (1 - Math.exp(-k * dt));
+}
+
+function damp(current: number, target: number, k: number, dt: number): number {
+  return current + (target - current) * (1 - Math.exp(-k * dt));
+}
 
 /**
  * GTA-style sky: a vertical gradient painted onto an inward-facing sphere.
@@ -247,10 +306,44 @@ export class Game {
   private playerPos = new THREE.Vector3(CHOWK.x, 0, CHOWK.z - 16);
   private velocity = new THREE.Vector3();
   private yaw = 0;
-  private pitch = 0.28;
+  // Lower than it was (0.28). Camera height is 2.8 + pitch * 5 while the aim
+  // stays at 2.3, so a bigger pitch tilts the view further DOWN and fills the
+  // bottom half of the frame with empty road — and crops the tops off the
+  // landmarks the player is meant to be looking at.
+  private pitch = 0.16;
   private walkPhase = 0;
+  /** Facing, damped toward the direction of travel rather than snapped. */
+  private facing = 0;
+  /**
+   * 0 = standing, 1 = walking, 2 = running. Damped, and used to crossfade the
+   * gait in people.ts so stopping is a blend rather than a pop.
+   */
+  private gait = 0;
+  /** Forward lean, driven by acceleration so the body reads as having mass. */
+  private lean = 0;
+  /** Mouse deltas accumulated between frames — see onMouseMove. */
+  private pendingYaw = 0;
+  private pendingPitch = 0;
+  /** Damped keyboard/virtual turn rate, so arrow-turns ease in and out. */
+  private turnRate = 0;
+  /** Height above PLAYER_BASE_Y, and its velocity. 0 means grounded. */
+  private jumpY = 0;
+  private jumpVel = 0;
+  /** Set by the Space keydown, consumed on the next tick. */
+  private jumpQueued = false;
+  /** 0 grounded, 1 fully airborne — blends the tucked-legs pose. */
+  private air = 0;
+
+  // Scratch vectors. These run every frame; allocating them fresh was pure GC
+  // churn at 60Hz.
+  private readonly tmpDir = new THREE.Vector3();
+  private readonly tmpCam = new THREE.Vector3();
+  private readonly lookTarget = new THREE.Vector3(CHOWK.x, PLAYER_LOOK_H, CHOWK.z - 16);
+  private camFov = 55;
 
   private colliders: Box[] = [];
+  /** Static colliders bucketed by cell — see buildColliderGrid(). */
+  private colliderGrid = new Map<number, Box[]>();
   private vehicles: Vehicle[] = [];
   private lanes = new Map<string, Vehicle[]>();
   private signals: SignalMast[] = [];
@@ -278,6 +371,10 @@ export class Game {
   public paused = false;
 
   private onTelemetry: (t: Telemetry) => void;
+  /** See LiveState — mutated every frame, read by the minimap's own rAF. */
+  public readonly live: LiveState = { x: 0, z: 0, heading: 0, speed: 0 };
+  private telemetryAccum = 0;
+  private lastNearby: string | null = null;
   private materials!: MaterialLibrary;
   private vehicleMats = createVehicleMaterials();
   private pipeline: RenderPipeline | null = null;
@@ -296,8 +393,12 @@ export class Game {
 
     const theme = district.theme;
 
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    // No MSAA: once the EffectComposer is active it renders into its own
+    // targets and the canvas-level antialias flag does nothing. AA comes from
+    // the SMAA pass in render.ts.
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -322,8 +423,11 @@ export class Game {
   private buildLights() {
     const t = this.district.theme;
 
+    // Small flat fill, strong directional key. The reverse — a big ambient
+    // term propping up a weak sun — is what made every district read flat and
+    // washed no matter what the colour grade did afterwards.
     this.scene.add(new THREE.AmbientLight(0xffffff, t.ambient));
-    this.scene.add(new THREE.HemisphereLight(t.hemiSky, t.hemiGround, 0.55));
+    this.scene.add(new THREE.HemisphereLight(t.hemiSky, t.hemiGround, t.hemiIntensity));
 
     const sun = new THREE.DirectionalLight(t.sunColour, t.sunIntensity);
     this.sun = sun;
@@ -345,6 +449,14 @@ export class Game {
     sun.target.position.set(CHOWK.x, 0, CHOWK.z);
     this.scene.add(sun);
     this.scene.add(sun.target);
+
+    // Cool rim from behind and opposite the sun. This is what separates a
+    // silhouette from the building behind it in a stylized look — raising
+    // flat ambient to get the same visibility instead is what kills form.
+    const rim = new THREE.DirectionalLight(t.hemiSky, 0.25);
+    rim.position.set(-70, 45, -55);
+    rim.castShadow = false;
+    this.scene.add(rim);
   }
 
   private buildWorld() {
@@ -436,6 +548,10 @@ export class Game {
       this.scene.add(marker);
       this.markers.set(task.id, marker);
     }
+
+    // Task anchors are the last thing to add static colliders, so the lookup
+    // grid is built here rather than at the end of buildWorld().
+    this.buildColliderGrid();
   }
 
   /**
@@ -597,6 +713,10 @@ export class Game {
   private onKeyDown = (e: KeyboardEvent) => {
     if (Game.isTyping(e)) return;
 
+    // Queue on the edge rather than reading the held key in updatePlayer, so
+    // holding Space is a single hop and not a pogo stick.
+    if (e.code === "Space" && !e.repeat && !this.paused) this.jumpQueued = true;
+
     this.keys.add(e.code);
 
     // Stop Space and the arrows scrolling the page behind the canvas, but only
@@ -660,8 +780,9 @@ export class Game {
     // Works both with pointer lock and as a plain drag, so looking around
     // never depends on the lock being granted.
     if (!document.pointerLockElement && !this.dragging) return;
-    this.yaw -= e.movementX * 0.0024;
-    this.pitch = THREE.MathUtils.clamp(this.pitch + e.movementY * 0.0018, -0.15, 0.85);
+    // Accumulate only; updateLook() applies these once per frame.
+    this.pendingYaw += e.movementX;
+    this.pendingPitch += e.movementY;
   };
 
   private onResize = () => {
@@ -675,16 +796,49 @@ export class Game {
 
   /* ---------------- collision ---------------- */
 
+  /**
+   * Buckets the static colliders into a uniform grid once at load.
+   *
+   * blocked() runs twice per frame (once per movement axis) and used to scan
+   * the entire city collider list each time. The grid turns that into a
+   * handful of candidates from one cell.
+   */
+  private buildColliderGrid() {
+    this.colliderGrid.clear();
+    for (const b of this.colliders) {
+      const x0 = Math.floor((b.x - b.hw - PLAYER_RADIUS) / COLLIDER_CELL);
+      const x1 = Math.floor((b.x + b.hw + PLAYER_RADIUS) / COLLIDER_CELL);
+      const z0 = Math.floor((b.z - b.hd - PLAYER_RADIUS) / COLLIDER_CELL);
+      const z1 = Math.floor((b.z + b.hd + PLAYER_RADIUS) / COLLIDER_CELL);
+      for (let cx = x0; cx <= x1; cx++) {
+        for (let cz = z0; cz <= z1; cz++) {
+          const key = cx * 10007 + cz;
+          let cell = this.colliderGrid.get(key);
+          if (!cell) {
+            cell = [];
+            this.colliderGrid.set(key, cell);
+          }
+          cell.push(b);
+        }
+      }
+    }
+  }
+
   private blocked(x: number, z: number): boolean {
     if (Math.abs(x) > WORLD_LIMIT || Math.abs(z) > WORLD_LIMIT) return true;
-    if (
-      this.colliders.some(
-        (b) =>
+
+    const key =
+      Math.floor(x / COLLIDER_CELL) * 10007 + Math.floor(z / COLLIDER_CELL);
+    const cell = this.colliderGrid.get(key);
+    if (cell) {
+      for (const b of cell) {
+        if (
           Math.abs(x - b.x) < b.hw + PLAYER_RADIUS &&
           Math.abs(z - b.z) < b.hd + PLAYER_RADIUS
-      )
-    ) {
-      return true;
+        ) {
+          return true;
+        }
+      }
     }
     return this.vehicles.some((v) => {
       const px = v.mesh.position.x;
@@ -780,18 +934,25 @@ export class Game {
       }
     }
 
-    // Errand hosts turn to face the player when they are close enough to talk.
+    // Errand hosts turn to face the player when they are close enough to talk,
+    // and breathe the rest of the time. Without the idle driver the whole
+    // street population stands frozen from spawn to exit.
+    let phaseOffset = 0;
     for (const [id, mesh] of this.hostMeshes) {
       const anchor = this.taskAnchors.get(id)!;
       const wx = anchor.position.x;
       const wz = anchor.position.z;
       const d = Math.hypot(this.playerPos.x - wx, this.playerPos.z - wz);
       if (d < TALK_RADIUS * 2.2) {
-        mesh.rotation.y = Math.atan2(this.playerPos.x - wx, this.playerPos.z - wz);
+        const target = Math.atan2(this.playerPos.x - wx, this.playerPos.z - wz);
+        mesh.rotation.y = dampAngle(mesh.rotation.y, target, 7, dt);
       }
+      // Stagger the phase so a row of NPCs doesn't breathe in unison.
+      setIdlePhase(mesh, t + phaseOffset);
+      phaseOffset += 1.7;
     }
 
-    this.emit();
+    this.emit(dt);
   }
 
   /**
@@ -799,16 +960,31 @@ export class Game {
    * mouse. (E is the talk key, so the usual Q/E turn pair is off the table.)
    */
   private updateLook(dt: number) {
+    // Mouse deltas accumulated since the last frame. Applying them per-event
+    // meant a 1000Hz mouse advanced yaw a dozen times between renders while
+    // the camera only integrated once, which reads as tearing on the turn.
+    this.yaw -= this.pendingYaw * 0.0024;
+    this.pitch = THREE.MathUtils.clamp(
+      this.pitch + this.pendingPitch * 0.0018,
+      -0.15,
+      0.85
+    );
+    this.pendingYaw = 0;
+    this.pendingPitch = 0;
+
     let turn = 0;
     if (this.keys.has("ArrowLeft")) turn += 1;
     if (this.keys.has("ArrowRight")) turn -= 1;
     if (this.virtualTurn !== 0) turn += this.virtualTurn;
-    if (turn !== 0) this.yaw += turn * TURN_SPEED * dt;
+
+    // Ease the turn in and out instead of stepping straight to full rate.
+    this.turnRate = damp(this.turnRate, THREE.MathUtils.clamp(turn, -1, 1), 11, dt);
+    if (Math.abs(this.turnRate) > 1e-4) this.yaw += this.turnRate * TURN_SPEED * dt;
   }
 
   private updatePlayer(dt: number) {
     const sprint = this.keys.has("ShiftLeft") || this.keys.has("ShiftRight");
-    const speed = sprint ? 11 : 5.2;
+    const speed = sprint ? SPRINT_SPEED : WALK_SPEED;
 
     let fwd = this.virtualFwd;
     let strafe = this.virtualStrafe;
@@ -824,7 +1000,7 @@ export class Game {
     }
 
     // forward = (sin yaw, 0, cos yaw); right = cross(forward, up) = (-cos yaw, 0, sin yaw).
-    const dir = new THREE.Vector3(
+    const dir = this.tmpDir.set(
       Math.sin(this.yaw) * fwd - Math.cos(this.yaw) * strafe,
       0,
       Math.cos(this.yaw) * fwd + Math.sin(this.yaw) * strafe
@@ -833,27 +1009,75 @@ export class Game {
     const moving = dir.lengthSq() > 0.0001;
     if (moving) dir.normalize();
 
+    const prevSpeed = this.velocity.length();
     this.velocity.lerp(dir.multiplyScalar(speed), 1 - Math.exp(-12 * dt));
 
     // Resolve each axis separately so we slide along walls instead of sticking.
+    // Zeroing the blocked component matters as much as the position clamp: if
+    // velocity keeps its full magnitude while pressed into a wall, the stride
+    // driver below keeps advancing and the character foot-slides on the spot.
     const nx = this.playerPos.x + this.velocity.x * dt;
-    if (!this.blocked(nx, this.playerPos.z)) this.playerPos.x = nx;
+    if (this.blocked(nx, this.playerPos.z)) this.velocity.x = 0;
+    else this.playerPos.x = nx;
 
     const nz = this.playerPos.z + this.velocity.z * dt;
-    if (!this.blocked(this.playerPos.x, nz)) this.playerPos.z = nz;
+    if (this.blocked(this.playerPos.x, nz)) this.velocity.z = 0;
+    else this.playerPos.z = nz;
 
-    this.player.position.set(this.playerPos.x, 0.26, this.playerPos.z);
+    // Jump: only off the ground, and only from a fresh keypress.
+    const grounded = this.jumpY <= 0 && this.jumpVel <= 0;
+    if (this.jumpQueued && grounded) this.jumpVel = JUMP_SPEED;
+    this.jumpQueued = false;
 
-    if (moving) {
-      this.player.rotation.y = Math.atan2(this.velocity.x, this.velocity.z);
-      // Stride rate follows actual ground speed, so a sprint does not look like
-      // a walk played fast.
-      this.walkPhase += dt * (this.velocity.length() * 1.7 + 1.2);
-      setWalkPhase(this.player, this.walkPhase);
-    } else if (this.walkPhase !== 0) {
-      this.walkPhase = 0;
-      makeIdlePose(this.player);
+    if (this.jumpY > 0 || this.jumpVel > 0) {
+      this.jumpVel -= GRAVITY * dt;
+      this.jumpY += this.jumpVel * dt;
+      if (this.jumpY <= 0) {
+        this.jumpY = 0;
+        this.jumpVel = 0;
+      }
     }
+    // Ramp in fast on takeoff, ease out on landing so the tuck unfolds.
+    this.air = damp(this.air, this.jumpY > 0.02 ? 1 : 0, this.jumpY > 0.02 ? 18 : 9, dt);
+
+    this.player.position.set(this.playerPos.x, PLAYER_BASE_Y + this.jumpY, this.playerPos.z);
+
+    const groundSpeed = this.velocity.length();
+
+    // Facing follows the direction of travel, damped. Snapping it straight to
+    // atan2 spun the mesh instantly on every strafe-to-forward transition.
+    if (groundSpeed > 0.15) {
+      const target = Math.atan2(this.velocity.x, this.velocity.z);
+      this.facing = dampAngle(this.facing, target, 12, dt);
+    }
+    this.player.rotation.y = this.facing;
+
+    // Gait blend: 0 idle, 1 walk, 2 run. Damped, so stopping crossfades into
+    // the idle pose instead of popping to it the frame velocity hits zero.
+    const targetGait =
+      groundSpeed < 0.2 ? 0 : 1 + THREE.MathUtils.clamp(
+        (groundSpeed - WALK_SPEED) / (SPRINT_SPEED - WALK_SPEED),
+        0,
+        1
+      );
+    this.gait = damp(this.gait, targetGait, 8, dt);
+
+    // Lean into acceleration. Cheap, and most of what makes a body read as
+    // having weight rather than sliding around on a plane.
+    const accel = (groundSpeed - prevSpeed) / Math.max(dt, 1e-4);
+    this.lean = damp(this.lean, THREE.MathUtils.clamp(accel * 0.012, -0.16, 0.16), 6, dt);
+
+    // Stride rate follows actual ground speed, so a sprint does not look like
+    // a walk played fast.
+    this.walkPhase += dt * (groundSpeed * 1.7 + 1.2);
+    setWalkPhase(
+      this.player,
+      this.walkPhase,
+      this.gait,
+      this.lean,
+      this.clock.elapsedTime,
+      this.air
+    );
   }
 
   /**
@@ -881,23 +1105,65 @@ export class Game {
         this.playerPos.z = pz + Math.sign(dz || 1) * hd;
       }
     }
-    this.player.position.set(this.playerPos.x, 0.26, this.playerPos.z);
+    this.player.position.set(this.playerPos.x, PLAYER_BASE_Y + this.jumpY, this.playerPos.z);
   }
 
   private updateCamera(dt: number) {
     const dist = 9;
     // Kept shallow, and aimed above the player's head, a steeper angle fills
     // the lower half of the frame with empty road.
-    const height = 2.8 + this.pitch * 5;
+    // Follows the jump at a fraction of its height, so a hop reads as vertical
+    // movement without the whole frame lurching with it.
+    const height = 2.8 + this.pitch * 5 + this.jumpY * 0.6;
 
-    const target = new THREE.Vector3(
-      this.playerPos.x - Math.sin(this.yaw) * dist,
+    const speed = this.velocity.length();
+    const speed01 = THREE.MathUtils.clamp(speed / SPRINT_SPEED, 0, 1);
+
+    // Slight offset to the right of dead-centre. A camera perfectly behind the
+    // player puts the thing you are walking toward directly behind their head.
+    const rightX = -Math.cos(this.yaw);
+    const rightZ = Math.sin(this.yaw);
+    const shoulder = 0.9;
+
+    const target = this.tmpCam.set(
+      this.playerPos.x - Math.sin(this.yaw) * dist + rightX * shoulder,
       height,
-      this.playerPos.z - Math.cos(this.yaw) * dist
+      this.playerPos.z - Math.cos(this.yaw) * dist + rightZ * shoulder
     );
 
     this.camera.position.lerp(target, 1 - Math.exp(-9 * dt));
-    this.camera.lookAt(this.playerPos.x, 2.3, this.playerPos.z);
+
+    // The aim used to snap to playerPos every frame while the position lagged
+    // behind at k=9. A lagging body with an instant aim is exactly what reads
+    // as "swimmy but jerky" — damp both, and lead the aim into the direction
+    // of travel so the camera anticipates rather than chases.
+    const lead = 0.35;
+    this.lookTarget.x = damp(
+      this.lookTarget.x,
+      this.playerPos.x + this.velocity.x * lead,
+      7,
+      dt
+    );
+    this.lookTarget.y = damp(this.lookTarget.y, PLAYER_LOOK_H + this.jumpY * 0.6, 7, dt);
+    this.lookTarget.z = damp(
+      this.lookTarget.z,
+      this.playerPos.z + this.velocity.z * lead,
+      7,
+      dt
+    );
+    this.camera.lookAt(this.lookTarget);
+
+    // Roll into the turn, scaled by how fast we're actually moving so the
+    // camera doesn't tilt while spinning on the spot.
+    this.camera.rotateZ(-this.turnRate * 0.035 * speed01);
+
+    // Speed FOV. Small — 55 to ~62 — but it's most of the sensation of pace.
+    const targetFov = 55 + speed01 * 7;
+    if (Math.abs(this.camFov - targetFov) > 0.01) {
+      this.camFov = damp(this.camFov, targetFov, 4, dt);
+      this.camera.fov = this.camFov;
+      this.camera.updateProjectionMatrix();
+    }
   }
 
   /**
@@ -934,8 +1200,17 @@ export class Game {
 
     for (const [, lane] of this.lanes) {
       // Sorted in the direction of travel, so index i+1 is always the vehicle
-      // in front of index i.
-      lane.sort((a, b) => (along(a) - along(b)) * a.dir);
+      // in front of index i. Order only actually changes when a vehicle wraps
+      // around the world edge, so check first and sort only then rather than
+      // re-sorting every lane every frame.
+      let ordered = true;
+      for (let i = 1; i < lane.length; i++) {
+        if ((along(lane[i]) - along(lane[i - 1])) * lane[i].dir < 0) {
+          ordered = false;
+          break;
+        }
+      }
+      if (!ordered) lane.sort((a, b) => (along(a) - along(b)) * a.dir);
 
       for (let i = 0; i < lane.length; i++) {
         const v = lane[i];
@@ -994,35 +1269,62 @@ export class Game {
     }
   }
 
-  private emit() {
+  /** Nearest interactable task, or null. Cheap enough to run every frame. */
+  private findNearby(): string | null {
     let nearby: string | null = null;
     let best = TALK_RADIUS;
-
-    const tasks: TaskSnapshot[] = this.tasks.map((task) => {
+    for (const task of this.tasks) {
+      if (this.done.has(task.id)) continue;
       const anchor = this.taskAnchors.get(task.id)!;
-      const wx = anchor.position.x;
-      const wz = anchor.position.z;
-      const d = Math.hypot(this.playerPos.x - wx, this.playerPos.z - wz);
-      if (d < best && !this.done.has(task.id)) {
+      const d = Math.hypot(
+        this.playerPos.x - anchor.position.x,
+        this.playerPos.z - anchor.position.z
+      );
+      if (d < best) {
         best = d;
         nearby = task.id;
       }
+    }
+    return nearby;
+  }
+
+  /**
+   * Publishes to React. Called at TELEMETRY_HZ, or immediately whenever the
+   * nearby task changes so the "press E to talk" prompt still feels instant.
+   */
+  private emit(dt: number) {
+    this.live.x = this.playerPos.x;
+    this.live.z = this.playerPos.z;
+    this.live.heading = this.yaw;
+    this.live.speed = this.velocity.length();
+
+    const nearby = this.findNearby();
+    this.telemetryAccum += dt;
+
+    const due = this.telemetryAccum >= 1 / TELEMETRY_HZ;
+    if (!due && nearby === this.lastNearby) return;
+
+    this.telemetryAccum = 0;
+    this.lastNearby = nearby;
+
+    const tasks: TaskSnapshot[] = this.tasks.map((task) => {
+      const anchor = this.taskAnchors.get(task.id)!;
       return {
         id: task.id,
         kind: task.kind,
-        x: wx,
-        z: wz,
+        x: anchor.position.x,
+        z: anchor.position.z,
         done: this.done.has(task.id),
       };
     });
 
     this.onTelemetry({
       nearby,
-      playerX: this.playerPos.x,
-      playerZ: this.playerPos.z,
-      heading: this.yaw,
+      playerX: this.live.x,
+      playerZ: this.live.z,
+      heading: this.live.heading,
       tasks,
-      speed: this.velocity.length(),
+      speed: this.live.speed,
     });
   }
 

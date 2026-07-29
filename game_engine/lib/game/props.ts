@@ -13,8 +13,15 @@ export function mulberry32(seed: number) {
   };
 }
 
-const flat = (color: number, opts: THREE.MeshLambertMaterialParameters = {}) =>
-  new THREE.MeshLambertMaterial({ color, ...opts });
+/**
+ * Was MeshLambertMaterial, which ignores roughness and metalness entirely. The
+ * landmarks built with it — boats, trams, arches, billboards, benches — were
+ * the flattest objects on screen, sitting next to buildings and vehicles that
+ * were fully PBR-lit. Kept as a separate name from `std` because these are
+ * still the cheap, matte, no-shine props.
+ */
+const flat = (color: number, opts: THREE.MeshStandardMaterialParameters = {}) =>
+  new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.05, ...opts });
 
 /** Physically-lit prop material. Anything the player walks right up to gets
  *  this rather than `flat`, so it responds to the sun the way the buildings
