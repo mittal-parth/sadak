@@ -345,6 +345,7 @@ export default function Hud({
   phrasesOpen,
   onTogglePhrases,
   onMenu,
+  onRecenter,
   mobilePlay,
   panelsOpen,
   onTogglePanels,
@@ -365,6 +366,7 @@ export default function Hud({
   phrasesOpen: boolean;
   onTogglePhrases: () => void;
   onMenu: () => void;
+  onRecenter: () => void;
   mobilePlay: boolean;
   panelsOpen: boolean;
   onTogglePanels: () => void;
@@ -457,6 +459,9 @@ export default function Hud({
                   <Button variant="neutral" size="sm" className="h-8 text-xs" onClick={onMenu}>
                     Menu
                   </Button>
+                  <Button variant="neutral" size="sm" className="h-8 text-xs" onClick={onRecenter}>
+                    Recentre
+                  </Button>
                 </CardContent>
               </HudCard>
               <HudCard className="py-2">
@@ -520,6 +525,9 @@ export default function Hud({
               </Button>
               <Button variant="neutral" size="sm" onClick={onMenu}>
                 <kbd>Esc</kbd> Menu
+              </Button>
+              <Button variant="neutral" size="sm" onClick={onRecenter}>
+                Recentre
               </Button>
               <Button
                 variant="neutral"
