@@ -24,6 +24,7 @@ import { lessonTierLabel } from "@/lib/game/levels";
 import { cn } from "@/lib/utils";
 import posthog from "posthog-js";
 import { ttsLookupKey } from "@/lib/tts/cache-keys";
+import { DEFAULT_TTS_PACE, LESSON_PRONUNCIATION_PACE } from "@/lib/tts/pace";
 import type { TtsPrefetchMap } from "@/lib/tts/prefetch-client";
 
 type Phase = "recall" | "npc" | "player" | "result" | "finished";
@@ -93,11 +94,12 @@ export default function Dialogue({
   }, []);
 
   const playAudio = useCallback(
-    async (text: string, onDone?: () => void) => {
+    async (text: string, onDone?: () => void, pace = DEFAULT_TTS_PACE) => {
       setTtsPlaying(true);
       try {
+        const usePrefetch = pace === DEFAULT_TTS_PACE;
         const lookupKey = ttsLookupKey(district.language, target.speaker, text);
-        const prefetched = ttsPrefetchRef?.current.get(lookupKey);
+        const prefetched = usePrefetch ? ttsPrefetchRef?.current.get(lookupKey) : undefined;
         const finish = () => {
           setTtsPlaying(false);
           onDone?.();
@@ -116,7 +118,12 @@ export default function Dialogue({
         const res = await fetch("/api/speak", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ districtId: district.id, npcId: target.id, text }),
+          body: JSON.stringify({
+            districtId: district.id,
+            npcId: target.id,
+            text,
+            ...(pace !== DEFAULT_TTS_PACE ? { pace } : {}),
+          }),
         });
         const { audio } = await res.json();
         if (!audio) {
@@ -152,7 +159,7 @@ export default function Dialogue({
   const playPromptPronunciation = useCallback(() => {
     const native = step?.prompt?.native;
     if (!native?.trim()) return;
-    void playAudio(native);
+    void playAudio(native, undefined, LESSON_PRONUNCIATION_PACE);
   }, [playAudio, step?.prompt?.native]);
 
   const retryLine = useCallback(() => {
