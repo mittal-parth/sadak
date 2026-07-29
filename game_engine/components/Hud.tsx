@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { roadLines, WORLD_LIMIT, ROAD_W } from "@/lib/game/city";
 import type { LiveState, TaskSnapshot, Telemetry } from "@/lib/game/engine";
 import type { District } from "@/lib/game/districts";
+import type { BaseLangCode } from "@/lib/i18n/base-lang";
+import { gloss } from "@/lib/i18n/gloss";
 import type { StreetTask, TaskKind } from "@/lib/game/tasks";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -361,6 +363,7 @@ function ArtifactsList({ artifacts }: { artifacts: string[] }) {
 
 export default function Hud({
   district,
+  baseLang,
   tasks,
   tel,
   cash,
@@ -381,6 +384,7 @@ export default function Hud({
   onToggleAudio,
 }: {
   district: District;
+  baseLang: BaseLangCode;
   tasks: StreetTask[];
   tel: Telemetry | null;
   /** Engine-owned, mutated per frame. Only the minimap reads it. */
@@ -531,7 +535,7 @@ export default function Hud({
                       <AccordionTrigger className="py-2 text-sm">{p.native}</AccordionTrigger>
                       <AccordionContent>
                         <p className="text-main">{p.roman}</p>
-                        <p className="text-foreground/70">{p.en}</p>
+                        <p className="text-foreground/70">{gloss(p.en, baseLang)}</p>
                       </AccordionContent>
                     </AccordionItem>
                   ))}
@@ -586,7 +590,7 @@ export default function Hud({
                       <AccordionTrigger className="text-sm">{p.native}</AccordionTrigger>
                       <AccordionContent>
                         <p className="text-main">{p.roman}</p>
-                        <p className="text-foreground/70">{p.en}</p>
+                        <p className="text-foreground/70">{gloss(p.en, baseLang)}</p>
                       </AccordionContent>
                     </AccordionItem>
                   ))}
