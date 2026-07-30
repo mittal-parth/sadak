@@ -15,9 +15,12 @@ type RelayServerMsg =
   | { t: "final"; text: string }
   | { t: "error"; message: string };
 
-function relayUrl(): string | null {
-  const url = process.env.NEXT_PUBLIC_STT_RELAY_URL?.trim();
-  return url || null;
+function sttWebSocketUrl(): string | null {
+  if (typeof window === "undefined") return null;
+  const override = process.env.NEXT_PUBLIC_STT_WS_URL?.trim();
+  if (override) return override;
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${proto}//${window.location.host}/api/stt/ws`;
 }
 
 function combineTranscript(committed: string, interim: string): string {
@@ -27,9 +30,9 @@ function combineTranscript(committed: string, interim: string): string {
 /**
  * Push-to-talk recording for language lessons.
  *
- * Prefers Sarvam streaming STT via the game-owned WebSocket relay
- * (`npm run stt-relay`). Falls back to REST `/api/stt` when the relay is
- * unset or unreachable (e.g. Vercel without a relay host).
+ * Prefers Sarvam streaming STT via `/api/stt/ws` (same-origin Vercel
+ * WebSocket). Falls back to REST `/api/stt` when the upgrade is
+ * unavailable (e.g. local `next dev`).
  *
  * `partial` drives live transcript + word colours while the mic is open.
  * The authoritative grade still comes from `stop()`.
@@ -128,7 +131,7 @@ export function useVoice(language: LangCode) {
   const connectRelay = useCallback(
     (): Promise<WebSocket | null> =>
       new Promise((resolve) => {
-        const url = relayUrl();
+        const url = sttWebSocketUrl();
         if (!url) {
           resolve(null);
           return;
@@ -283,10 +286,8 @@ export function useVoice(language: LangCode) {
     modeRef.current = null;
 
     try {
-      if (relayUrl()) {
-        const ok = await startStream();
-        if (ok) return;
-      }
+      const ok = await startStream();
+      if (ok) return;
       await startRest();
     } catch (err) {
       teardownStream();
