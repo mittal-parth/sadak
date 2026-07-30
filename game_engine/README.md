@@ -78,7 +78,7 @@ sentences you did not know before.
 ## The pipeline
 
 ```
-mic → saaras:v3 (STT) → sarvam-105b (in-character reply) → bulbul:v3 (TTS) → audio + subtitles
+mic → saaras:v4 (STT) → sarvam-105b (in-character reply) → bulbul:v4 (TTS) → audio + subtitles
 ```
 
 There are two ways to run that pipeline, and the game picks at the moment you
@@ -258,7 +258,7 @@ components/
   on stage.
 - Bulbul chunks long text into multiple `audios[]` segments. They must be
   concatenated, not indexed. (Learned the hard way in Kahani.)
-- `bulbul:v3` and `bulbul:v2` speaker IDs are **not** interchangeable. The v3 set
+- `bulbul:v4` and `bulbul:v2` speaker IDs are **not** interchangeable. The v4 set
   is in `lib/sarvam.ts`; unknown names fall back to a default rather than 400.
 - The Indic scripts need real font coverage. Noto Sans Devanagari, Tamil,
   Kannada and Bengali are loaded explicitly rather than left to fallback.

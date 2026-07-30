@@ -114,7 +114,7 @@ function logShape(tag, seen, obj) {
 function runTts() {
   return new Promise((resolve, reject) => {
     const qs = new URLSearchParams({
-      model: "bulbul:v3",
+      model: "bulbul:v4",
       send_completion_event: "true",
     });
     const url = `wss://${SARVAM_HOST}/text-to-speech/ws?${qs.toString()}`;
@@ -186,7 +186,7 @@ function runTts() {
           data: {
             target_language_code: LANGUAGE,
             speaker: SPEAKER,
-            model: "bulbul:v3",
+            model: "bulbul:v4",
             speech_sample_rate: String(TTS_SAMPLE_RATE),
             output_audio_codec: "linear16",
             output_audio_bitrate: "128k",
@@ -261,7 +261,7 @@ function runStt(pcmBuffer, sampleRate) {
   return new Promise((resolve, reject) => {
     const qs = new URLSearchParams({
       "language-code": LANGUAGE,
-      model: "saaras:v3",
+      model: "saaras:v4",
       mode: "transcribe",
       sample_rate: String(sampleRate),
       vad_signals: "true",
