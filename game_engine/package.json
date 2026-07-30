@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "stt-relay": "node server/stt-relay.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

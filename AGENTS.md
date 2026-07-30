@@ -6,8 +6,11 @@ Notes for Cursor cloud agents and other automated testers working in this repo.
 
 ```bash
 python agent.py dev                      # optional: LiveKit NPC worker (repo root)
+cd game_engine && npm run stt-relay      # streaming STT for lesson mic (ws://localhost:8788)
 cd game_engine && npm run dev            # http://localhost:3000
 ```
+
+Lesson hold-to-speak uses the **game STT relay** when `NEXT_PUBLIC_STT_RELAY_URL` is set (see `game_engine/.env.example`). Without it, the client falls back to REST `/api/stt`.
 
 Copy `game_engine/.env.example` to `game_engine/.env` and set Supabase keys so auth and APIs work.
 
