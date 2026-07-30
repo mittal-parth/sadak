@@ -116,20 +116,17 @@ export const CHENNAI_PRESET: RenderPreset = {
 };
 
 export const BENGALURU_PRESET: RenderPreset = {
-  name: "Majestic Cross — garden-city morning",
-  bloom: { strength: 0.3, radius: 0.45, threshold: 0.86 },
+  name: "Majestic Cross — bright garden-city morning",
+  bloom: { strength: 0.36, radius: 0.45, threshold: 0.86 },
   grade: {
-    // Was the dull one: saturation 0.72 with every gain channel at or below
-    // 1.0, i.e. a grade that actively drained the frame. Now the greenest,
-    // freshest district rather than the greyest.
-    lift: [0.004, 0.01, 0.008],
-    gamma: [1.0, 1.0, 1.0],
-    gain: [1.04, 1.08, 1.04],
-    saturation: 1.34,
-    temperature: -0.04,
-    vignette: { strength: 0.12, radius: 0.82 },
+    lift: [0.0, 0.006, 0.008],
+    gamma: [1.0, 1.0, 0.99],
+    gain: [1.06, 1.08, 1.05],
+    saturation: 1.3,
+    temperature: 0.02,
+    vignette: { strength: 0.1, radius: 0.85 },
   },
-  haze: { color: [0.86, 0.92, 0.9], density: 0.002, horizonBoost: 0.14 },
+  haze: { color: [0.84, 0.92, 0.94], density: 0.0018, horizonBoost: 0.14 },
   grain: 0,
   chromaticAberration: 0,
 };
