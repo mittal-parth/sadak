@@ -531,7 +531,7 @@ relent and return the tempo. Accusation hardens you; acknowledgement moves you.`
 };
 
 /* ------------------------------------------------------------------ *
- * 3. MAJESTIC CROSS, Bengaluru, Kannada, monsoon overcast
+ * 3. MAJESTIC CROSS, Bengaluru, Kannada, bright garden-city morning
  * ------------------------------------------------------------------ */
 
 const majesticPhrases: Phrase[] = [
@@ -547,7 +547,7 @@ const majesticCross: District = {
   id: "majestic-cross",
   name: "Majestic Cross",
   city: "Bengaluru",
-  blurb: "Wet tarmac, grey light, and a delivery scooter that never came back.",
+  blurb: "Bright bougainvillea, clear morning light, and a delivery scooter that never came back.",
   coverImage: "/covers/majestic-cross.png",
   language: "kn-IN",
   languageLabel: "Kannada",
@@ -558,33 +558,32 @@ insured by nobody. It went missing during the evening rain, with the day's cash
 bag still under the seat. He has eleven hours before the rental company calls it
 theft and puts it on him.`,
   theme: {
-    // Was the monsoon-overcast district: a pure grey sky ramp, seven
-    // desaturated grey-green buildings, sun 0.70 against ambient 0.85. Now
-    // the garden city on a clear morning — the greenest district, not the
-    // greyest.
-    sky: ["#2a86cf", "#54a9e6", "#8ecdf2", "#c9e8f8", "#eff8e4"],
-    fog: 0x9aa3ab,
-    fogNear: 45,
-    ground: 0xa8a88e,
-    pavement: 0xc6c8b8,
-    plaza: 0xcdd0be,
-    tarmac: 0x474b50,
-    lane: 0xeef0e2,
-    buildings: [0xf6f1de, 0xffcf4d, 0x6fc7b0, 0xef7d63, 0xbde08a, 0xf5f0e4, 0x8bb8e8],
+    // Garden-city morning: bright sky and warm ground like Chennai's day
+    // view, but with a green horizon and livelier building palette — not the
+    // old monsoon-grey look that still lived in Supabase.
+    sky: ["#1f8ad0", "#43a8e4", "#87ccf0", "#ccebf9", "#f0f8e8"],
+    fog: 0xd8e8e0,
+    fogNear: 78,
+    ground: 0xd8cfa8,
+    pavement: 0xe0d8c0,
+    plaza: 0xe8e0c8,
+    tarmac: 0x4a4e52,
+    lane: 0xf5f2e4,
+    buildings: [0xfbf8ec, 0xffd54f, 0x5fd4b0, 0xff8066, 0xa8e68a, 0xf8f4ec, 0x7ec8f0],
     canopies: [0x1fa87a, 0xff9f1c, 0xe23c48],
-    leaf: 0x4fae42,
-    trunk: 0x66503c,
-    sunColour: 0xfff6e4,
-    sunIntensity: 1.9,
+    leaf: 0x52b848,
+    trunk: 0x7a6048,
+    sunColour: 0xfff8e8,
+    sunIntensity: 2.2,
     ambient: 0.3,
-    hemiSky: 0xd4ecff,
-    hemiGround: 0x9aa87e,
-    hemiIntensity: 0.58,
+    hemiSky: 0xe0f4ff,
+    hemiGround: 0xc4b890,
+    hemiIntensity: 0.6,
     archStyle: "modern",
     autos: 8,
     cars: 9,
     autoCanopy: 0xe8c518,
-    exposure: 1.12,
+    exposure: 1.14,
     landmark: "bengaluru",
   },
   phrases: majesticPhrases,
