@@ -1,7 +1,7 @@
 [
   {
     "event_name": "sign_in_attempted",
-    "event_description": "User attempts to sign in via Google OAuth, magic link email, or password.",
+    "event_description": "User attempts to sign in via Google OAuth or password.",
     "file": "components/auth/LoginForm.tsx"
   },
   {
