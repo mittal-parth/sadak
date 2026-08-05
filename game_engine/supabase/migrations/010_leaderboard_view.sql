@@ -38,8 +38,8 @@ select
   )::integer as rank,
   a.user_id,
   coalesce(
-    nullif(trim(u.raw_user_meta_data ->> 'full_name'), ''),
-    nullif(trim(u.raw_user_meta_data ->> 'name'), ''),
+    nullif(split_part(trim(u.raw_user_meta_data ->> 'full_name'), ' ', 1), ''),
+    nullif(split_part(trim(u.raw_user_meta_data ->> 'name'), ' ', 1), ''),
     left(split_part(u.email, '@', 1), 3) || '***'
   ) as display_name,
   a.total_xp,
