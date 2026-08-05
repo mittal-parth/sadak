@@ -1,8 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { LeaderboardResponse } from "@/lib/game/leaderboard";
+import {
+  Building2,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Hash,
+  Sparkles,
+  User,
+  type LucideIcon,
+} from "lucide-react";
+import type { LeaderboardResponse, LeaderboardRow } from "@/lib/game/leaderboard";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -18,6 +27,110 @@ const PAGE_SIZE = 10;
 
 function formatNumber(value: number): string {
   return value.toLocaleString("en-IN");
+}
+
+function ColumnHead({
+  icon: Icon,
+  label,
+  shortLabel,
+  className,
+}: {
+  icon: LucideIcon;
+  label: string;
+  shortLabel?: string;
+  className?: string;
+}) {
+  return (
+    <TableHead className={className}>
+      <span
+        className="inline-flex items-center justify-end gap-1 whitespace-nowrap text-xs sm:gap-1.5 sm:text-sm"
+        title={shortLabel ? label : undefined}
+      >
+        <Icon
+          size={14}
+          strokeWidth={2}
+          aria-hidden
+          className="size-3 shrink-0 sm:size-3.5"
+        />
+        <span className="sm:hidden">{shortLabel ?? label}</span>
+        <span className="hidden sm:inline">{label}</span>
+      </span>
+    </TableHead>
+  );
+}
+
+const PODIUM_MEDALS: Record<number, string> = {
+  1: "🥇",
+  2: "🥈",
+  3: "🥉",
+};
+
+function podiumRowClass(rank: number): string {
+  switch (rank) {
+    case 1:
+      return "bg-amber-100 hover:bg-amber-100";
+    case 2:
+      return "bg-slate-200 hover:bg-slate-200";
+    case 3:
+      return "bg-orange-100 hover:bg-orange-100";
+    default:
+      return "bg-secondary-background hover:bg-secondary-background";
+  }
+}
+
+function rowClass(rank: number, isMe: boolean): string {
+  if (isMe && rank > 3) {
+    return "bg-main/40 text-foreground ring-2 ring-inset ring-border hover:bg-main/40";
+  }
+  if (isMe) {
+    return cn(
+      podiumRowClass(rank),
+      "text-foreground ring-2 ring-inset ring-border",
+    );
+  }
+  return cn("text-foreground", podiumRowClass(rank));
+}
+
+function ScoreRow({
+  row,
+  isMe,
+  className,
+}: {
+  row: LeaderboardRow;
+  isMe?: boolean;
+  className?: string;
+}) {
+  const medal = PODIUM_MEDALS[row.rank];
+
+  return (
+    <TableRow className={className}>
+      <TableCell className="font-heading">
+        <span className="inline-flex items-center gap-1.5 pl-1">
+          {medal ? (
+            <span className="-rotate-12 text-lg leading-none select-none" aria-hidden>
+              {medal}
+            </span>
+          ) : null}
+          #{row.rank}
+        </span>
+      </TableCell>
+      <TableCell className="font-heading">
+        {row.display_name}
+        {isMe ? (
+          <span className="ml-2 text-xs font-base opacity-80">(you)</span>
+        ) : null}
+      </TableCell>
+      <TableCell className="text-right tabular-nums">
+        {formatNumber(row.errands_completed)}
+      </TableCell>
+      <TableCell className="text-right tabular-nums">
+        {formatNumber(row.cities_completed)}
+      </TableCell>
+      <TableCell className="text-right tabular-nums">
+        {formatNumber(row.total_xp)}
+      </TableCell>
+    </TableRow>
+  );
 }
 
 export default function LeaderboardTable() {
@@ -71,8 +184,9 @@ export default function LeaderboardTable() {
       <div className="rounded-base border-2 border-border bg-secondary-background p-6 text-center">
         <p className="font-heading">{error}</p>
         <p className="mt-2 text-sm text-foreground/70">
-          If you are setting up locally, run migration{" "}
-          <code className="font-heading text-foreground">010_leaderboard_view.sql</code>{" "}
+          If you are setting up locally, run migrations{" "}
+          <code className="font-heading text-foreground">010_leaderboard_view.sql</code> and{" "}
+          <code className="font-heading text-foreground">011_leaderboard_all_users.sql</code>{" "}
           in the Supabase SQL editor.
         </p>
         <Button
@@ -101,49 +215,60 @@ export default function LeaderboardTable() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="overflow-x-auto rounded-base border-2 border-border shadow-shadow">
-        <Table>
+      <div className="overflow-x-auto rounded-base border-2 border-border bg-secondary-background shadow-shadow">
+        <Table className="[&_td]:px-2 [&_th]:px-2 sm:[&_td]:px-4 sm:[&_th]:px-4">
           <TableHeader>
-            <TableRow>
-              <TableHead className="w-16">Rank</TableHead>
-              <TableHead>Player</TableHead>
-              <TableHead className="text-right">Errands</TableHead>
-              <TableHead className="text-right">Cities</TableHead>
-              <TableHead className="text-right">XP</TableHead>
-              <TableHead className="text-right">Cash</TableHead>
+            <TableRow className="bg-main text-main-foreground hover:bg-main">
+              <TableHead className="w-14 text-main-foreground sm:w-20">
+                <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs sm:gap-1.5 sm:text-sm">
+                  <Hash
+                    size={14}
+                    strokeWidth={2}
+                    aria-hidden
+                    className="size-3 shrink-0 sm:size-3.5"
+                  />
+                  Rank
+                </span>
+              </TableHead>
+              <TableHead className="text-main-foreground">
+                <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs sm:gap-1.5 sm:text-sm">
+                  <User
+                    size={14}
+                    strokeWidth={2}
+                    aria-hidden
+                    className="size-3 shrink-0 sm:size-3.5"
+                  />
+                  Player
+                </span>
+              </TableHead>
+              <ColumnHead
+                icon={ClipboardList}
+                label="Errands"
+                className="text-right text-main-foreground"
+              />
+              <ColumnHead
+                icon={Building2}
+                label="Cities completed"
+                shortLabel="Cities"
+                className="text-right text-main-foreground"
+              />
+              <ColumnHead
+                icon={Sparkles}
+                label="XP"
+                className="text-right text-main-foreground"
+              />
             </TableRow>
           </TableHeader>
           <TableBody>
             {data.rows.map((row) => {
               const isMe = row.user_id === data.meId;
               return (
-                <TableRow
+                <ScoreRow
                   key={row.user_id}
-                  data-state={isMe ? "selected" : undefined}
-                  className={cn(isMe && "ring-2 ring-inset ring-border")}
-                >
-                  <TableCell className="font-heading">#{row.rank}</TableCell>
-                  <TableCell className="font-heading">
-                    {row.display_name}
-                    {isMe ? (
-                      <span className="ml-2 text-xs font-base text-foreground/70">
-                        (you)
-                      </span>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatNumber(row.errands_completed)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatNumber(row.cities_completed)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatNumber(row.total_xp)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    ₹{formatNumber(row.total_cash)}
-                  </TableCell>
-                </TableRow>
+                  row={row}
+                  isMe={isMe}
+                  className={rowClass(row.rank, isMe)}
+                />
               );
             })}
           </TableBody>
