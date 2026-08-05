@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { BarChart2 } from "lucide-react";
 import type { District } from "@/lib/game/districts";
 import { DISTRICT_COVER_IMAGES } from "@/lib/game/district-covers";
 import type { ComfortLevel } from "@/lib/game/levels";
@@ -206,9 +208,13 @@ export default function Title({
             <span className="text-lg font-heading tracking-tight">sadak</span>
           </span>
           <div className="flex items-center gap-3">
-            <Badge variant="neutral" className="hidden sm:inline-flex">
-              Sarvam Epoch Buildathon
-            </Badge>
+            <Link
+              href="/leaderboard"
+              className="inline-flex items-center gap-1 rounded-base px-1.5 py-0.5 text-xs font-heading text-foreground/75 transition-colors hover:bg-secondary-background hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              <BarChart2 className="size-3 shrink-0" strokeWidth={2} aria-hidden />
+              Leaderboard
+            </Link>
             <SignOutButton tone="subtle" />
           </div>
         </div>
