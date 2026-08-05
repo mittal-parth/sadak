@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { Trophy } from "lucide-react";
 import type { District } from "@/lib/game/districts";
 import { DISTRICT_COVER_IMAGES } from "@/lib/game/district-covers";
 import type { ComfortLevel } from "@/lib/game/levels";
@@ -209,6 +211,11 @@ export default function Title({
             <Badge variant="neutral" className="hidden sm:inline-flex">
               Sarvam Epoch Buildathon
             </Badge>
+            <Button variant="neutral" size="icon" asChild aria-label="Leaderboard">
+              <Link href="/leaderboard">
+                <Trophy />
+              </Link>
+            </Button>
             <SignOutButton tone="subtle" />
           </div>
         </div>
