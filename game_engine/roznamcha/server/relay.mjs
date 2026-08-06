@@ -14,7 +14,7 @@
  * probe.mjs):
  *
  *   STT connect:  wss://api.sarvam.ai/speech-to-text/ws
- *                 ?language-code=hi-IN&model=saaras:v3&mode=transcribe
+ *                 ?language-code=hi-IN&model=saaras:v4&mode=transcribe
  *                 &sample_rate=16000&vad_signals=true&high_vad_sensitivity=true
  *                 &input_audio_codec=pcm_s16le
  *                 header: Api-Subscription-Key
@@ -26,10 +26,10 @@
  *   STT transcript: {"type":"data","data":{"transcript":"...", ...}}
  *   STT vad event:  {"type":"events","data":{"event_type":"vad_event","signal_type":"START_SPEECH"|"END_SPEECH"}}
  *
- *   TTS connect:  wss://api.sarvam.ai/text-to-speech/ws?model=bulbul:v3
+ *   TTS connect:  wss://api.sarvam.ai/text-to-speech/ws?model=bulbul:v4
  *                 header: Api-Subscription-Key
  *   TTS config:   {"type":"config","data":{"target_language_code":"hi-IN","speaker":"priya",
- *                   "model":"bulbul:v3","speech_sample_rate":"22050",
+ *                   "model":"bulbul:v4","speech_sample_rate":"22050",
  *                   "output_audio_codec":"linear16","output_audio_bitrate":"128k"}}
  *   TTS text:     {"type":"text","data":{"text":"..."}}
  *   TTS flush:    {"type":"flush"}
@@ -146,7 +146,7 @@ function logHandshakeFailure(tag, res) {
 function openSttSocket(browserWs, state, language, sampleRate) {
   const qs = new URLSearchParams({
     "language-code": language,
-    model: "saaras:v3",
+    model: "saaras:v4",
     mode: "transcribe",
     sample_rate: String(sampleRate || 16000),
     vad_signals: "true",
@@ -299,7 +299,7 @@ function openTtsSocket(browserWs, state, { text, speaker, language, moment }) {
   const pace = PACE[moment] ?? DEFAULT_PACE;
   console.log(`[tts] moment=${moment ?? "default"} pace=${pace}`);
 
-  const qs = new URLSearchParams({ model: "bulbul:v3" });
+  const qs = new URLSearchParams({ model: "bulbul:v4" });
   const url = `wss://${SARVAM_HOST}/text-to-speech/ws?${qs.toString()}`;
   console.log(`[tts] connecting ${url}`);
 
@@ -340,7 +340,7 @@ function openTtsSocket(browserWs, state, { text, speaker, language, moment }) {
         data: {
           target_language_code: language,
           speaker,
-          model: "bulbul:v3",
+          model: "bulbul:v4",
           speech_sample_rate: String(TTS_SAMPLE_RATE),
           output_audio_codec: "linear16",
           output_audio_bitrate: "128k",
