@@ -40,6 +40,9 @@ export function barberEmbedUrl(playlistId: string): string {
     mute: "0",
     rel: "0",
     modestbranding: "1",
+    controls: "1",
+    playsinline: "1",
+    enablejsapi: "1",
   });
   return `https://www.youtube.com/embed/videoseries?${params.toString()}`;
 }

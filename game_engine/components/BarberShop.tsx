@@ -9,6 +9,7 @@ import {
   makeBarberInterior,
 } from "@/lib/game/assets/barber";
 import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
 
 type Props = {
   language: LangCode;
@@ -96,25 +97,35 @@ export default function BarberShop({ language, onClose }: Props) {
   }, [onClose]);
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col bg-black/90">
+    <div className="absolute inset-0 z-50">
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" aria-hidden />
 
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/40" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-black/30" />
 
-      <div className="relative z-10 flex flex-1 flex-col items-center justify-end gap-4 p-4 pb-8 sm:p-8">
-        <div className="pointer-events-auto w-full max-w-2xl overflow-hidden rounded-xl border border-border bg-black/80 shadow-shadow backdrop-blur-sm">
+      <Button
+        variant="neutral"
+        size="icon"
+        className="pointer-events-auto absolute top-4 right-4 z-20 size-10 rounded-full border-white/20 bg-black/40 text-white backdrop-blur-md"
+        onClick={onClose}
+        aria-label="Leave barber shop"
+      >
+        <X className="size-5" aria-hidden />
+      </Button>
+
+      {/* Compact glass pill — real YT playlist iframe, not a full video box */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center p-4 pb-6 sm:p-6 sm:pb-8">
+        <div
+          className="pointer-events-auto w-full max-w-3xl overflow-hidden rounded-full border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+          style={{ background: "rgba(48, 28, 24, 0.55)" }}
+        >
           <iframe
             title="Barber shop music"
             src={barberEmbedUrl(playlistId)}
-            className="aspect-video w-full"
-            allow="autoplay; encrypted-media"
+            className="block h-[4.5rem] w-full border-0 sm:h-[5rem]"
+            allow="autoplay; encrypted-media; fullscreen"
             referrerPolicy="strict-origin-when-cross-origin"
           />
         </div>
-
-        <Button variant="neutral" className="pointer-events-auto" onClick={onClose}>
-          Leave shop
-        </Button>
       </div>
     </div>
   );
