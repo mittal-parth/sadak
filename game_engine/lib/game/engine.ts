@@ -7,7 +7,7 @@ import type { Clutter } from "./clutter";
 import { makeAuto, setSignalPhase, mulberry32 } from "./props";
 import { makeMissionShopStall, makeStreetMandir } from "./assets/index";
 import { makeBarberShop } from "./assets/barber";
-import { BARBER_ENTER_RADIUS, BARBER_POS } from "./barber";
+import { BARBER_ENTER_RADIUS, BARBER_FACING, BARBER_POS, barberSignFor } from "./barber";
 import {
   makePerson,
   makeIdlePose,
@@ -161,6 +161,8 @@ function markerColourForKind(kind: TaskKind): number {
       return 0xe74c3c;
     case "bus":
       return 0x3498db;
+    case "barber":
+      return 0x33406b;
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;
@@ -494,14 +496,15 @@ export class Game {
     this.barberWorld = { x, z };
 
     const anchor = new THREE.Group();
-    anchor.position.set(x, 0, z);
+    // Sits on the pavement slab, at the same height the terrace buildings do.
+    anchor.position.set(x, 0.22, z);
 
-    const shop = makeBarberShop();
-    shop.rotation.y = Math.PI / 4;
+    const shop = makeBarberShop(barberSignFor(this.district.language));
+    shop.rotation.y = BARBER_FACING;
     anchor.add(shop);
     this.scene.add(anchor);
 
-    this.colliders.push({ x, z, hw: 1.8, hd: 1.6 });
+    this.colliders.push({ x, z, hw: 2.15, hd: 1.75 });
     this.buildColliderGrid();
   }
 
