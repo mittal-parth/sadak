@@ -15,6 +15,7 @@ import {
 import type { ComfortLevel } from "@/lib/game/levels";
 import type { BaseLangCode } from "@/lib/i18n/base-lang";
 import { readStoredBaseLang } from "@/lib/i18n/base-lang";
+import { BARBER_INTERACT_LABEL } from "@/lib/game/barber";
 import type { DistrictProgress } from "@/lib/game/progress";
 import { errandLevelNumber, lessonTierFor } from "@/lib/game/levels";
 import { useGameAudio } from "@/lib/audio/useGameAudio";
@@ -23,6 +24,7 @@ import Title from "./Title";
 import EnterLoading from "./EnterLoading";
 import Hud from "./Hud";
 import Dialogue from "./Dialogue";
+import BarberShop from "./BarberShop";
 import VirtualJoystick from "./VirtualJoystick";
 import LandscapeGate from "./LandscapeGate";
 import SignOutButton from "@/components/auth/SignOutButton";
@@ -72,6 +74,7 @@ export default function GameShell() {
   // place by the engine and read by the minimap's own rAF, never diffed.
   const [live, setLive] = useState<LiveState | null>(null);
   const [talking, setTalking] = useState<StreetTask | null>(null);
+  const [barberOpen, setBarberOpen] = useState(false);
   const [cash, setCash] = useState(0);
   const [xp, setXp] = useState(0);
   const [completed, setCompleted] = useState<Set<string>>(new Set());
@@ -100,7 +103,9 @@ export default function GameShell() {
   }, [talking, comfort, tasksMemo]);
 
   const nearbyRef = useRef<string | null>(null);
+  const nearBarberRef = useRef(false);
   const talkingRef = useRef<StreetTask | null>(null);
+  const barberOpenRef = useRef(false);
   const menuRef = useRef(false);
   const metRef = useRef<Set<string>>(new Set());
   const progressRef = useRef({
@@ -255,15 +260,20 @@ export default function GameShell() {
 
   useEffect(() => {
     talkingRef.current = talking;
+    barberOpenRef.current = barberOpen;
     menuRef.current = menuOpen;
 
     const g = gameRef.current;
     if (!g) return;
     const frozen =
-      talking !== null || menuOpen || card !== null || (mobilePlay && portrait);
+      talking !== null ||
+      barberOpen ||
+      menuOpen ||
+      card !== null ||
+      (mobilePlay && portrait);
     g.paused = frozen;
     if (frozen) g.releasePointer();
-  }, [talking, menuOpen, card, mobilePlay, portrait]);
+  }, [talking, barberOpen, menuOpen, card, mobilePlay, portrait]);
 
   // Music sits under the dialogue's TTS and the held mic, and stays down
   // for the pause menu and the portrait rotate-gate, so it never fights the
@@ -275,14 +285,15 @@ export default function GameShell() {
   // would re-run this effect (and restart the duck gain ramp) 60x/sec.
   const duck = audio.duck;
   useEffect(() => {
-    duck(talking !== null || menuOpen || (mobilePlay && portrait));
-  }, [duck, talking, menuOpen, mobilePlay, portrait]);
+    duck(talking !== null || barberOpen || menuOpen || (mobilePlay && portrait));
+  }, [duck, talking, barberOpen, menuOpen, mobilePlay, portrait]);
 
   useEffect(() => {
     if (!district || !canvasRef.current) return;
 
     const game = new Game(canvasRef.current, district, tasks, (t) => {
       nearbyRef.current = t.nearby;
+      nearBarberRef.current = t.nearBarber;
       setTel(t);
     });
     gameRef.current = game;
@@ -298,6 +309,19 @@ export default function GameShell() {
       setLive(null);
     };
   }, [district, tasks]);
+
+  const openBarber = useCallback(() => {
+    if (!district || talkingRef.current || barberOpenRef.current) return;
+    if (nearbyRef.current) return;
+
+    posthog.capture("barber_entered", {
+      district_id: district.id,
+      district_name: district.name,
+      language: district.language,
+    });
+    playSfx("open");
+    setBarberOpen(true);
+  }, [district]);
 
   const openTalk = useCallback(() => {
     if (!district || talkingRef.current) return;
@@ -331,20 +355,22 @@ export default function GameShell() {
     const onKey = (e: KeyboardEvent) => {
       if (e.code === "Escape") {
         if (talkingRef.current) setTalking(null);
+        else if (barberOpenRef.current) setBarberOpen(false);
         else setMenuOpen((m) => !m);
         return;
       }
-      if (talkingRef.current || menuRef.current) return;
+      if (talkingRef.current || menuRef.current || barberOpenRef.current) return;
 
       if (e.code === "KeyE") {
         e.preventDefault();
-        openTalk();
+        if (nearbyRef.current) openTalk();
+        else if (nearBarberRef.current) openBarber();
       }
       if (e.code === "KeyP") setPhrasesOpen((p) => !p);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [openTalk]);
+  }, [openTalk, openBarber]);
 
   const onPoints = useCallback((points: number) => {
     setXp((x) => x + points);
@@ -425,6 +451,7 @@ export default function GameShell() {
     setTaskFinale(null);
     setTel(null);
     setTalking(null);
+    setBarberOpen(false);
     setCash(0);
     setXp(0);
     setCompleted(new Set());
@@ -442,7 +469,11 @@ export default function GameShell() {
   }, []);
 
   const gameplayFrozen =
-    talking !== null || menuOpen || card !== null || (mobilePlay && portrait);
+    talking !== null ||
+    barberOpen ||
+    menuOpen ||
+    card !== null ||
+    (mobilePlay && portrait);
 
   if (!district) {
     return (
@@ -472,6 +503,9 @@ export default function GameShell() {
         completed={completed}
         errandProgress={{ done: completed.size, total: tasks.length }}
         onOpen={openTalk}
+        barberNearby={Boolean(tel?.nearBarber && !tel?.nearby)}
+        barberLabel={BARBER_INTERACT_LABEL}
+        onEnterBarber={openBarber}
         phrasesOpen={phrasesOpen}
         onTogglePhrases={() => setPhrasesOpen((p) => !p)}
         onMenu={() => setMenuOpen(true)}
@@ -573,6 +607,10 @@ export default function GameShell() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      )}
+
+      {barberOpen && district && (
+        <BarberShop language={district.language} onClose={() => setBarberOpen(false)} />
       )}
 
       {talking && talkingTarget && (

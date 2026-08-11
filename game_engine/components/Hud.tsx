@@ -139,10 +139,12 @@ function kindLabel(kind: TaskKind): string {
 function Minimap({
   live,
   tasks,
+  barber,
   size,
 }: {
   live: LiveState | null;
   tasks: TaskSnapshot[];
+  barber?: { x: number; z: number };
   size: number;
 }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
@@ -150,6 +152,8 @@ function Minimap({
   // rebuilt when the (throttled) task list changes.
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
+  const barberRef = useRef(barber);
+  barberRef.current = barber;
   const liveRef = useRef(live);
   liveRef.current = live;
 
@@ -231,6 +235,26 @@ function Minimap({
         ctx.stroke();
       }
 
+      const b = barberRef.current;
+      if (b) {
+        const dotR = 4 * ui;
+        const sx = b.x * scale;
+        const sy = b.z * scale;
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
+        ctx.beginPath();
+        ctx.arc(sx + 1.2 * ui, sy + 1.2 * ui, dotR + 1.5 * ui, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#9b59b6";
+        ctx.beginPath();
+        ctx.arc(sx, sy, dotR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.45)";
+        ctx.lineWidth = Math.max(1, 1.5 * ui);
+        ctx.beginPath();
+        ctx.arc(sx, sy, dotR + 0.5 * ui, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
       ctx.restore();
 
       ctx.fillStyle = "#5ab0ff";
@@ -258,17 +282,19 @@ function Minimap({
 function MinimapPanel({
   live,
   tasks,
+  barber,
   size,
   onRecenter,
 }: {
   live: LiveState | null;
   tasks: TaskSnapshot[];
+  barber?: { x: number; z: number };
   size: number;
   onRecenter: () => void;
 }) {
   return (
     <div className="relative inline-block">
-      <Minimap live={live} tasks={tasks} size={size} />
+      <Minimap live={live} tasks={tasks} barber={barber} size={size} />
       <Button
         variant="neutral"
         size="icon"
@@ -373,6 +399,9 @@ export default function Hud({
   completed,
   errandProgress,
   onOpen,
+  barberNearby = false,
+  barberLabel = "Enter barber shop",
+  onEnterBarber,
   phrasesOpen,
   onTogglePhrases,
   onMenu,
@@ -395,6 +424,9 @@ export default function Hud({
   completed: Set<string>;
   errandProgress: { done: number; total: number };
   onOpen: () => void;
+  barberNearby?: boolean;
+  barberLabel?: string;
+  onEnterBarber?: () => void;
   phrasesOpen: boolean;
   onTogglePhrases: () => void;
   onMenu: () => void;
@@ -473,6 +505,7 @@ export default function Hud({
                   <MinimapPanel
                     live={live}
                     tasks={tel.tasks}
+                    barber={tel.barber}
                     size={mapSize}
                     onRecenter={onRecenter}
                   />
@@ -629,6 +662,7 @@ export default function Hud({
                   <MinimapPanel
                     live={live}
                     tasks={tel.tasks}
+                    barber={tel.barber}
                     size={mapSize}
                     onRecenter={onRecenter}
                   />
@@ -639,7 +673,7 @@ export default function Hud({
         </>
       )}
 
-      {nearbyTask && (
+      {nearbyTask ? (
         <Button
           className={cn(
             mobilePlay
@@ -652,7 +686,21 @@ export default function Hud({
           {!mobilePlay && <kbd>E</kbd>}
           {nearbyTask.interactLabel}
         </Button>
-      )}
+      ) : barberNearby && onEnterBarber ? (
+        <Button
+          className={cn(
+            mobilePlay
+              ? "pointer-events-auto absolute bottom-6 left-4 z-30 max-w-[min(14rem,calc(100vw-8rem))] text-sm"
+              : "absolute bottom-20 left-1/2 -translate-x-1/2"
+          )}
+          size={mobilePlay ? "default" : "lg"}
+          variant="neutral"
+          onClick={onEnterBarber}
+        >
+          {!mobilePlay && <kbd>E</kbd>}
+          {barberLabel}
+        </Button>
+      ) : null}
     </>
   );
 }
