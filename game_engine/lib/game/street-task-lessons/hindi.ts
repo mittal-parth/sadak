@@ -94,4 +94,18 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("लो, टिकट", "Lo, ticket", "Here, your ticket", "धन्यवाद", "Dhanyavaad", "Thank you"),
     ],
   },
+  "purani-sadak-barber": {
+    easy: [
+      s("आइए, बैठिए। क्या करवाना है?", "Aaiye, baithiye. Kya karvaana hai?", "Come, sit down. What would you like done?", "बाल काट दीजिए", "Baal kaat dijiye", "Please cut my hair"),
+      s("ठीक है, थोड़ा इंतज़ार करना होगा", "Theek hai, thoda intezaar karna hoga", "Alright, you'll have to wait a bit", "कितनी देर लगेगी?", "Kitni der lagegi?", "How long will it take?"),
+    ],
+    medium: [
+      s("आइए, बैठिए। क्या करवाना है?", "Aaiye, baithiye. Kya karvaana hai?", "Come, sit down. What would you like done?", "बाल काट दीजिए", "Baal kaat dijiye", "Please cut my hair"),
+      s("ठीक है, थोड़ा इंतज़ार करना होगा", "Theek hai, thoda intezaar karna hoga", "Alright, you'll have to wait a bit", "कितनी देर लगेगी?", "Kitni der lagegi?", "How long will it take?"),
+    ],
+    hard: [
+      s("आइए, बैठिए। क्या करवाना है?", "Aaiye, baithiye. Kya karvaana hai?", "Come, sit down. What would you like done?", "बाल काट दीजिए", "Baal kaat dijiye", "Please cut my hair"),
+      s("ठीक है, थोड़ा इंतज़ार करना होगा", "Theek hai, thoda intezaar karna hoga", "Alright, you'll have to wait a bit", "कितनी देर लगेगी?", "Kitni der lagegi?", "How long will it take?"),
+    ],
+  },
 };

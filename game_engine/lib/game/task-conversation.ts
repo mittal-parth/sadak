@@ -32,6 +32,8 @@ function kindFlavor(kind: TaskKind): string {
       return "You sell flowers and offerings near the mandir. You are helpful but brisk; bells and crowds press everyone to hurry.";
     case "bus":
       return "You work the ticket counter or stop. Schedules, destinations, and exact change matter; you do not hand tickets over until the details are clear.";
+    case "barber":
+      return "You run a one-chair shop and you are mid-shift. You want the details before you start — how short, beard or no beard — and you will happily talk cricket, politics or the neighbourhood while you work.";
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;

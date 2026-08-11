@@ -94,4 +94,18 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("ఇదigo, ticket", "Idigo, ticket", "Here, your ticket", "ధన్యవాదాలు", "Dhanyavaadalu", "Thank you"),
     ],
   },
+  "charminar-lane-barber": {
+    easy: [
+      s("రండి, కూర్చోండి. ఏం చేయాలి?", "Randi, koorchondi. Em cheyaali?", "Come, sit. What should I do?", "జుట్టు కత్తిరించండి", "Juttu kattirinchandi", "Please cut my hair"),
+      s("సరే, కొంచెం ఆగాలి", "Sare, konchem aagaali", "Okay, you'll have to wait a bit", "ఎంత సమయం పడుతుంది?", "Enta samayam padutundi?", "How long will it take?"),
+    ],
+    medium: [
+      s("రండి, కూర్చోండి. ఏం చేయాలి?", "Randi, koorchondi. Em cheyaali?", "Come, sit. What should I do?", "జుట్టు కత్తిరించండి", "Juttu kattirinchandi", "Please cut my hair"),
+      s("సరే, కొంచెం ఆగాలి", "Sare, konchem aagaali", "Okay, you'll have to wait a bit", "ఎంత సమయం పడుతుంది?", "Enta samayam padutundi?", "How long will it take?"),
+    ],
+    hard: [
+      s("రండి, కూర్చోండి. ఏం చేయాలి?", "Randi, koorchondi. Em cheyaali?", "Come, sit. What should I do?", "జుట్టు కత్తిరించండి", "Juttu kattirinchandi", "Please cut my hair"),
+      s("సరే, కొంచెం ఆగాలి", "Sare, konchem aagaali", "Okay, you'll have to wait a bit", "ఎంత సమయం పడుతుంది?", "Enta samayam padutundi?", "How long will it take?"),
+    ],
+  },
 };

@@ -94,4 +94,18 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("ନିଅ, ଟିକେଟ", "Nian, ticket", "Here, your ticket", "ଧନ୍ୟବାଦ", "Dhanyabaad", "Thank you"),
     ],
   },
+  "lingaraj-lane-barber": {
+    easy: [
+      s("ଆସନ୍ତୁ, ବସନ୍ତୁ। କଣ କରିବାକୁ ହେବ?", "Aasantu, basantu. Kana karibaaku heba?", "Come, sit. What needs doing?", "ବାଳ କାଟି ଦିଅନ୍ତୁ", "Baala kaati diantu", "Please cut my hair"),
+      s("ଠିକ ଅଛି, ଟିକେ ଅପେକ୍ଷା କରିବାକୁ ପଡ଼ିବ", "Thika achhi, tike apekkhaa karibaaku padiba", "Alright, you'll have to wait a bit", "କେତେ ସମୟ ଲାଗିବ?", "Kete samaya laagiba?", "How long will it take?"),
+    ],
+    medium: [
+      s("ଆସନ୍ତୁ, ବସନ୍ତୁ। କଣ କରିବାକୁ ହେବ?", "Aasantu, basantu. Kana karibaaku heba?", "Come, sit. What needs doing?", "ବାଳ କାଟି ଦିଅନ୍ତୁ", "Baala kaati diantu", "Please cut my hair"),
+      s("ଠିକ ଅଛି, ଟିକେ ଅପେକ୍ଷା କରିବାକୁ ପଡ଼ିବ", "Thika achhi, tike apekkhaa karibaaku padiba", "Alright, you'll have to wait a bit", "କେତେ ସମୟ ଲାଗିବ?", "Kete samaya laagiba?", "How long will it take?"),
+    ],
+    hard: [
+      s("ଆସନ୍ତୁ, ବସନ୍ତୁ। କଣ କରିବାକୁ ହେବ?", "Aasantu, basantu. Kana karibaaku heba?", "Come, sit. What needs doing?", "ବାଳ କାଟି ଦିଅନ୍ତୁ", "Baala kaati diantu", "Please cut my hair"),
+      s("ଠିକ ଅଛି, ଟିକେ ଅପେକ୍ଷା କରିବାକୁ ପଡ଼ିବ", "Thika achhi, tike apekkhaa karibaaku padiba", "Alright, you'll have to wait a bit", "କେତେ ସମୟ ଲାଗିବ?", "Kete samaya laagiba?", "How long will it take?"),
+    ],
+  },
 };
