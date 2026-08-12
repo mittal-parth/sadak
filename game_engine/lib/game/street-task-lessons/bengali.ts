@@ -94,4 +94,18 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("যান", "Jan", "Go", "ধন্যবাদ", "Dhonnobad", "Thank you"),
     ],
   },
+  "park-gully-barber": {
+    easy: [
+      s("আসুন, বসুন। কী করতে হবে?", "Aashun, boshun. Ki korte hobe?", "Come, sit. What needs doing?", "চুল কেটে দিন", "Chul kete din", "Please cut my hair"),
+      s("ঠিক আছে, একটু অপেক্ষা করতে হবে", "Thik achhe, ektu opekkha korte hobe", "Alright, you'll have to wait a little", "কত সময় লাগবে?", "Koto shomoy laagbe?", "How long will it take?"),
+    ],
+    medium: [
+      s("আসুন, বসুন। কী করতে হবে?", "Aashun, boshun. Ki korte hobe?", "Come, sit. What needs doing?", "চুল কেটে দিন", "Chul kete din", "Please cut my hair"),
+      s("ঠিক আছে, একটু অপেক্ষা করতে হবে", "Thik achhe, ektu opekkha korte hobe", "Alright, you'll have to wait a little", "কত সময় লাগবে?", "Koto shomoy laagbe?", "How long will it take?"),
+    ],
+    hard: [
+      s("আসুন, বসুন। কী করতে হবে?", "Aashun, boshun. Ki korte hobe?", "Come, sit. What needs doing?", "চুল কেটে দিন", "Chul kete din", "Please cut my hair"),
+      s("ঠিক আছে, একটু অপেক্ষা করতে হবে", "Thik achhe, ektu opekkha korte hobe", "Alright, you'll have to wait a little", "কত সময় লাগবে?", "Koto shomoy laagbe?", "How long will it take?"),
+    ],
+  },
 };

@@ -94,4 +94,18 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("ਲੋ, ਟਿਕਟ", "Lo, ticket", "Here, your ticket", "ਧੰਨਵਾਦ", "Dhannvaad", "Thank you"),
     ],
   },
+  "hall-bazaar-barber": {
+    easy: [
+      s("ਆਓ ਜੀ, ਬੈਠੋ। ਕੀ ਕਰਵਾਉਣਾ ਹੈ?", "Aao ji, baitho. Ki karvaauna hai?", "Come, sit down. What would you like done?", "ਵਾਲ ਕੱਟ ਦਿਓ", "Vaal katt dio", "Please cut my hair"),
+      s("ਠੀਕ ਹੈ, ਥੋੜ੍ਹਾ ਉਡੀਕਣਾ ਪਵੇਗਾ", "Thik hai, thorha udeekna pavega", "Alright, you'll have to wait a bit", "ਕਿੰਨਾ ਸਮਾਂ ਲੱਗੇਗਾ?", "Kinna samaan laggega?", "How long will it take?"),
+    ],
+    medium: [
+      s("ਆਓ ਜੀ, ਬੈਠੋ। ਕੀ ਕਰਵਾਉਣਾ ਹੈ?", "Aao ji, baitho. Ki karvaauna hai?", "Come, sit down. What would you like done?", "ਵਾਲ ਕੱਟ ਦਿਓ", "Vaal katt dio", "Please cut my hair"),
+      s("ਠੀਕ ਹੈ, ਥੋੜ੍ਹਾ ਉਡੀਕਣਾ ਪਵੇਗਾ", "Thik hai, thorha udeekna pavega", "Alright, you'll have to wait a bit", "ਕਿੰਨਾ ਸਮਾਂ ਲੱਗੇਗਾ?", "Kinna samaan laggega?", "How long will it take?"),
+    ],
+    hard: [
+      s("ਆਓ ਜੀ, ਬੈਠੋ। ਕੀ ਕਰਵਾਉਣਾ ਹੈ?", "Aao ji, baitho. Ki karvaauna hai?", "Come, sit down. What would you like done?", "ਵਾਲ ਕੱਟ ਦਿਓ", "Vaal katt dio", "Please cut my hair"),
+      s("ਠੀਕ ਹੈ, ਥੋੜ੍ਹਾ ਉਡੀਕਣਾ ਪਵੇਗਾ", "Thik hai, thorha udeekna pavega", "Alright, you'll have to wait a bit", "ਕਿੰਨਾ ਸਮਾਂ ਲੱਗੇਗਾ?", "Kinna samaan laggega?", "How long will it take?"),
+    ],
+  },
 };

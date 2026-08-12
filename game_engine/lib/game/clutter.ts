@@ -524,7 +524,7 @@ function buildPosterGeo(): THREE.BufferGeometry {
   return colourize(g, c);
 }
 
-function buildBarberPoleGeo(): THREE.BufferGeometry {
+export function buildBarberPoleGeo(): THREE.BufferGeometry {
   const parts: THREE.BufferGeometry[] = [];
   const stripes = [0xd94f4f, 0xffffff, 0x2f6f9f];
   for (let i = 0; i < 9; i++) {

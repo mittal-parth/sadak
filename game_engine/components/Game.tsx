@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Game, type LiveState, type Telemetry } from "@/lib/game/engine";
 import type { District } from "@/lib/game/districts";
 import {
+  barberTaskFor,
   errandIndexForTask,
   findTaskById,
   resolveTaskLesson,
@@ -15,6 +16,7 @@ import {
 import type { ComfortLevel } from "@/lib/game/levels";
 import type { BaseLangCode } from "@/lib/i18n/base-lang";
 import { readStoredBaseLang } from "@/lib/i18n/base-lang";
+import { BARBER_INTERACT_LABEL, BARBER_XP, barberTaskId } from "@/lib/game/barber";
 import type { DistrictProgress } from "@/lib/game/progress";
 import { errandLevelNumber, lessonTierFor } from "@/lib/game/levels";
 import { useGameAudio } from "@/lib/audio/useGameAudio";
@@ -23,6 +25,7 @@ import Title from "./Title";
 import EnterLoading from "./EnterLoading";
 import Hud from "./Hud";
 import Dialogue from "./Dialogue";
+import BarberShop from "./BarberShop";
 import VirtualJoystick from "./VirtualJoystick";
 import LandscapeGate from "./LandscapeGate";
 import SignOutButton from "@/components/auth/SignOutButton";
@@ -72,6 +75,7 @@ export default function GameShell() {
   // place by the engine and read by the minimap's own rAF, never diffed.
   const [live, setLive] = useState<LiveState | null>(null);
   const [talking, setTalking] = useState<StreetTask | null>(null);
+  const [barberOpen, setBarberOpen] = useState(false);
   const [cash, setCash] = useState(0);
   const [xp, setXp] = useState(0);
   const [completed, setCompleted] = useState<Set<string>>(new Set());
@@ -90,6 +94,13 @@ export default function GameShell() {
 
   const talkingTarget = useMemo(() => {
     if (!talking) return null;
+    // The haircut is optional, so it has no rung on the "Level N/4" ladder —
+    // its difficulty follows the comfort setting and it pays XP, not cash.
+    if (talking.kind === "barber") {
+      return taskAsLessonTarget(talking, talking.lessons[comfort], {
+        xpReward: BARBER_XP,
+      });
+    }
     const index = errandIndexForTask(talking.id, tasksMemo);
     const tier = lessonTierFor(comfort, index);
     const lesson = resolveTaskLesson(talking, comfort, tasksMemo);
@@ -100,7 +111,9 @@ export default function GameShell() {
   }, [talking, comfort, tasksMemo]);
 
   const nearbyRef = useRef<string | null>(null);
+  const nearBarberRef = useRef(false);
   const talkingRef = useRef<StreetTask | null>(null);
+  const barberOpenRef = useRef(false);
   const menuRef = useRef(false);
   const metRef = useRef<Set<string>>(new Set());
   const progressRef = useRef({
@@ -201,7 +214,13 @@ export default function GameShell() {
           task_count: districtPayload.tasks.length,
           prior_cash: saved.cash,
           prior_xp: saved.xp,
-          prior_completed_count: saved.completedTaskIds.length,
+          // Errands only — completedTaskIds also carries the optional haircut.
+          prior_completed_count: districtPayload.tasks.filter((t) =>
+            saved.completedTaskIds.includes(t.id),
+          ).length,
+          prior_barber_done: saved.completedTaskIds.includes(
+            barberTaskId(districtPayload.district.id),
+          ),
         });
       } catch {
         setToast("Could not enter district");
@@ -255,15 +274,20 @@ export default function GameShell() {
 
   useEffect(() => {
     talkingRef.current = talking;
+    barberOpenRef.current = barberOpen;
     menuRef.current = menuOpen;
 
     const g = gameRef.current;
     if (!g) return;
     const frozen =
-      talking !== null || menuOpen || card !== null || (mobilePlay && portrait);
+      talking !== null ||
+      barberOpen ||
+      menuOpen ||
+      card !== null ||
+      (mobilePlay && portrait);
     g.paused = frozen;
     if (frozen) g.releasePointer();
-  }, [talking, menuOpen, card, mobilePlay, portrait]);
+  }, [talking, barberOpen, menuOpen, card, mobilePlay, portrait]);
 
   // Music sits under the dialogue's TTS and the held mic, and stays down
   // for the pause menu and the portrait rotate-gate, so it never fights the
@@ -275,14 +299,15 @@ export default function GameShell() {
   // would re-run this effect (and restart the duck gain ramp) 60x/sec.
   const duck = audio.duck;
   useEffect(() => {
-    duck(talking !== null || menuOpen || (mobilePlay && portrait));
-  }, [duck, talking, menuOpen, mobilePlay, portrait]);
+    duck(talking !== null || barberOpen || menuOpen || (mobilePlay && portrait));
+  }, [duck, talking, barberOpen, menuOpen, mobilePlay, portrait]);
 
   useEffect(() => {
     if (!district || !canvasRef.current) return;
 
     const game = new Game(canvasRef.current, district, tasks, (t) => {
       nearbyRef.current = t.nearby;
+      nearBarberRef.current = t.nearBarber;
       setTel(t);
     });
     gameRef.current = game;
@@ -298,6 +323,34 @@ export default function GameShell() {
       setLive(null);
     };
   }, [district, tasks]);
+
+  /**
+   * The haircut is talked through at the door and the cutscene is the payoff.
+   * Once it is done, the door goes straight to the cutscene — replaying the
+   * same scripted conversation to get back to the music is busywork.
+   */
+  const openBarber = useCallback(() => {
+    if (!district || talkingRef.current || barberOpenRef.current) return;
+    if (nearbyRef.current) return;
+
+    playSfx("open");
+    if (completed.has(barberTaskId(district.id))) {
+      posthog.capture("barber_revisited", {
+        district_id: district.id,
+        district_name: district.name,
+        language: district.language,
+      });
+      setBarberOpen(true);
+      return;
+    }
+
+    posthog.capture("barber_started", {
+      district_id: district.id,
+      district_name: district.name,
+      language: district.language,
+    });
+    setTalking(barberTaskFor(district.id));
+  }, [district, completed]);
 
   const openTalk = useCallback(() => {
     if (!district || talkingRef.current) return;
@@ -331,20 +384,22 @@ export default function GameShell() {
     const onKey = (e: KeyboardEvent) => {
       if (e.code === "Escape") {
         if (talkingRef.current) setTalking(null);
+        else if (barberOpenRef.current) setBarberOpen(false);
         else setMenuOpen((m) => !m);
         return;
       }
-      if (talkingRef.current || menuRef.current) return;
+      if (talkingRef.current || menuRef.current || barberOpenRef.current) return;
 
       if (e.code === "KeyE") {
         e.preventDefault();
-        openTalk();
+        if (nearbyRef.current) openTalk();
+        else if (nearBarberRef.current) openBarber();
       }
       if (e.code === "KeyP") setPhrasesOpen((p) => !p);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [openTalk]);
+  }, [openTalk, openBarber]);
 
   const onPoints = useCallback((points: number) => {
     setXp((x) => x + points);
@@ -365,6 +420,41 @@ export default function GameShell() {
   const onComplete = useCallback(
     (taskId: string, reward: number) => {
       if (!district) return;
+
+      // The haircut pays XP and rolls the cutscene. Deliberately not added to
+      // `completed`: it is optional, and counting it would let it stand in for
+      // an errand the player still owes the city.
+      if (taskId === barberTaskId(district.id)) {
+        const nextXp = completed.has(taskId)
+          ? progressRef.current.xp
+          : progressRef.current.xp + BARBER_XP;
+        // Recorded in completedTaskIds purely so a return visit can skip the
+        // conversation. It is excluded from the errand count above, so it can
+        // never stand in for an errand the player still owes the city.
+        const nextCompleted = new Set(completed);
+        nextCompleted.add(taskId);
+
+        setXp(nextXp);
+        setCompleted(nextCompleted);
+        playSfx("cash");
+        posthog.capture("barber_completed", {
+          district_id: district.id,
+          district_name: district.name,
+          language: district.language,
+          xp: nextXp - progressRef.current.xp,
+        });
+        void persistProgress({
+          districtId: district.id,
+          comfort,
+          cash: progressRef.current.cash,
+          xp: nextXp,
+          completedTaskIds: [...nextCompleted],
+        });
+        setTalking(null);
+        setBarberOpen(true);
+        return;
+      }
+
       const task = findTaskById(tasks, taskId);
       if (!task) return;
 
@@ -417,7 +507,10 @@ export default function GameShell() {
         comfort_level: snap.comfort,
         cash_earned: snap.cash,
         xp_earned: snap.xp,
-        tasks_completed: snap.completedTaskIds.length,
+        tasks_completed: snap.completedTaskIds.filter(
+          (id) => id !== barberTaskId(snap.districtId),
+        ).length,
+        barber_done: snap.completedTaskIds.includes(barberTaskId(snap.districtId)),
       });
     }
     setDistrict(null);
@@ -425,6 +518,7 @@ export default function GameShell() {
     setTaskFinale(null);
     setTel(null);
     setTalking(null);
+    setBarberOpen(false);
     setCash(0);
     setXp(0);
     setCompleted(new Set());
@@ -442,7 +536,11 @@ export default function GameShell() {
   }, []);
 
   const gameplayFrozen =
-    talking !== null || menuOpen || card !== null || (mobilePlay && portrait);
+    talking !== null ||
+    barberOpen ||
+    menuOpen ||
+    card !== null ||
+    (mobilePlay && portrait);
 
   if (!district) {
     return (
@@ -453,7 +551,11 @@ export default function GameShell() {
     );
   }
 
-  const allDone = tasks.length > 0 && completed.size === tasks.length;
+  // Counted over the pack rather than completed.size: the optional haircut also
+  // lives in completedTaskIds (that is how a return visit is remembered), and a
+  // fifth id would mean size never equals tasks.length and the finale never fires.
+  const errandsDone = tasks.filter((t) => completed.has(t.id)).length;
+  const allDone = tasks.length > 0 && errandsDone === tasks.length;
   const finale = taskFinale;
 
   return (
@@ -470,8 +572,11 @@ export default function GameShell() {
         xp={xp}
         artifacts={artifacts}
         completed={completed}
-        errandProgress={{ done: completed.size, total: tasks.length }}
+        errandProgress={{ done: errandsDone, total: tasks.length }}
         onOpen={openTalk}
+        barberNearby={Boolean(tel?.nearBarber && !tel?.nearby)}
+        barberLabel={BARBER_INTERACT_LABEL}
+        onEnterBarber={openBarber}
         phrasesOpen={phrasesOpen}
         onTogglePhrases={() => setPhrasesOpen((p) => !p)}
         onMenu={() => setMenuOpen(true)}
@@ -573,6 +678,15 @@ export default function GameShell() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      )}
+
+      {barberOpen && district && (
+        <BarberShop
+          districtId={district.id}
+          language={district.language}
+          coverImage={district.coverImage}
+          onClose={() => setBarberOpen(false)}
+        />
       )}
 
       {talking && talkingTarget && (

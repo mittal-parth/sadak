@@ -94,4 +94,18 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("ഇതാ, ticket", "Ithaa, ticket", "Here, your ticket", "നന്ദി", "Nandi", "Thank you"),
     ],
   },
+  "fort-kochi-barber": {
+    easy: [
+      s("വരൂ, ഇരിക്കൂ. എന്താ വേണ്ടത്?", "Varoo, irikkoo. Enthaa vendath?", "Come, sit. What do you need?", "മുടി വെട്ടിത്തരൂ", "Mudi vettitharoo", "Please cut my hair"),
+      s("ശരി, കുറച്ച് കാത്തിരിക്കണം", "Shari, kurachu kaathirikkanam", "Okay, you'll have to wait a little", "എത്ര സമയം എടുക്കും?", "Ethra samayam edukkum?", "How long will it take?"),
+    ],
+    medium: [
+      s("വരൂ, ഇരിക്കൂ. എന്താ വേണ്ടത്?", "Varoo, irikkoo. Enthaa vendath?", "Come, sit. What do you need?", "മുടി വെട്ടിത്തരൂ", "Mudi vettitharoo", "Please cut my hair"),
+      s("ശരി, കുറച്ച് കാത്തിരിക്കണം", "Shari, kurachu kaathirikkanam", "Okay, you'll have to wait a little", "എത്ര സമയം എടുക്കും?", "Ethra samayam edukkum?", "How long will it take?"),
+    ],
+    hard: [
+      s("വരൂ, ഇരിക്കൂ. എന്താ വേണ്ടത്?", "Varoo, irikkoo. Enthaa vendath?", "Come, sit. What do you need?", "മുടി വെട്ടിത്തരൂ", "Mudi vettitharoo", "Please cut my hair"),
+      s("ശരി, കുറച്ച് കാത്തിരിക്കണം", "Shari, kurachu kaathirikkanam", "Okay, you'll have to wait a little", "എത്ര സമയം എടുക്കും?", "Ethra samayam edukkum?", "How long will it take?"),
+    ],
+  },
 };
