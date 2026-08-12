@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import type { LangCode } from "@/lib/sarvam";
 import {
   barberCutsceneCandidates,
-  barberPlaylistUrl,
   barberSignFor,
+  barberTrackUrl,
   barberTracks,
 } from "@/lib/game/barber";
 import BarberMusicPlayer from "./BarberMusicPlayer";
@@ -51,6 +51,8 @@ type Backdrop = { status: "loading" } | { status: "ready"; src: string } | { sta
 
 export default function BarberShop({ districtId, language, coverImage, onClose }: Props) {
   const sign = barberSignFor(language);
+  const tracks = barberTracks(language);
+  const [nowPlaying, setNowPlaying] = useState(tracks[0] ?? "");
   const clock = useClock();
   const [backdrop, setBackdrop] = useState<Backdrop>({ status: "loading" });
 
@@ -162,12 +164,12 @@ export default function BarberShop({ districtId, language, coverImage, onClose }
 
       <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
         <a
-          href={barberPlaylistUrl()}
+          href={barberTrackUrl(nowPlaying)}
           target="_blank"
           rel="noreferrer noopener"
           className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-white/15 bg-black/40 px-3 py-2 text-sm text-white/80 backdrop-blur-md transition-colors hover:bg-black/60 hover:text-white"
         >
-          YT Music
+          YouTube
           <ArrowUpRight className="size-3.5" aria-hidden />
         </a>
 
@@ -185,7 +187,7 @@ export default function BarberShop({ districtId, language, coverImage, onClose }
       {/* Glass pill: our own transport controls over a hidden YouTube frame. */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center p-4 pb-6 sm:p-6 sm:pb-8">
         <div className="pointer-events-auto flex w-full max-w-2xl justify-center">
-          <BarberMusicPlayer tracks={barberTracks()} />
+          <BarberMusicPlayer tracks={tracks} onTrackChange={setNowPlaying} />
         </div>
       </div>
 

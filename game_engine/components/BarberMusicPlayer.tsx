@@ -75,9 +75,13 @@ function clock(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-type Props = { tracks: readonly string[] };
+type Props = {
+  tracks: readonly string[];
+  /** Fires whenever the queue moves on, so the page can link the right track. */
+  onTrackChange?: (videoId: string) => void;
+};
 
-export default function BarberMusicPlayer({ tracks }: Props) {
+export default function BarberMusicPlayer({ tracks, onTrackChange }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<YtPlayer | null>(null);
 
@@ -85,6 +89,8 @@ export default function BarberMusicPlayer({ tracks }: Props) {
   const [failed, setFailed] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [track, setTrack] = useState({ title: "", author: "", videoId: tracks[0] ?? "" });
+  const notifyRef = useRef(onTrackChange);
+  notifyRef.current = onTrackChange;
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
 
@@ -147,13 +153,14 @@ export default function BarberMusicPlayer({ tracks }: Props) {
       setPosition(p.getCurrentTime());
       setDuration(p.getDuration());
       const data = p.getVideoData();
-      setTrack((prev) =>
-        data.video_id && data.video_id !== prev.videoId
-          ? { title: data.title ?? "", author: data.author ?? "", videoId: data.video_id }
-          : prev.title
-            ? prev
-            : { title: data.title ?? "", author: data.author ?? "", videoId: prev.videoId },
-      );
+      setTrack((prev) => {
+        if (data.video_id && data.video_id !== prev.videoId) {
+          notifyRef.current?.(data.video_id);
+          return { title: data.title ?? "", author: data.author ?? "", videoId: data.video_id };
+        }
+        if (prev.title) return prev;
+        return { title: data.title ?? "", author: data.author ?? "", videoId: prev.videoId };
+      });
     };
     tick();
     const id = setInterval(tick, 500);

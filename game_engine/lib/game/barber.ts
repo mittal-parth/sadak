@@ -178,22 +178,18 @@ export function barberCutsceneCandidates(districtId: string, coverImage?: string
 }
 
 /**
- * The shop's radio.
+ * The shop's radio for a district.
  *
- * Driven by explicit video ids rather than a `list=` playlist id. The source
- * playlist refuses to embed — YouTube answers "This video is unavailable" for
- * any `list=PLTJ1PnzCWyFw`, while all 70 of its videos embed fine individually
- * (a known-public control playlist embeds fine from the same page, so this is a
- * property of that playlist, not of the embed). Handing the player an explicit
- * id queue sidesteps it entirely.
+ * Explicit video ids, not a `list=` playlist id — see barber-tracks.ts. Only
+ * Delhi has a long block; the rest are hand-picked per language, so they loop
+ * sooner. That is fine for a cutscene that lasts a minute.
  */
-export function barberTracks(): readonly string[] {
-  return BARBER_TRACKS;
+export function barberTracks(language: LangCode): readonly string[] {
+  const picked = BARBER_TRACKS[language];
+  return picked && picked.length > 0 ? picked : BARBER_TRACKS["hi-IN"];
 }
 
-/** Where the "YT Music" link in the cutscene corner points. */
-export function barberPlaylistUrl(): string {
-  return `https://music.youtube.com/playlist?list=${BARBER_SOURCE_PLAYLIST}`;
+/** Where the corner link points: whatever is playing, on YouTube. */
+export function barberTrackUrl(videoId: string): string {
+  return `https://www.youtube.com/watch?v=${videoId}`;
 }
-
-const BARBER_SOURCE_PLAYLIST = "PLTJ1PnzCWyFw";
