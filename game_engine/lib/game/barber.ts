@@ -26,22 +26,41 @@ export const BARBER_ENTER_RADIUS = 4.5;
 export const BARBER_SIGN_LABEL = "BARBER";
 
 /**
- * What the fascia actually reads, in the district's own script — the way these
- * boards are lettered on the street. Romanised gloss rides underneath in small
- * type so a non-reader still knows what the building is.
+ * What the fascia actually reads.
+ *
+ * Real boards do not say "barber shop" — they say a name, almost always an
+ * aspirational word next to a local-script spelling of "saloon". Each district
+ * gets one with a hook a local would catch: Shahjahanabad's imperial past,
+ * Thalaivar (Rajinikanth's title, and literally "head-man"), Bengaluru's own
+ * Majestic, Kairali for Kerala, Bombay slang, Ahmedabad's Navrang cinema,
+ * Kalinga for Odisha.
+ *
+ * The building still reads as a barber shop without the word: the pole is on
+ * the facade, the chair is visible through the open front, and the prompt says
+ * so. Romanisation rides underneath in small type.
  */
 export const BARBER_SHOP_SIGN: Record<LangCode, { native: string; roman: string }> = {
-  "hi-IN": { native: "नाई की दुकान", roman: "NAAI KI DUKAAN" },
-  "ta-IN": { native: "முடிதிருத்தும் நிலையம்", roman: "MUDI THIRUTHUM NILAYAM" },
-  "te-IN": { native: "క్షౌరశాల", roman: "KSHOURASHALA" },
-  "kn-IN": { native: "ಕ್ಷೌರದ ಅಂಗಡಿ", roman: "KSHOURADA ANGADI" },
-  "ml-IN": { native: "ബാർബർ ഷോപ്പ്", roman: "BARBER SHOPPU" },
-  "mr-IN": { native: "केशकर्तनालय", roman: "KESHKARTANALAYA" },
-  "gu-IN": { native: "વાળંદની દુકાન", roman: "VAALANDNI DUKAAN" },
-  "bn-IN": { native: "নাপিতের দোকান", roman: "NAPITER DOKAN" },
-  "pa-IN": { native: "ਨਾਈ ਦੀ ਦੁਕਾਨ", roman: "NAAI DI DUKAAN" },
-  "od-IN": { native: "ନାପିତ ଦୋକାନ", roman: "NAPITA DOKANA" },
-  "en-IN": { native: "BARBER SHOP", roman: "SINCE 1972" },
+  // Shahi — "imperial". Old Delhi is Shahjahanabad.
+  "hi-IN": { native: "शाही सैलून", roman: "SHAHI SALOON" },
+  // Thalaivar — Rajinikanth's title, and literally "the head one".
+  "ta-IN": { native: "தலைவர் சலூன்", roman: "THALAIVAR SALOON" },
+  // Nawab — the Nizam's Hyderabad.
+  "te-IN": { native: "నవాబ్ సెలూన్", roman: "NAWAB SALOON" },
+  // Named for Majestic itself, the district it stands in.
+  "kn-IN": { native: "ಮೆಜೆಸ್ಟಿಕ್ ಸಲೂನ್", roman: "MAJESTIC SALOON" },
+  // Kairali — Kerala personified, on half the shopfronts in the state.
+  "ml-IN": { native: "കൈരളി സലൂൺ", roman: "KAIRALI SALOON" },
+  // Zakaas — Bombay slang for "superb".
+  "mr-IN": { native: "झकास सलून", roman: "ZAKAAS SALOON" },
+  // Navrang — "nine colours", and an Ahmedabad cinema everyone knows.
+  "gu-IN": { native: "નવરંગ સલૂન", roman: "NAVRANG SALOON" },
+  // Shoukhin — the Bengali word for a man of refined taste.
+  "bn-IN": { native: "সৌখিন সেলুন", roman: "SHOUKHIN SELUN" },
+  // Shaan — Punjabi for pride, glory.
+  "pa-IN": { native: "ਸ਼ਾਨ ਸਲੂਨ", roman: "SHAAN SALOON" },
+  // Kalinga — ancient Odisha, and the default prefix for anything Odia.
+  "od-IN": { native: "କଳିଙ୍ଗ ସେଲୁନ୍", roman: "KALINGA SALOON" },
+  "en-IN": { native: "DELUXE SALOON", roman: "SINCE 1972" },
 };
 
 const FALLBACK_SIGN = BARBER_SHOP_SIGN["en-IN"];
