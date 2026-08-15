@@ -21,7 +21,7 @@ Three workstreams are running in parallel against the contract in
 | Final output | A filed visit record with a reference ID, a scheduled follow-up, and a shareable plain-text summary. |
 | Sarvam parameter | **Voice Experience** (the single scored capability). |
 | Additional capability | None. Chat completion is used for extraction, which is a supporting model call, not a second Sarvam parameter, and earns no points. |
-| Exact Sarvam APIs | `wss /speech-to-text/ws` (saaras:v3, `vad_signals=true`), TTS streaming WebSocket (bulbul:v3), `POST /v1/chat/completions` (sarvam-105b). |
+| Exact Sarvam APIs | `wss /speech-to-text/ws` (saaras:v4, `vad_signals=true`), TTS streaming WebSocket (bulbul:v4), `POST /v1/chat/completions` (sarvam-105b). |
 | Language subset | Hindi (`hi-IN`) and Kannada (`kn-IN`) for the demo. Others are configured but untested. |
 | Team advantage | We have already paid the Sarvam integration tax: reasoning-mode token exhaustion, `json_object` vs `json_schema`, v2/v3 speaker incompatibility, chunked `audios[]`, and script mirroring. That is several hours we do not spend again. |
 | Creativity thesis | The record is corrected **by interrupting the readback**. Correction is the interaction, not an edit form. |
@@ -111,8 +111,8 @@ changed.
 
 | Capability | Verified API | Access | Limits | Safe to depend on? |
 | --- | --- | --- | --- | --- |
-| Streaming STT + VAD | `wss://api.sarvam.ai/speech-to-text/ws`, saaras:v3 | `api-subscription-key` header | 8k or 16k only; wav or pcm_s16le; rates must match exactly | Being proven by workstream A |
-| Streaming TTS | TTS WebSocket, bulbul:v3 | same | **No server-side cancel**; idle-closes ~60s; 2500 char cap | Yes, with client-side interrupt |
+| Streaming STT + VAD | `wss://api.sarvam.ai/speech-to-text/ws`, saaras:v4 | `api-subscription-key` header | 8k or 16k only; wav or pcm_s16le; rates must match exactly | Being proven by workstream A |
+| Streaming TTS | TTS WebSocket, bulbul:v4 | same | **No server-side cancel**; idle-closes ~60s; 2500 char cap | Yes, with client-side interrupt |
 | Chat extraction | `POST /v1/chat/completions`, sarvam-105b | same | `reasoning_effort` must be `null`; use `json_object` | Yes, proven in this repo |
 
 ### Load-bearing dependency
@@ -322,7 +322,7 @@ five API routes; full UI (record, voice, memory, artifact).
    synthetic fake device or the typed fallback, which drives the identical
    extraction pipeline but skips STT entirely.
 3. The three passing cases are ones I authored. No unseen input has been tried.
-4. `saaras:v3` streaming never emitted an interim transcript in testing, so the
+4. `saaras:v4` streaming never emitted an interim transcript in testing, so the
    `partial` path is implemented but unexercised.
 5. TTS completion event proved unreliable; a 2.5 s idle timer is the real
    guarantee, which adds tail latency to normal end-of-speech.

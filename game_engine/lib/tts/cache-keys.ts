@@ -1,6 +1,6 @@
 import { resolveSpeaker } from "@/lib/sarvam";
 
-export const TTS_CACHE_VERSION = "v1";
+export const TTS_CACHE_VERSION = "v2";
 export const TTS_BUCKET = "tts";
 
 export function normalizeTtsText(text: string): string {

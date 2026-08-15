@@ -9,7 +9,7 @@ Real-time voice agent using [LiveKit](https://docs.livekit.io) and [Sarvam AI](h
 `agent.py` is the voice worker for **SADAK**, the game in [`game_engine/`](game_engine/README.md). One LiveKit room is one conversation with one NPC: the game mints the token, ships the character brief in the player's participant metadata, and this worker plays that character — reading its persona, language, voice and mission rubric off the wire. Run it with no game attached (`python agent.py console`) and it falls back to a plain voice assistant, which is the fastest way to check keys and audio.
 
 ```
-browser mic → LiveKit room → saaras:v3 → sarvam-105b → bulbul:v3 → browser speakers
+browser mic → LiveKit room → saaras:v4 → sarvam-105b → bulbul:v4 → browser speakers
                                   ↘ subtitles + mission grading (data channel) ↗
 ```
 
