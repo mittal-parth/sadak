@@ -10,7 +10,7 @@ import type { MaterialLibrary } from "./materials";
 import { createClutter, type Clutter } from "./clutter";
 import { makeCar, TRAFFIC_KINDS, type VehicleMaterials } from "./vehicles";
 import { makeBazaarGate, makeHaveliBalcony, makeIndiaGate } from "./assets/delhi";
-import { getDistrictKit } from "./assets";
+import { getDistrictKit, makeCityFlag } from "./assets";
 import { BARBER_PLOT, BARBER_POS } from "./barber";
 
 /**
@@ -824,10 +824,26 @@ function addChowk(
     colliders.push({ x, z, hw: 1.5, hd: 1.0 });
   });
 
+  // Every district's chowk flies the tricolour from a tall flagpole, on the
+  // corner left clear by the stalls, the NPC spots and the player spawn.
+  const flagX = CHOWK.x - 15;
+  const flagZ = CHOWK.z - 14;
+  const flag = makeCityFlag(mats);
+  flag.position.set(flagX, 0.24, flagZ);
+  group.add(flag);
+  colliders.push({ x: flagX, z: flagZ, hw: 0.65, hd: 0.65 });
+
+  // Trees are scattered at random, so reroll any that would grow through
+  // the flagpole rather than letting the two intersect.
   for (let i = 0; i < 4; i++) {
+    let x = 0;
+    let z = 0;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      x = CHOWK.x + (rand() - 0.5) * BLOCK * 0.8;
+      z = CHOWK.z + (rand() - 0.5) * BLOCK * 0.8;
+      if (Math.hypot(x - flagX, z - flagZ) > 3.5) break;
+    }
     const t = makeTree(Math.floor(rand() * 1e6), theme.leaf, theme.trunk);
-    const x = CHOWK.x + (rand() - 0.5) * BLOCK * 0.8;
-    const z = CHOWK.z + (rand() - 0.5) * BLOCK * 0.8;
     t.position.set(x, 0.24, z);
     group.add(t);
     colliders.push({ x, z, hw: 0.6, hd: 0.6 });
