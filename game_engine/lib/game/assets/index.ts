@@ -48,6 +48,7 @@ import {
   makeGurdwara,
   makeKalingaDeul,
 } from "./cities";
+import { makeIndianFlag } from "./flag";
 
 /**
  * One value per shipped district. This used to be four values covering ten
@@ -103,6 +104,11 @@ let seedCounter = 0;
 function nextSeed() {
   seedCounter += 1;
   return seedCounter * 97 + 13;
+}
+
+/** The tall Indian tricolour every district's chowk plants at its centre. */
+export function makeCityFlag(mats?: MaterialLibrary): THREE.Group {
+  return makeIndianFlag(adapt(mats));
 }
 
 /** Shop geometry at mission sites — district-specific when it helps readability. */
