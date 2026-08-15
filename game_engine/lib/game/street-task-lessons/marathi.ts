@@ -94,4 +94,18 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("घ्या, टिकिट", "Ghya, ticket", "Here, your ticket", "धन्यवाद", "Dhanyavaad", "Thank you"),
     ],
   },
+  "dadar-chowk-barber": {
+    easy: [
+      s("या, बसा. काय करायचं?", "Yaa, basaa. Kaay karaaycha?", "Come, sit. What should I do?", "केस कापून द्या", "Kes kaapoon dyaa", "Please cut my hair"),
+      s("ठीक आहे, थोडं थांबावं लागेल", "Thik aahe, thoda thaambaava laagel", "Alright, you'll have to wait a bit", "किती वेळ लागेल?", "Kiti vel laagel?", "How long will it take?"),
+    ],
+    medium: [
+      s("या, बसा. काय करायचं?", "Yaa, basaa. Kaay karaaycha?", "Come, sit. What should I do?", "केस कापून द्या", "Kes kaapoon dyaa", "Please cut my hair"),
+      s("ठीक आहे, थोडं थांबावं लागेल", "Thik aahe, thoda thaambaava laagel", "Alright, you'll have to wait a bit", "किती वेळ लागेल?", "Kiti vel laagel?", "How long will it take?"),
+    ],
+    hard: [
+      s("या, बसा. काय करायचं?", "Yaa, basaa. Kaay karaaycha?", "Come, sit. What should I do?", "केस कापून द्या", "Kes kaapoon dyaa", "Please cut my hair"),
+      s("ठीक आहे, थोडं थांबावं लागेल", "Thik aahe, thoda thaambaava laagel", "Alright, you'll have to wait a bit", "किती वेळ लागेल?", "Kiti vel laagel?", "How long will it take?"),
+    ],
+  },
 };

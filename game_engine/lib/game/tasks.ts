@@ -1,5 +1,11 @@
 import type { LessonStep } from "@/lib/game/districts";
 import { streetLessonsFor } from "@/lib/game/street-task-lessons";
+import {
+  BARBER_INTERACT_LABEL,
+  BARBER_POS,
+  barberNpcFor,
+  barberTaskId,
+} from "@/lib/game/barber";
 import { SIX_SEED_TASK_PACKS } from "./tasks-six";
 import {
   lessonTierFor,
@@ -7,7 +13,7 @@ import {
   type LessonTier,
 } from "@/lib/game/levels";
 
-export type TaskKind = "auto" | "shop" | "temple" | "bus";
+export type TaskKind = "auto" | "shop" | "temple" | "bus" | "barber";
 
 export type StreetTask = {
   id: string;
@@ -49,7 +55,46 @@ export type LessonTarget = {
   completionNote: string;
   errandLevel?: number;
   lessonTier?: LessonTier;
+  /** Set for optional errands that pay XP instead of cash. */
+  xpReward?: number;
 };
+
+/**
+ * The haircut, as a StreetTask so it can ride the existing dialogue, grading
+ * and TTS-cache pipeline unchanged.
+ *
+ * Built on demand rather than stored in a DistrictTaskPack: the packs live in
+ * Supabase and drive errand progress, the four-errand finale and the district
+ * picker's task count. The haircut is optional and pays XP only, so putting it
+ * in a pack would make every city look like it needed five errands to finish.
+ */
+export function barberTaskFor(districtId: string): StreetTask {
+  const npc = barberNpcFor(districtId);
+  return {
+    id: barberTaskId(districtId),
+    districtId,
+    kind: "barber",
+    pos: BARBER_POS,
+    title: "A haircut",
+    brief: npc.brief,
+    reward: 0,
+    interactLabel: BARBER_INTERACT_LABEL,
+    name: npc.name,
+    role: npc.role,
+    speaker: npc.speaker,
+    colour: 0x33406b,
+    completionNote: "Hair cut, and you never switched to English.",
+    lessons: streetLessonsFor(barberTaskId(districtId)),
+  };
+}
+
+/**
+ * The haircut sits outside the errand ladder, so its difficulty tracks the
+ * player's comfort setting directly rather than a position in the pack.
+ */
+export function barberLessonFor(districtId: string, comfort: ComfortLevel): LessonStep[] {
+  return barberTaskFor(districtId).lessons[comfort];
+}
 
 export function errandIndexForTask(taskId: string, tasks: StreetTask[]): number {
   const idx = tasks.findIndex((t) => t.id === taskId);
@@ -69,7 +114,7 @@ export function resolveTaskLesson(
 export function taskAsLessonTarget(
   task: StreetTask,
   lesson: LessonStep[],
-  meta?: { errandLevel: number; lessonTier: LessonTier }
+  meta?: { errandLevel?: number; lessonTier?: LessonTier; xpReward?: number }
 ): LessonTarget {
   return {
     id: task.id,
@@ -84,6 +129,7 @@ export function taskAsLessonTarget(
     completionNote: task.completionNote,
     errandLevel: meta?.errandLevel,
     lessonTier: meta?.lessonTier,
+    xpReward: meta?.xpReward,
   };
 }
 

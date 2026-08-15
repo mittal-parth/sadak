@@ -11,6 +11,7 @@ import { createClutter, type Clutter } from "./clutter";
 import { makeCar, TRAFFIC_KINDS, type VehicleMaterials } from "./vehicles";
 import { makeBazaarGate, makeHaveliBalcony, makeIndiaGate } from "./assets/delhi";
 import { getDistrictKit, makeCityFlag } from "./assets";
+import { BARBER_PLOT, BARBER_POS } from "./barber";
 
 /**
  * Two lanes each way plus a parking strip. The old 9m gully put the facades
@@ -304,6 +305,9 @@ export function buildCity(
    * canyon of shared party walls with an unbroken shopfront line at the base.
    * Scattered boxes with gaps between them read as a level, not a place.
    */
+  const barberX = CHOWK.x + BARBER_POS[0];
+  const barberZ = CHOWK.z + BARBER_POS[1];
+
   for (let i = -GRID; i < GRID; i++) {
     for (let j = -GRID; j < GRID; j++) {
       const cx = i * SPACING + SPACING / 2;
@@ -350,6 +354,20 @@ export function buildCity(
             rot = edge.sign === 1 ? -Math.PI / 2 : Math.PI / 2;
           }
 
+          // The barber shop occupies one plot in this row. Leave its footprint
+          // clear rather than letting a five-storey party wall grow through it.
+          // Note the `rand()` draws above happen either way, so the rest of the
+          // street is laid out identically whether or not this plot is skipped.
+          const hwPlot = edge.along === "x" ? plot / 2 : depth / 2;
+          const hdPlot = edge.along === "x" ? depth / 2 : plot / 2;
+          if (
+            Math.abs(bx - barberX) < hwPlot + BARBER_PLOT.hw &&
+            Math.abs(bz - barberZ) < hdPlot + BARBER_PLOT.hd
+          ) {
+            used += plot;
+            continue;
+          }
+
           const b = makeStructure(
             plot - 0.15, // hairline gap so party walls read as separate buildings
             depth,
@@ -362,9 +380,7 @@ export function buildCity(
           b.rotation.y = rot;
           group.add(b);
 
-          const hw = edge.along === "x" ? plot / 2 : depth / 2;
-          const hd = edge.along === "x" ? depth / 2 : plot / 2;
-          colliders.push({ x: bx, z: bz, hw, hd });
+          colliders.push({ x: bx, z: bz, hw: hwPlot, hd: hdPlot });
 
           used += plot;
         }
