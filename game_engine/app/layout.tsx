@@ -4,6 +4,7 @@ import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 import AuthHeader from "@/components/auth/AuthHeader";
 import PostHogInit from "@/components/PostHogInit";
+import CookieConsentBanner from "@/components/CookieConsentBanner";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -63,6 +64,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <PostHogInit />
         <AuthHeader />
         {children}
+        <CookieConsentBanner />
       </body>
     </html>
   );
