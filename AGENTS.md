@@ -11,6 +11,8 @@ cd game_engine && npm run dev            # http://localhost:3000
 
 Copy `game_engine/.env.example` to `game_engine/.env` and set Supabase keys so auth and APIs work.
 
+Lesson hold-to-speak uses streaming STT at `/api/stt/ws` on Vercel (requires `SARVAM_API_KEY`). Local `next dev` falls back to REST `/api/stt` because WebSocket upgrade needs production deploy or `vc dev`.
+
 ## Dev sign-in
 
 When running `npm run dev`, the login page shows an **email + password** form (gated by `NODE_ENV === "development"` — stripped from production builds). Use it to authenticate before testing protected routes and game flows.
