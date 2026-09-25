@@ -4,6 +4,9 @@ import {
   type Box, type SignalMast,
 } from "./city";
 import type { Clutter } from "./clutter";
+import type { Crowd } from "./crowd";
+import type { Metro } from "./metro";
+import { CITY_TRAFFIC, createTransitMaterial, makeBus, makeTwoWheeler } from "./transit";
 import { makeAuto, setSignalPhase, mulberry32 } from "./props";
 import { makeMissionShopStall, makeStreetMandir } from "./assets/index";
 import {
@@ -248,6 +251,9 @@ function hashId(id: string): number {
  */
 const LANE_OFF = ROAD_W * 0.22;
 
+/** Two-wheeler lane: between the car lane and the parked cars at the kerb. */
+const BIKE_LANE_OFF = ROAD_W / 2 - 2.45;
+
 /** Minimum bumper-to-bumper gap traffic will close to before it slows. */
 const FOLLOW_GAP = 7;
 
@@ -352,10 +358,14 @@ export class Game {
   private lastNearby: string | null = null;
   private materials!: MaterialLibrary;
   private vehicleMats = createVehicleMaterials();
+  /** Vertex-colour material shared by every bus body and two-wheeler. */
+  private transitMat = createTransitMaterial();
   private pipeline: RenderPipeline | null = null;
   private sun!: THREE.DirectionalLight;
   private skyRig: SkyRig;
   private disposeCity: () => void = () => {};
+  private crowd: Crowd | null = null;
+  private metro: Metro | null = null;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -449,6 +459,8 @@ export class Game {
     this.colliders = city.colliders;
     this.signals = city.signals;
     this.clutter = city.clutter;
+    this.crowd = city.crowd;
+    this.metro = city.metro;
     this.disposeCity = city.dispose;
 
     const rand = mulberry32(77);
@@ -562,11 +574,14 @@ export class Game {
       [lanes[i], lanes[j]] = [lanes[j], lanes[i]];
     }
 
-    const fleet: ("auto" | CarKind)[] = [];
+    const city = CITY_TRAFFIC[theme.landmark];
+    const fleet: ("auto" | "bike" | "bus" | CarKind)[] = [];
     for (let i = 0; i < theme.autos; i++) fleet.push("auto");
     for (let i = 0; i < theme.cars; i++) {
       fleet.push(TRAFFIC_KINDS[Math.floor(rand() * TRAFFIC_KINDS.length)]);
     }
+    for (let i = 0; i < city.buses; i++) fleet.push("bus");
+    for (let i = 0; i < city.bikes; i++) fleet.push("bike");
     for (let i = fleet.length - 1; i > 0; i--) {
       const j = Math.floor(rand() * (i + 1));
       [fleet[i], fleet[j]] = [fleet[j], fleet[i]];
@@ -577,20 +592,29 @@ export class Game {
 
     fleet.forEach((kind, i) => {
       const lane = lanes[i % lanes.length];
-      const key = `${lane.axis}:${lane.line}:${lane.dir}`;
+      // Two-wheelers filter along the kerb in a lane of their own, so they
+      // never queue behind a car; everything else shares the main lane.
+      const bike = kind === "bike";
+      const key = `${lane.axis}:${lane.line}:${lane.dir}${bike ? ":kerb" : ""}`;
       const nth = perLane.get(key) ?? 0;
       perLane.set(key, nth + 1);
 
+      const seed = Math.floor(rand() * 1e6);
       const mesh =
         kind === "auto"
           ? makeAuto(theme.autoCanopy)
-          : makeCar(this.vehicleMats, { kind, seed: Math.floor(rand() * 1e6) });
+          : kind === "bike"
+          ? makeTwoWheeler(this.transitMat, seed)
+          : kind === "bus"
+          ? makeBus(this.vehicleMats, this.transitMat, city.bus, seed)
+          : makeCar(this.vehicleMats, { kind, seed, taxiStyle: city.taxi });
 
       // Second and later vehicles in a lane start half a world away from the
       // first, so even a doubled-up lane is never a convoy.
       const along = -WORLD_LIMIT + ((nth * 0.5 + rand() * 0.4) % 1) * span;
       // Keep left, like actual Indian traffic.
-      const off = lane.dir === 1 ? -LANE_OFF : LANE_OFF;
+      const laneOff = bike ? BIKE_LANE_OFF : LANE_OFF;
+      const off = lane.dir === 1 ? -laneOff : laneOff;
 
       if (lane.axis === "z") {
         mesh.position.set(lane.line + off, 0.02, along);
@@ -600,7 +624,9 @@ export class Game {
         mesh.rotation.y = lane.dir === 1 ? Math.PI / 2 : -Math.PI / 2;
       }
 
-      const cruise = (kind === "auto" ? 6.5 : 8.5) + rand() * 4;
+      const cruise =
+        (kind === "auto" ? 6.5 : kind === "bus" ? 6 : kind === "bike" ? 8 : 8.5) +
+        rand() * (kind === "bus" ? 2 : 4);
       const v: Vehicle = {
         mesh,
         line: lane.line,
@@ -876,6 +902,8 @@ export class Game {
 
     this.updateSignals();
     this.updateTraffic(dt);
+    this.crowd?.update(dt);
+    this.metro?.update(t);
 
     if (!this.paused) {
       this.updateLook(dt);
