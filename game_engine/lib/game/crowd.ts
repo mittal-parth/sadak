@@ -19,34 +19,8 @@ import * as THREE from "three";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { mulberry32 } from "./props";
 import type { Landmark } from "./assets";
-import type { Box } from "./city";
-
-/* ------------------------------------------------------------------ *
- * Paths
- * ------------------------------------------------------------------ */
-
-/**
- * Point on a square loop of half-size `half` centred on the origin, `s`
- * metres along it, walking anticlockwise (seen from above, +x then +z).
- * Returns the heading as a yaw that faces the direction of travel.
- */
-export function loopPoint(half: number, s: number): { x: number; z: number; yaw: number } {
-  const side = half * 2;
-  const perim = side * 4;
-  const t = ((s % perim) + perim) % perim;
-  const leg = Math.floor(t / side);
-  const d = t - leg * side;
-  switch (leg) {
-    case 0:
-      return { x: -half + d, z: -half, yaw: Math.PI / 2 };
-    case 1:
-      return { x: half, z: -half + d, yaw: 0 };
-    case 2:
-      return { x: half - d, z: half, yaw: -Math.PI / 2 };
-    default:
-      return { x: -half, z: half - d, yaw: Math.PI };
-  }
-}
+import type { MapData, MapRoad } from "./world/mapData";
+import { RoadNet } from "./world/network";
 
 /* ------------------------------------------------------------------ *
  * Costume
@@ -186,8 +160,16 @@ function drapeGeometry() {
  * ------------------------------------------------------------------ */
 
 type Mover =
-  | { kind: "loop"; cx: number; cz: number; half: number; dir: 1 | -1; s: number; lateral: number }
-  | { kind: "stroll"; tx: number; tz: number }
+  | {
+      kind: "walk";
+      road: number;
+      /** +1 walks a -> b, -1 walks b -> a. */
+      dir: 1 | -1;
+      /** Distance along the road in the direction of travel. */
+      p: number;
+      /** Offset to the left of the centreline, metres. */
+      off: number;
+    }
   | { kind: "stand" };
 
 type Person = {
@@ -203,26 +185,24 @@ type Person = {
 
 export type CrowdOpts = {
   landmark: Landmark;
-  /** Centres of blocks whose footpaths people walk. */
-  blocks: { cx: number; cz: number }[];
-  blockSize: number;
-  /** Walking lines, distance in from the kerb edge; one per direction. */
-  lanes: readonly [number, number];
-  /** Pavement top height. */
-  groundY: number;
-  /** The open square, strolled rather than looped. */
-  chowk: { x: number; z: number; half: number };
-  /** Static obstacles strollers and standers keep clear of. */
-  colliders: Box[];
-  /** Spots where people gather and stand: stalls, corners, bus stops. */
+  map: MapData;
+  /** Walkable ground height (footpaths, steps, plinths). */
+  groundAt: (x: number, z: number) => number;
+  /** Static obstacles standers keep clear of. */
+  blocked: (x: number, z: number, r: number) => boolean;
+  /** Spots where people gather and stand: stalls, bus stops, temple gates. */
   gatherings: { x: number; z: number; size: number }[];
+  /** Walkers alive at once, around the player, before the city's density. */
+  walkers?: number;
   seed?: number;
 };
 
 export type Crowd = {
   group: THREE.Group;
   count: number;
-  update(dt: number): void;
+  /** Scatter walkers round `focus`. */
+  prime(focus: THREE.Vector3): void;
+  update(dt: number, focus: THREE.Vector3): void;
   dispose(): void;
 };
 
@@ -239,13 +219,27 @@ function pickWeighted<T>(items: readonly T[], weights: readonly number[], r: num
   return items[items.length - 1];
 }
 
+const LIVE_RADIUS = 150;
+const SPAWN_MIN = 60;
+const SPAWN_MAX = 140;
+
+/** Where a pedestrian walks across this road: on the footpath where there is
+ *  one, at the edge of a shared lane where there is not, anywhere across a
+ *  pedestrian street. Positive is left of the centreline. */
+function walkOffset(r: MapRoad, side: 1 | -1, rand: () => number): number {
+  if (r.cls === "pedestrian" || r.cls === "footway" || r.cls === "steps") return (rand() - 0.5) * r.w * 0.7;
+  if (r.foot > 0) return side * (r.w / 2 + r.foot * (0.3 + rand() * 0.4));
+  return side * Math.max(0.4, r.w / 2 - 0.45 - rand() * 0.3);
+}
+
 export function createCrowd(opts: CrowdOpts): Crowd {
   const rand = mulberry32(opts.seed ?? 31337);
   const dress = CITY_DRESS[opts.landmark];
   const pick = <T>(list: readonly T[]) => list[Math.floor(rand() * list.length)];
-
-  const blocked = (x: number, z: number, margin: number) =>
-    opts.colliders.some((b) => Math.abs(x - b.x) < b.hw + margin && Math.abs(z - b.z) < b.hd + margin);
+  // Nobody walks the flyover-free trunk road's carriageway edge; everything
+  // else with a pavement, a lane edge or a footway is fair game.
+  const net = new RoadNet(opts.map, (r) => !(r.cls === "trunk" && r.foot === 0));
+  const walkable = net.included().filter((i) => net.roads[i].len > 3);
 
   /* ---------------- population ---------------- */
 
@@ -264,45 +258,9 @@ export function createCrowd(opts: CrowdOpts): Crowd {
     });
   };
 
-  // Footpath walkers: a few per block, each on its lane's loop. Lane 0 walks
-  // anticlockwise, lane 1 clockwise, so the two streams pass rather than
-  // queue behind each other.
-  // Busiest round the chowk, where the player spends their time; the
-  // outer blocks thin out rather than empty.
-  for (const b of opts.blocks) {
-    const near =
-      Math.abs(b.cx - opts.chowk.x) <= opts.blockSize * 1.5 && Math.abs(b.cz - opts.chowk.z) <= opts.blockSize * 1.5;
-    const n = Math.round((near ? 13 : 6) * dress.density) + (rand() < 0.5 ? 1 : 0);
-    for (let i = 0; i < n; i++) {
-      const lane = i % 2;
-      const half = opts.blockSize / 2 - opts.lanes[lane];
-      const s = rand() * half * 8;
-      add(b.cx, b.cz, 0, {
-        kind: "loop",
-        cx: b.cx,
-        cz: b.cz,
-        half,
-        dir: lane === 0 ? 1 : -1,
-        s,
-        lateral: (rand() - 0.5) * 0.3,
-      });
-    }
-  }
-
-  // Strollers crossing the chowk between free spots.
-  const chowkPoint = (): { x: number; z: number } => {
-    for (let tries = 0; tries < 30; tries++) {
-      const x = opts.chowk.x + (rand() - 0.5) * opts.chowk.half * 1.8;
-      const z = opts.chowk.z + (rand() - 0.5) * opts.chowk.half * 1.8;
-      if (!blocked(x, z, 0.6)) return { x, z };
-    }
-    return { x: opts.chowk.x, z: opts.chowk.z - opts.chowk.half * 0.6 };
-  };
-  const strollers = Math.round(18 * dress.density);
-  for (let i = 0; i < strollers; i++) {
-    const p = chowkPoint();
-    const t = chowkPoint();
-    add(p.x, p.z, 0, { kind: "stroll", tx: t.x, tz: t.z });
+  const walkers = Math.round((opts.walkers ?? 170) * dress.density);
+  for (let i = 0; i < walkers; i++) {
+    add(0, 0, 0, { kind: "walk", road: walkable[0], dir: 1, p: 0, off: 0 });
   }
 
   // Knots of people standing together, facing into the group.
@@ -313,13 +271,34 @@ export function createCrowd(opts: CrowdOpts): Crowd {
       const r = n === 1 ? 0 : 0.55 + rand() * 0.25;
       const x = g.x + Math.cos(a) * r;
       const z = g.z + Math.sin(a) * r;
-      if (blocked(x, z, 0.25)) continue;
+      if (opts.blocked(x, z, 0.25)) continue;
       // Face the middle of the knot (yaw faces +z at 0).
       const yaw = n === 1 ? rand() * Math.PI * 2 : Math.atan2(g.x - x, g.z - z);
       add(x, z, yaw, { kind: "stand" });
     }
   }
 
+  /** Drop a walker onto a random road near `focus`. */
+  const placeWalker = (p: Person, focus: THREE.Vector3, minDist: number) => {
+    const m = p.mover;
+    if (m.kind !== "walk") return;
+    for (let tries = 0; tries < 40; tries++) {
+      const ri = walkable[Math.floor(rand() * walkable.length)];
+      const road = net.roads[ri];
+      const pp = rand() * road.len;
+      const dir: 1 | -1 = rand() < 0.5 ? 1 : -1;
+      const s = net.along(ri, dir, pp);
+      const d = Math.hypot(s.x - focus.x, s.z - focus.z);
+      if (d < minDist || d > SPAWN_MAX) continue;
+      m.road = ri;
+      m.dir = dir;
+      m.p = pp;
+      m.off = walkOffset(road.r, rand() < 0.5 ? 1 : -1, rand);
+      return;
+    }
+  };
+
+  /* ---------------- meshes ---------------- */
   /* ---------------- meshes ---------------- */
 
   const N = people.length;
@@ -457,7 +436,7 @@ export function createCrowd(opts: CrowdOpts): Crowd {
     const bob = Math.abs(Math.cos(p.phase)) * 0.035 * walking;
 
     base.makeRotationY(p.yaw);
-    base.setPosition(p.x, opts.groundY + bob, p.z);
+    base.setPosition(p.x, opts.groundAt(p.x, p.z) + bob, p.z);
     base.scale(scaleV.setScalar(p.height));
 
     // Legs; a full-length skirt shortens the stride so feet do not punch
@@ -499,66 +478,69 @@ export function createCrowd(opts: CrowdOpts): Crowd {
     meshes.drape.setMatrixAt(i, sh.drape ? base : ZERO);
   }
 
+  /** Choose the next road at the junction ahead and carry on along it. */
+  function turn(m: Extract<Mover, { kind: "walk" }>) {
+    const road = net.roads[m.road];
+    const node = m.dir === 1 ? road.r.b : road.r.a;
+    const options = net.at(node).filter((ri) => ri !== m.road);
+    if (!options.length) {
+      // Dead end: turn round.
+      m.dir = (-m.dir) as 1 | -1;
+      m.p = 0;
+      m.off = -m.off;
+      return;
+    }
+    const ri = options[Math.floor(rand() * options.length)];
+    const next = net.roads[ri].r;
+    m.road = ri;
+    m.dir = next.a === node ? 1 : -1;
+    m.p = 0;
+    // Keep to the same side of the street, as people do at a corner.
+    m.off = walkOffset(next, m.off >= 0 ? 1 : -1, rand);
+  }
+
   function step(p: Person, dt: number) {
     const m = p.mover;
     if (m.kind === "stand") return;
     const dist = p.speed * dt;
     p.phase += (dist / 1.35) * Math.PI * 2;
-
-    if (m.kind === "loop") {
-      m.s += dist * m.dir;
-      const q = loopPoint(m.half, m.s);
-      // Lateral jitter perpendicular to travel, so a stream is not a line.
-      const nx = Math.cos(q.yaw);
-      const nz = -Math.sin(q.yaw);
-      p.x = m.cx + q.x + nx * m.lateral;
-      p.z = m.cz + q.z + nz * m.lateral;
-      p.yaw = m.dir === 1 ? q.yaw : q.yaw + Math.PI;
-      return;
-    }
-
-    // Stroll: head for the target, pick a new one on arrival.
-    const dx = m.tx - p.x;
-    const dz = m.tz - p.z;
-    const d = Math.hypot(dx, dz);
-    if (d < 0.4) {
-      const t = chowkPoint();
-      m.tx = t.x;
-      m.tz = t.z;
-      return;
-    }
-    const want = Math.atan2(dx, dz);
-    let delta = want - p.yaw;
-    delta = Math.atan2(Math.sin(delta), Math.cos(delta));
-    p.yaw += delta * Math.min(1, dt * 4);
-    const nx = p.x + Math.sin(p.yaw) * dist;
-    const nz = p.z + Math.cos(p.yaw) * dist;
-    if (blocked(nx, nz, 0.3)) {
-      // Walked into a stall or a tree: choose somewhere else.
-      const t = chowkPoint();
-      m.tx = t.x;
-      m.tz = t.z;
-      return;
-    }
-    p.x = nx;
-    p.z = nz;
+    m.p += dist;
+    if (m.p >= net.roads[m.road].len) turn(m);
+    const s = net.along(m.road, m.dir, m.p);
+    // Left of travel in a +x east, +z south frame; `off` is measured left of
+    // the road's own a->b direction, so flip it when walking b->a.
+    const o = m.off * m.dir;
+    p.x = s.x + s.dz * o;
+    p.z = s.z - s.dx * o;
+    const yaw = Math.atan2(s.dx, s.dz);
+    let d = yaw - p.yaw;
+    d = Math.atan2(Math.sin(d), Math.cos(d));
+    p.yaw += d * Math.min(1, dt * 6);
   }
 
-  // Initial placement for everyone, then only movers are re-posed.
   const movers: number[] = [];
   people.forEach((p, i) => {
-    step(p, 0);
-    pose(i);
     if (p.mover.kind !== "stand") movers.push(i);
+    pose(i);
   });
   for (const name of PARTS) meshes[name].instanceMatrix.needsUpdate = true;
 
   return {
     group,
     count: N,
-    update(dt) {
+    prime(focus) {
       for (const i of movers) {
-        step(people[i], dt);
+        placeWalker(people[i], focus, 0);
+        step(people[i], 0);
+        pose(i);
+      }
+      for (const name of PARTS) meshes[name].instanceMatrix.needsUpdate = true;
+    },
+    update(dt, focus) {
+      for (const i of movers) {
+        const p = people[i];
+        if (Math.hypot(p.x - focus.x, p.z - focus.z) > LIVE_RADIUS) placeWalker(p, focus, SPAWN_MIN);
+        step(p, dt);
         pose(i);
       }
       for (const name of PARTS) meshes[name].instanceMatrix.needsUpdate = true;

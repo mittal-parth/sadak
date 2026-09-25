@@ -33,8 +33,8 @@ import {
 import type { ArchStyle } from "./districts";
 import type { UvRect } from "./signage";
 
-const FLOOR_H = 3.2;
-const GROUND_H = 4.2; // shopfronts are taller than flats
+export const FLOOR_H = 3.2;
+export const GROUND_H = 4.2; // shopfronts are taller than flats
 /** Height of the shop opening, and how far the ground floor is set back on
  *  shop faces so the bay reads as a hole in the wall. */
 const SHOP_BAY_H = 2.9;
@@ -64,6 +64,13 @@ export type BuildingOptions = {
   style?: ArchStyle;
   /** Sign atlas cells to pick from. Without it shops get no lettered faces. */
   signs?: { cells: number; rect(i: number): UvRect };
+  /**
+   * Only the street face (+z) gets shops, windows and balconies; the back and
+   * sides are plain party walls. Terraced plots press against their
+   * neighbours, so detailing those faces was most of the triangles for
+   * nothing.
+   */
+  frontOnly?: boolean;
 };
 
 /** Box helper that bakes a transform into the geometry so it can be merged. */
@@ -130,7 +137,7 @@ const PIPE_COLOURS = [0x8d8f8a, 0x3d4a52, 0xd8d2c4];
 function acUnit(decor: THREE.BufferGeometry[], x: number, y: number, faceZ: number, facing: 1 | -1) {
   const z = faceZ + facing * 0.2;
   decor.push(box(0.8, 0.52, 0.3, x, y, z, AC_BODY));
-  const grille = new THREE.CylinderGeometry(0.18, 0.18, 0.03, 14);
+  const grille = new THREE.CylinderGeometry(0.18, 0.18, 0.03, 8);
   grille.rotateX(Math.PI / 2);
   grille.translate(x - 0.13, y, z + facing * 0.16);
   decor.push(paint(grille, AC_GRILLE));
@@ -299,7 +306,7 @@ function window(
   if (style !== "modern" && r > 0.72) {
     // Jali infill. Backing goes into metal, the lattice studs into trim so
     // they stand out against the recess.
-    makeJaliPanel(L.metal, L.trim, cx, cy, zGlass, facing, ww, wh, 0.24);
+    makeJaliPanel(L.metal, L.trim, cx, cy, zGlass, facing, ww, wh, 0.34);
   } else if (r > 0.4) {
     // Grille, set just inside the reveal so it sits in front of the glass.
     const bars = 3;
@@ -448,10 +455,10 @@ function rooftop(L: Lists, w: number, d: number, height: number, rand: () => num
     for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
       L.metal.push(slab(0.06, legH, 0.06, tx + sx * 0.42, roof + legH / 2, tz + sz * 0.42));
     }
-    L.decor.push(cyl(0.52, 0.56, th, tx, base + th / 2, tz, colour, 12));
+    L.decor.push(cyl(0.52, 0.56, th, tx, base + th / 2, tz, colour, 8));
     // Ribs.
     for (let r = 1; r <= 2; r++) {
-      L.decor.push(cyl(0.575, 0.575, 0.06, tx, base + (th * r) / 3, tz, colour, 12));
+      L.decor.push(cyl(0.575, 0.575, 0.06, tx, base + (th * r) / 3, tz, colour, 8));
     }
     L.decor.push(cyl(0.22, 0.3, 0.14, tx, base + th + 0.07, tz, colour, 10));
   }
@@ -461,7 +468,7 @@ function rooftop(L: Lists, w: number, d: number, height: number, rand: () => num
     const x = (rand() - 0.5) * (w - 1.5);
     const z = (rand() - 0.5) * (d - 1.5);
     L.decor.push(cyl(0.04, 0.04, 1.6, x, roof + 0.8, z, 0x9a9a95, 6));
-    const dish = new THREE.CylinderGeometry(0.42, 0.08, 0.14, 14);
+    const dish = new THREE.CylinderGeometry(0.42, 0.08, 0.14, 8);
     dish.rotateX(-0.9);
     dish.rotateY(rand() * Math.PI * 2);
     dish.translate(x, roof + 1.7, z);
@@ -513,9 +520,11 @@ export function buildBuildingParts(
   // Core mass. The ground floor is set back on both long (shop) faces so the
   // shop bays are genuinely recessed; the upper floors run full depth, with
   // a fascia closing the band between the shop heads and the first floor.
-  L.shell.push(slab(w, GROUND_H, d - SHOP_INSET * 2, 0, GROUND_H / 2, 0));
+  const shopFaces: (1 | -1)[] = opts.frontOnly ? [1] : [1, -1];
+  const backInset = opts.frontOnly ? 0 : SHOP_INSET;
+  L.shell.push(slab(w, GROUND_H, d - SHOP_INSET - backInset, 0, GROUND_H / 2, (backInset - SHOP_INSET) / 2));
   L.shell.push(slab(w, height - GROUND_H, d, 0, GROUND_H + (height - GROUND_H) / 2, 0));
-  for (const facing of [1, -1] as const) {
+  for (const facing of shopFaces) {
     const fh = GROUND_H - SHOP_BAY_H;
     L.shell.push(slab(w, fh, SHOP_INSET, 0, SHOP_BAY_H + fh / 2, facing * (d / 2 - SHOP_INSET / 2)));
   }
@@ -546,9 +555,15 @@ export function buildBuildingParts(
     shops: boolean;
   }> = [
     { faceZ: d / 2, facing: 1, span: w, rotate: false, shops: true },
-    { faceZ: -d / 2, facing: -1, span: w, rotate: false, shops: true },
-    { faceZ: w / 2, facing: 1, span: d, rotate: true, shops: false },
-    { faceZ: -w / 2, facing: -1, span: d, rotate: true, shops: false },
+    // In a terrace the back and the side walls are party walls against the
+    // neighbours: blank, as they really are.
+    ...(opts.frontOnly
+      ? []
+      : [
+          { faceZ: -d / 2, facing: -1 as const, span: w, rotate: false, shops: true },
+          { faceZ: w / 2, facing: 1 as const, span: d, rotate: true, shops: false },
+          { faceZ: -w / 2, facing: -1 as const, span: d, rotate: true, shops: false },
+        ]),
   ];
 
   for (const face of faces) {
@@ -643,4 +658,42 @@ export function buildBuildingParts(
   // Merged copies hold the data now; release the sources.
   [...L.shell, ...L.trim, ...L.glass, ...L.metal, ...L.decor, ...signage, ...signs].forEach((g) => g.dispose());
   return parts;
+}
+
+/* ------------------------------------------------------------------ *
+ * Baking
+ * ------------------------------------------------------------------ */
+
+export type BakedBuilding = {
+  /** Every opaque part, vertex-coloured: one draw call. */
+  body: THREE.BufferGeometry;
+  glass: THREE.BufferGeometry;
+  signs: THREE.BufferGeometry;
+};
+
+/**
+ * Collapses a building's parts to three geometries. Under cel shading the
+ * plaster, trim and metal materials are flat colours anyway, so baking them
+ * into vertex colour alongside the decor loses nothing and turns seven draw
+ * calls a building into three.
+ */
+export function bakeBuilding(
+  parts: BuildingParts,
+  colours: { wall: number; trim: number; metal: number; sign: number }
+): BakedBuilding {
+  const list: THREE.BufferGeometry[] = [];
+  const add = (g: THREE.BufferGeometry, hex: number) => {
+    if (g.attributes.position) list.push(paint(g, hex));
+  };
+  add(parts.shell, colours.wall);
+  add(parts.trim, colours.trim);
+  add(parts.metal, colours.metal);
+  add(parts.signage, colours.sign);
+  if (parts.decor.attributes.position) list.push(parts.decor);
+  for (const g of list) {
+    if (g.attributes.uv) g.deleteAttribute("uv");
+  }
+  const body = BufferGeometryUtils.mergeGeometries(list, false)!;
+  list.forEach((g) => g.dispose());
+  return { body, glass: parts.glass, signs: parts.signs };
 }

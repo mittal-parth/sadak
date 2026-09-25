@@ -1,13 +1,8 @@
 import * as THREE from "three";
-import {
-  buildCity, roadLines, CHOWK, WORLD_LIMIT, ROAD_W,
-  type Box, type SignalMast,
-} from "./city";
-import type { Clutter } from "./clutter";
-import type { Crowd } from "./crowd";
-import type { Metro } from "./metro";
-import { CITY_TRAFFIC, createTransitMaterial, makeBus, makeTwoWheeler } from "./transit";
-import { makeAuto, setSignalPhase, mulberry32 } from "./props";
+import { createTransitMaterial } from "./transit";
+import { makeAuto } from "./props";
+import { buildWorld, type World } from "./world";
+import type { MapData, Spot } from "./world/mapData";
 import { makeMissionShopStall, makeStreetMandir } from "./assets/index";
 import {
   makePerson,
@@ -16,10 +11,7 @@ import {
   setWalkPhase,
   type PersonPreset,
 } from "./people";
-import {
-  createVehicleMaterials, makeCar, TRAFFIC_KINDS,
-  type CarKind, type VehicleMaterials,
-} from "./vehicles";
+import { createVehicleMaterials } from "./vehicles";
 import type { District } from "./districts";
 import { type StreetTask, type TaskKind } from "./tasks";
 import { createMaterialLibrary, type MaterialLibrary } from "./materials";
@@ -81,19 +73,14 @@ const WALK_SPEED = 4.6;
 const SPRINT_SPEED = 9.5;
 /** Height on the player the camera aims at. */
 const PLAYER_LOOK_H = 2.3;
-/** Feet height when standing. */
-const PLAYER_BASE_Y = 0.26;
-
-/** Player spawn south of the chowk, facing north. */
-const SPAWN = { x: CHOWK.x, z: CHOWK.z - 16 };
+/** Feet sit this far above the walkable surface. */
+const PLAYER_BASE_Y = 0.03;
 
 // Jump. Tuned as a hop rather than a leap — this is a street, not a platformer,
 // and a big arc fights the shallow chase camera.
 const JUMP_SPEED = 5.4;
 const GRAVITY = 16;
 
-/** Cell size of the static-collider lookup grid, in world units. */
-const COLLIDER_CELL = 8;
 
 /** Shortest-arc angular damp. Without the wrap, turning past ±π spins the
  *  long way round — the classic "character pirouettes on a heading flip". */
@@ -244,38 +231,6 @@ function hashId(id: string): number {
   return h >>> 0;
 }
 
-/**
- * Traffic lane offset from the road centreline. Sits inboard of the parking
- * strip (city.ts parks at ROAD_W/2 - 1.1) with a couple of metres of clearance,
- * so moving traffic never clips a parked car.
- */
-const LANE_OFF = ROAD_W * 0.22;
-
-/** Two-wheeler lane: between the car lane and the parked cars at the kerb. */
-const BIKE_LANE_OFF = ROAD_W / 2 - 2.45;
-
-/** Minimum bumper-to-bumper gap traffic will close to before it slows. */
-const FOLLOW_GAP = 7;
-
-/** Signal cycle, in seconds: z green, z amber, x green, x amber. */
-const SIGNAL_CYCLE = [13, 2, 13, 2];
-
-type Vehicle = {
-  mesh: THREE.Group;
-  line: number;
-  axis: "x" | "z";
-  dir: 1 | -1;
-  /** Lane identity, so following logic only compares vehicles sharing tarmac. */
-  laneKey: string;
-  /** Free-flow speed, m/s. */
-  cruise: number;
-  /** Current speed, eased toward whatever the road ahead allows. */
-  speed: number;
-  halfLength: number;
-  wheels: THREE.Object3D[];
-  wheelRadius: number;
-};
-
 export class Game {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
@@ -284,7 +239,10 @@ export class Game {
   private district: District;
 
   private player = new THREE.Group();
-  private playerPos = new THREE.Vector3(SPAWN.x, 0, SPAWN.z);
+  private playerPos = new THREE.Vector3();
+  /** Walkable surface under the player, damped so steps are climbed, not
+   *  teleported up. */
+  private groundY = 0;
   private velocity = new THREE.Vector3();
   private yaw = 0;
   // Lower than it was (0.28). Camera height is 2.8 + pitch * 5 while the aim
@@ -319,16 +277,14 @@ export class Game {
   // churn at 60Hz.
   private readonly tmpDir = new THREE.Vector3();
   private readonly tmpCam = new THREE.Vector3();
-  private readonly lookTarget = new THREE.Vector3(SPAWN.x, PLAYER_LOOK_H, SPAWN.z);
+  private readonly lookTarget = new THREE.Vector3();
   private camFov = 55;
+  /** Fraction of the full chase distance the camera may use (see updateCamera). */
+  private camReach = 1;
 
-  private colliders: Box[] = [];
-  /** Static colliders bucketed by cell — see buildColliderGrid(). */
-  private colliderGrid = new Map<number, Box[]>();
-  private vehicles: Vehicle[] = [];
-  private lanes = new Map<string, Vehicle[]>();
-  private signals: SignalMast[] = [];
-  private clutter: Clutter | null = null;
+  private map: MapData;
+  private world!: World;
+  private spawn: Spot;
   private taskAnchors = new Map<string, THREE.Group>();
   private hostMeshes = new Map<string, THREE.Group>();
   private markers = new Map<string, THREE.Group>();
@@ -363,17 +319,21 @@ export class Game {
   private pipeline: RenderPipeline | null = null;
   private sun!: THREE.DirectionalLight;
   private skyRig: SkyRig;
-  private disposeCity: () => void = () => {};
-  private crowd: Crowd | null = null;
-  private metro: Metro | null = null;
 
   constructor(
     canvas: HTMLCanvasElement,
     district: District,
     tasks: StreetTask[],
-    onTelemetry: (t: Telemetry) => void
+    onTelemetry: (t: Telemetry) => void,
+    map: MapData
   ) {
     this.canvas = canvas;
+    this.map = map;
+    this.spawn = map.spawn;
+    this.playerPos.set(map.spawn.x, 0, map.spawn.z);
+    this.yaw = map.spawn.yaw;
+    this.facing = map.spawn.yaw;
+    this.lookTarget.set(map.spawn.x, PLAYER_LOOK_H, map.spawn.z);
     this.district = district;
     this.onTelemetry = onTelemetry;
     this.tasks = tasks;
@@ -387,11 +347,11 @@ export class Game {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.shadowMap.enabled = true;
 
-    this.camera = new THREE.PerspectiveCamera(55, 1, 0.1, WORLD_LIMIT * 5);
+    this.camera = new THREE.PerspectiveCamera(55, 1, 0.1, map.half * 5);
 
     this.skyRig = createSky(theme.sky, theme.buildings, {
-      radius: WORLD_LIMIT * 2.2,
-      skylineInner: WORLD_LIMIT + 25,
+      radius: map.half * 2.2,
+      skylineInner: map.half + 25,
     });
     this.scene.add(this.skyRig.sky);
     this.scene.add(this.skyRig.skyline);
@@ -400,16 +360,16 @@ export class Game {
     this.scene.fog = null;
 
     this.materials = createMaterialLibrary(this.renderer);
-    this.buildLights();
-    this.buildWorld();
-    this.buildPlayer();
-
-    // Everything is built with ordinary lit materials; convert the finished
-    // scene to cel shading in one pass. Anything added to the scene later
-    // would need converting too; today nothing is.
-    createCelifier({
+    // Everything is built with ordinary lit materials and converted to cel
+    // shading in one pass at the end. Building detail streams in later, so
+    // the world gets the converter to use on the materials it will need.
+    const celifier = createCelifier({
       shadowTint: new THREE.Color(presetFor(district.id).celShadowTint),
-    }).apply(this.scene);
+    });
+    this.buildLights();
+    this.buildWorld(celifier.convert);
+    this.buildPlayer();
+    celifier.apply(this.scene);
 
     this.bindInput();
   }
@@ -431,9 +391,9 @@ export class Game {
 
     const sun = new THREE.DirectionalLight(t.sunColour, t.sunIntensity * 1.1);
     this.sun = sun;
-    sun.position.set(CHOWK.x + 60, 90, CHOWK.z + 30);
+    sun.position.set(this.spawn.x + 60, 90, this.spawn.z + 30);
     sun.castShadow = true;
-    sun.target.position.set(CHOWK.x, 0, CHOWK.z);
+    sun.target.position.set(this.spawn.x, 0, this.spawn.z);
     this.scene.add(sun);
     this.scene.add(sun.target);
 
@@ -449,36 +409,37 @@ export class Game {
     this.scene.add(bounce);
   }
 
-  private buildWorld() {
-    const theme = this.district.theme;
-
-    const city = buildCity(theme, this.materials, this.vehicleMats, {
-      language: this.district.language,
+  private buildWorld(toon: (m: THREE.Material) => THREE.Material) {
+    this.world = buildWorld(this.map, this.district, {
+      mats: this.materials,
+      vehicleMats: this.vehicleMats,
+      transitMat: this.transitMat,
+      toon,
     });
-    this.scene.add(city.group);
-    this.colliders = city.colliders;
-    this.signals = city.signals;
-    this.clutter = city.clutter;
-    this.crowd = city.crowd;
-    this.metro = city.metro;
-    this.disposeCity = city.dispose;
-
-    const rand = mulberry32(77);
-    this.buildTraffic(rand);
-
-    // Story NPCs stay out of the world; errands are the interactables.
+    this.scene.add(this.world.group);
     this.buildTaskSites();
+    this.world.prime(this.playerPos);
   }
 
   /** Parked autos, stalls, temple sellers, and bus stops — each is a mission. */
   private buildTaskSites() {
     const theme = this.district.theme;
 
+    const collide = this.world.collide;
     for (const task of this.tasks) {
-      const x = CHOWK.x + task.pos[0];
-      const z = CHOWK.z + task.pos[1];
+      const x = task.pos[0];
+      const z = task.pos[1];
       const anchor = new THREE.Group();
-      anchor.position.set(x, 0, z);
+      anchor.position.set(x, this.world.height.at(x, z), z);
+      // Task positions are map spots; turn the set piece the way the spot
+      // faces (toward its temple, its road).
+      const spot = this.map.spots[task.kind];
+      const yaw = spot && Math.hypot(spot.x - x, spot.z - z) < 1.5 ? spot.yaw : 0;
+      anchor.rotation.y = yaw;
+      const c = Math.cos(yaw);
+      const sn = Math.sin(yaw);
+      /** Local offset in the anchor's frame -> world. */
+      const at = (u: number, v: number) => [x + u * c + v * sn, z - u * sn + v * c] as const;
 
       const preset = presetForRole(task.role);
       const host = makePerson(
@@ -495,7 +456,7 @@ export class Game {
         auto.rotation.y = -Math.PI / 5;
         auto.position.set(-2.2, 0.02, 0.6);
         anchor.add(auto);
-        this.colliders.push({ x: x - 2.2, z: z + 0.6, hw: 1.2, hd: 2.0 });
+        collide.box(...at(-2.2, 0.6), 1.2, 2.0, yaw);
       } else if (task.kind === "shop") {
         const canopy = theme.canopies[hashId(task.id) % theme.canopies.length];
         const stall = makeMissionShopStall(
@@ -508,14 +469,14 @@ export class Game {
         stall.rotation.y = Math.PI / 6;
         stall.position.set(-1.4, 0, -0.8);
         anchor.add(stall);
-        this.colliders.push({ x: x - 1.4, z: z - 0.8, hw: 1.4, hd: 1.2 });
+        collide.box(...at(-1.4, -0.8), 1.4, 1.2, yaw + Math.PI / 6);
       } else if (task.kind === "temple") {
         // Entrance (torana, local +z) faces the marker so the player walks up
         // to the front, not the back wall; the old Math.PI flip faced it away.
         const mandir = makeStreetMandir(undefined, hashId(task.id));
         mandir.position.set(0, 0, -2.6);
         anchor.add(mandir);
-        this.colliders.push({ x, z: z - 2.6, hw: 1.9, hd: 1.7 });
+        collide.box(...at(0, -2.6), 1.9, 1.7, yaw);
         // Priest stands beside the entrance, clear of the plinth, instead of
         // on top of it inside the temple's own collider.
         host.position.set(1.5, 0.26, -0.6);
@@ -532,7 +493,7 @@ export class Game {
         );
         sign.position.set(-1.5, 2.8, 0);
         anchor.add(sign);
-        this.colliders.push({ x: x - 1.5, z, hw: 0.5, hd: 0.5 });
+        collide.box(...at(-1.5, 0), 0.5, 0.5, yaw);
       }
 
       this.scene.add(anchor);
@@ -544,107 +505,6 @@ export class Game {
       this.markers.set(task.id, marker);
     }
 
-    // Task anchors are the last thing to add static colliders, so the lookup
-    // grid is built here rather than at the end of buildWorld().
-    this.buildColliderGrid();
-  }
-
-  /**
-   * Traffic is placed into LANE SLOTS rather than scattered at random points on
-   * the grid. There are 28 lanes (7 road lines x 2 axes x 2 directions) and
-   * only a dozen or so vehicles, so dealing one vehicle per lane before
-   * doubling up guarantees they start spread across the whole city instead of
-   * clumping three-deep on one street — which is what the old random placement
-   * did, and why the road felt simultaneously empty and congested.
-   */
-  private buildTraffic(rand: () => number) {
-    const theme = this.district.theme;
-    const lines = roadLines();
-
-    type Lane = { line: number; axis: "x" | "z"; dir: 1 | -1 };
-    const lanes: Lane[] = [];
-    for (const line of lines) {
-      for (const axis of ["x", "z"] as const) {
-        for (const dir of [1, -1] as const) lanes.push({ line, axis, dir });
-      }
-    }
-    // Fisher-Yates on the seeded PRNG, so the layout is stable per reload.
-    for (let i = lanes.length - 1; i > 0; i--) {
-      const j = Math.floor(rand() * (i + 1));
-      [lanes[i], lanes[j]] = [lanes[j], lanes[i]];
-    }
-
-    const city = CITY_TRAFFIC[theme.landmark];
-    const fleet: ("auto" | "bike" | "bus" | CarKind)[] = [];
-    for (let i = 0; i < theme.autos; i++) fleet.push("auto");
-    for (let i = 0; i < theme.cars; i++) {
-      fleet.push(TRAFFIC_KINDS[Math.floor(rand() * TRAFFIC_KINDS.length)]);
-    }
-    for (let i = 0; i < city.buses; i++) fleet.push("bus");
-    for (let i = 0; i < city.bikes; i++) fleet.push("bike");
-    for (let i = fleet.length - 1; i > 0; i--) {
-      const j = Math.floor(rand() * (i + 1));
-      [fleet[i], fleet[j]] = [fleet[j], fleet[i]];
-    }
-
-    const span = WORLD_LIMIT * 2;
-    const perLane = new Map<string, number>();
-
-    fleet.forEach((kind, i) => {
-      const lane = lanes[i % lanes.length];
-      // Two-wheelers filter along the kerb in a lane of their own, so they
-      // never queue behind a car; everything else shares the main lane.
-      const bike = kind === "bike";
-      const key = `${lane.axis}:${lane.line}:${lane.dir}${bike ? ":kerb" : ""}`;
-      const nth = perLane.get(key) ?? 0;
-      perLane.set(key, nth + 1);
-
-      const seed = Math.floor(rand() * 1e6);
-      const mesh =
-        kind === "auto"
-          ? makeAuto(theme.autoCanopy)
-          : kind === "bike"
-          ? makeTwoWheeler(this.transitMat, seed)
-          : kind === "bus"
-          ? makeBus(this.vehicleMats, this.transitMat, city.bus, seed)
-          : makeCar(this.vehicleMats, { kind, seed, taxiStyle: city.taxi });
-
-      // Second and later vehicles in a lane start half a world away from the
-      // first, so even a doubled-up lane is never a convoy.
-      const along = -WORLD_LIMIT + ((nth * 0.5 + rand() * 0.4) % 1) * span;
-      // Keep left, like actual Indian traffic.
-      const laneOff = bike ? BIKE_LANE_OFF : LANE_OFF;
-      const off = lane.dir === 1 ? -laneOff : laneOff;
-
-      if (lane.axis === "z") {
-        mesh.position.set(lane.line + off, 0.02, along);
-        mesh.rotation.y = lane.dir === 1 ? 0 : Math.PI;
-      } else {
-        mesh.position.set(along, 0.02, lane.line - off);
-        mesh.rotation.y = lane.dir === 1 ? Math.PI / 2 : -Math.PI / 2;
-      }
-
-      const cruise =
-        (kind === "auto" ? 6.5 : kind === "bus" ? 6 : kind === "bike" ? 8 : 8.5) +
-        rand() * (kind === "bus" ? 2 : 4);
-      const v: Vehicle = {
-        mesh,
-        line: lane.line,
-        axis: lane.axis,
-        dir: lane.dir,
-        laneKey: key,
-        cruise,
-        speed: cruise,
-        halfLength: (mesh.userData.halfLength as number) ?? 2,
-        wheels: (mesh.userData.wheels as THREE.Object3D[]) ?? [],
-        wheelRadius: (mesh.userData.wheelRadius as number) ?? 0.33,
-      };
-
-      this.scene.add(mesh);
-      this.vehicles.push(v);
-      if (!this.lanes.has(key)) this.lanes.set(key, []);
-      this.lanes.get(key)!.push(v);
-    });
   }
 
   private buildPlayer() {
@@ -806,60 +666,10 @@ export class Game {
 
   /* ---------------- collision ---------------- */
 
-  /**
-   * Buckets the static colliders into a uniform grid once at load.
-   *
-   * blocked() runs twice per frame (once per movement axis) and used to scan
-   * the entire city collider list each time. The grid turns that into a
-   * handful of candidates from one cell.
-   */
-  private buildColliderGrid() {
-    this.colliderGrid.clear();
-    for (const b of this.colliders) {
-      const x0 = Math.floor((b.x - b.hw - PLAYER_RADIUS) / COLLIDER_CELL);
-      const x1 = Math.floor((b.x + b.hw + PLAYER_RADIUS) / COLLIDER_CELL);
-      const z0 = Math.floor((b.z - b.hd - PLAYER_RADIUS) / COLLIDER_CELL);
-      const z1 = Math.floor((b.z + b.hd + PLAYER_RADIUS) / COLLIDER_CELL);
-      for (let cx = x0; cx <= x1; cx++) {
-        for (let cz = z0; cz <= z1; cz++) {
-          const key = cx * 10007 + cz;
-          let cell = this.colliderGrid.get(key);
-          if (!cell) {
-            cell = [];
-            this.colliderGrid.set(key, cell);
-          }
-          cell.push(b);
-        }
-      }
-    }
-  }
-
   private blocked(x: number, z: number): boolean {
-    if (Math.abs(x) > WORLD_LIMIT || Math.abs(z) > WORLD_LIMIT) return true;
-
-    const key =
-      Math.floor(x / COLLIDER_CELL) * 10007 + Math.floor(z / COLLIDER_CELL);
-    const cell = this.colliderGrid.get(key);
-    if (cell) {
-      for (const b of cell) {
-        if (
-          Math.abs(x - b.x) < b.hw + PLAYER_RADIUS &&
-          Math.abs(z - b.z) < b.hd + PLAYER_RADIUS
-        ) {
-          return true;
-        }
-      }
-    }
-    return this.vehicles.some((v) => {
-      const px = v.mesh.position.x;
-      const pz = v.mesh.position.z;
-      const hw = v.axis === "z" ? 1.05 : v.halfLength;
-      const hd = v.axis === "z" ? v.halfLength : 1.05;
-      return (
-        Math.abs(x - px) < hw + PLAYER_RADIUS &&
-        Math.abs(z - pz) < hd + PLAYER_RADIUS
-      );
-    });
+    const edge = this.map.half - 1;
+    if (Math.abs(x) > edge || Math.abs(z) > edge) return true;
+    return this.world.collide.blocked(x, z, PLAYER_RADIUS) || this.world.traffic.hit(x, z, PLAYER_RADIUS) !== null;
   }
 
   /* ---------------- loop ---------------- */
@@ -900,10 +710,7 @@ export class Game {
   private update(dt: number) {
     const t = this.clock.elapsedTime;
 
-    this.updateSignals();
-    this.updateTraffic(dt);
-    this.crowd?.update(dt);
-    this.metro?.update(t);
+    this.world.update(dt, t, this.playerPos);
 
     if (!this.paused) {
       this.updateLook(dt);
@@ -1054,7 +861,9 @@ export class Game {
     // Ramp in fast on takeoff, ease out on landing so the tuck unfolds.
     this.air = damp(this.air, this.jumpY > 0.02 ? 1 : 0, this.jumpY > 0.02 ? 18 : 9, dt);
 
-    this.player.position.set(this.playerPos.x, PLAYER_BASE_Y + this.jumpY, this.playerPos.z);
+    // Climb kerbs and steps smoothly rather than popping up them.
+    this.groundY = damp(this.groundY, this.world.height.at(this.playerPos.x, this.playerPos.z), 14, dt);
+    this.player.position.set(this.playerPos.x, this.groundY + PLAYER_BASE_Y + this.jumpY, this.playerPos.z);
 
     const groundSpeed = this.velocity.length();
 
@@ -1101,25 +910,27 @@ export class Game {
    * end up inside, along whichever axis needs the smaller nudge.
    */
   private resolveVehicleOverlap() {
-    for (const v of this.vehicles) {
-      const px = v.mesh.position.x;
-      const pz = v.mesh.position.z;
-      const hw = (v.axis === "z" ? 1.05 : v.halfLength) + PLAYER_RADIUS;
-      const hd = (v.axis === "z" ? v.halfLength : 1.05) + PLAYER_RADIUS;
-
-      const dx = this.playerPos.x - px;
-      const dz = this.playerPos.z - pz;
-      if (Math.abs(dx) >= hw || Math.abs(dz) >= hd) continue;
-
-      const overlapX = hw - Math.abs(dx);
-      const overlapZ = hd - Math.abs(dz);
-      if (overlapX < overlapZ) {
-        this.playerPos.x = px + Math.sign(dx || 1) * hw;
-      } else {
-        this.playerPos.z = pz + Math.sign(dz || 1) * hd;
-      }
+    for (const v of this.world.traffic.vehicles) {
+      const dx = this.playerPos.x - v.mesh.position.x;
+      const dz = this.playerPos.z - v.mesh.position.z;
+      if (dx * dx + dz * dz > (v.halfLength + PLAYER_RADIUS + 1) ** 2) continue;
+      // Into the vehicle's frame: u across, w along its length.
+      const c = Math.cos(v.yaw);
+      const s = Math.sin(v.yaw);
+      const u = dx * c - dz * s;
+      const w = dx * s + dz * c;
+      const hu = v.halfWidth + PLAYER_RADIUS;
+      const hw = v.halfLength + PLAYER_RADIUS;
+      if (Math.abs(u) >= hu || Math.abs(w) >= hw) continue;
+      let nu = u;
+      let nw = w;
+      if (hu - Math.abs(u) < hw - Math.abs(w)) nu = Math.sign(u || 1) * hu;
+      else nw = Math.sign(w || 1) * hw;
+      // Back to world.
+      this.playerPos.x = v.mesh.position.x + nu * c + nw * s;
+      this.playerPos.z = v.mesh.position.z - nu * s + nw * c;
     }
-    this.player.position.set(this.playerPos.x, PLAYER_BASE_Y + this.jumpY, this.playerPos.z);
+    this.player.position.set(this.playerPos.x, this.groundY + PLAYER_BASE_Y + this.jumpY, this.playerPos.z);
   }
 
   private updateCamera(dt: number) {
@@ -1128,7 +939,7 @@ export class Game {
     // the lower half of the frame with empty road.
     // Follows the jump at a fraction of its height, so a hop reads as vertical
     // movement without the whole frame lurching with it.
-    const height = 2.8 + this.pitch * 5 + this.jumpY * 0.6;
+    const height = this.groundY + 2.8 + this.pitch * 5 + this.jumpY * 0.6;
 
     const speed = this.velocity.length();
     const speed01 = THREE.MathUtils.clamp(speed / SPRINT_SPEED, 0, 1);
@@ -1139,10 +950,24 @@ export class Game {
     const rightZ = Math.sin(this.yaw);
     const shoulder = 0.9;
 
+    // Pull the camera in when a wall stands between it and the player (a
+    // narrow gully, the building behind a pavement), marching out from the
+    // player so it stops short of the first obstruction. Eased, so it
+    // slides in and back out rather than popping.
+    const bx = -Math.sin(this.yaw) * dist + rightX * shoulder;
+    const bz = -Math.cos(this.yaw) * dist + rightZ * shoulder;
+    let clear = 1;
+    for (let f = 0.08; f <= 1; f += 0.04) {
+      if (this.world.collide.blocked(this.playerPos.x + bx * f, this.playerPos.z + bz * f, 0.3)) {
+        clear = Math.max(0.18, f - 0.08);
+        break;
+      }
+    }
+    this.camReach = damp(this.camReach, clear, clear < this.camReach ? 18 : 3, dt);
     const target = this.tmpCam.set(
-      this.playerPos.x - Math.sin(this.yaw) * dist + rightX * shoulder,
-      height,
-      this.playerPos.z - Math.cos(this.yaw) * dist + rightZ * shoulder
+      this.playerPos.x + bx * this.camReach,
+      height - (1 - this.camReach) * 1.2,
+      this.playerPos.z + bz * this.camReach
     );
 
     this.camera.position.lerp(target, 1 - Math.exp(-9 * dt));
@@ -1158,7 +983,7 @@ export class Game {
       7,
       dt
     );
-    this.lookTarget.y = damp(this.lookTarget.y, PLAYER_LOOK_H + this.jumpY * 0.6, 7, dt);
+    this.lookTarget.y = damp(this.lookTarget.y, this.groundY + PLAYER_LOOK_H + this.jumpY * 0.6, 7, dt);
     this.lookTarget.z = damp(
       this.lookTarget.z,
       this.playerPos.z + this.velocity.z * lead,
@@ -1185,104 +1010,6 @@ export class Game {
    * drives every junction: with a grid this regular, per-junction phases would
    * only mean a vehicle clearing one green straight into a red at the next.
    */
-  private signalPhase(axis: "x" | "z"): 0 | 1 | 2 {
-    const total = SIGNAL_CYCLE.reduce((a, b) => a + b, 0);
-    let t = this.clock.elapsedTime % total;
-    let stage = 0;
-    while (t >= SIGNAL_CYCLE[stage]) {
-      t -= SIGNAL_CYCLE[stage];
-      stage++;
-    }
-    // stage: 0 z-green, 1 z-amber, 2 x-green, 3 x-amber.
-    if (axis === "z") return stage === 0 ? 2 : stage === 1 ? 1 : 0;
-    return stage === 2 ? 2 : stage === 3 ? 1 : 0;
-  }
-
-  private updateSignals() {
-    for (const s of this.signals) setSignalPhase(s.group, this.signalPhase(s.axis));
-  }
-
-  /**
-   * Traffic drives its lane, stops for its signal, and does not drive through
-   * the vehicle in front. That last rule is why lanes are indexed: comparing
-   * every vehicle against every other is quadratic for no benefit, since only
-   * vehicles sharing a lane can ever conflict.
-   */
-  private updateTraffic(dt: number) {
-    const lines = roadLines();
-    const along = (v: Vehicle) => (v.axis === "z" ? v.mesh.position.z : v.mesh.position.x);
-
-    for (const [, lane] of this.lanes) {
-      // Sorted in the direction of travel, so index i+1 is always the vehicle
-      // in front of index i. Order only actually changes when a vehicle wraps
-      // around the world edge, so check first and sort only then rather than
-      // re-sorting every lane every frame.
-      let ordered = true;
-      for (let i = 1; i < lane.length; i++) {
-        if ((along(lane[i]) - along(lane[i - 1])) * lane[i].dir < 0) {
-          ordered = false;
-          break;
-        }
-      }
-      if (!ordered) lane.sort((a, b) => (along(a) - along(b)) * a.dir);
-
-      for (let i = 0; i < lane.length; i++) {
-        const v = lane[i];
-        const pos = along(v);
-        let target = v.cruise;
-
-        // --- signal ahead
-        if (this.signalPhase(v.axis) !== 2) {
-          let nearest = Infinity;
-          for (const L of lines) {
-            const d = (L - pos) * v.dir;
-            if (d > 0 && d < nearest) nearest = d;
-          }
-          const stopDist = nearest - (ROAD_W / 2 + 0.9 + v.halfLength);
-          if (stopDist > -0.2 && stopDist < 26) {
-            target = Math.min(target, v.cruise * THREE.MathUtils.clamp(stopDist / 12, 0, 1));
-            if (stopDist < 0.4) target = 0;
-          }
-        }
-
-        // --- vehicle in front
-        const lead = lane[i + 1];
-        if (lead) {
-          const gap = (along(lead) - pos) * v.dir - (v.halfLength + lead.halfLength);
-          if (gap < FOLLOW_GAP) {
-            target = Math.min(target, lead.speed * THREE.MathUtils.clamp(gap / FOLLOW_GAP, 0, 1));
-          }
-        }
-
-        // Ease rather than snap: an instant stop reads as a glitch, and the
-        // nose-dive of a car easing off is most of what sells traffic as
-        // physical.
-        const rate = target < v.speed ? 6 : 2.2;
-        v.speed += (target - v.speed) * (1 - Math.exp(-rate * dt));
-
-        const move = v.speed * dt * v.dir;
-        if (v.axis === "z") {
-          v.mesh.position.z += move;
-          if (v.mesh.position.z > WORLD_LIMIT) v.mesh.position.z = -WORLD_LIMIT;
-          if (v.mesh.position.z < -WORLD_LIMIT) v.mesh.position.z = WORLD_LIMIT;
-        } else {
-          v.mesh.position.x += move;
-          if (v.mesh.position.x > WORLD_LIMIT) v.mesh.position.x = -WORLD_LIMIT;
-          if (v.mesh.position.x < -WORLD_LIMIT) v.mesh.position.x = WORLD_LIMIT;
-        }
-
-        // Wheels roll at the speed the body is actually travelling.
-        const spin = (v.speed * dt) / v.wheelRadius;
-        for (const w of v.wheels) w.rotation.x -= spin;
-
-        // Suspension jitter, scaled by speed so a stopped vehicle sits still.
-        const jitter = Math.min(1, v.speed / v.cruise);
-        v.mesh.position.y =
-          0.02 + Math.sin(this.clock.elapsedTime * 11 + v.line) * 0.018 * jitter;
-      }
-    }
-  }
-
   /** Nearest interactable task, or null. Cheap enough to run every frame. */
   private findNearby(): string | null {
     let nearby: string | null = null;
@@ -1353,12 +1080,13 @@ export class Game {
     this.done.add(npcId);
   }
 
-  /** Snap back to the chowk spawn pose (position, facing, camera). */
+  /** Snap back to the spawn pose (position, facing, camera). */
   public recenter() {
-    this.playerPos.set(SPAWN.x, 0, SPAWN.z);
+    const sp = this.spawn;
+    this.playerPos.set(sp.x, 0, sp.z);
     this.velocity.set(0, 0, 0);
-    this.yaw = 0;
-    this.facing = 0;
+    this.yaw = sp.yaw;
+    this.facing = sp.yaw;
     this.pitch = 0.16;
     this.pendingYaw = 0;
     this.pendingPitch = 0;
@@ -1372,26 +1100,27 @@ export class Game {
     this.lean = 0;
     this.setVirtualMove(0, 0);
 
-    this.player.position.set(SPAWN.x, PLAYER_BASE_Y, SPAWN.z);
-    this.player.rotation.y = 0;
+    this.groundY = this.world.height.at(sp.x, sp.z);
+    this.player.position.set(sp.x, this.groundY + PLAYER_BASE_Y, sp.z);
+    this.player.rotation.y = sp.yaw;
 
     const dist = 9;
     const shoulder = 0.9;
-    const height = 2.8 + this.pitch * 5;
+    const height = this.groundY + 2.8 + this.pitch * 5;
     this.camera.position.set(
-      SPAWN.x - Math.sin(0) * dist + -Math.cos(0) * shoulder,
+      sp.x - Math.sin(sp.yaw) * dist - Math.cos(sp.yaw) * shoulder,
       height,
-      SPAWN.z - Math.cos(0) * dist + Math.sin(0) * shoulder
+      sp.z - Math.cos(sp.yaw) * dist + Math.sin(sp.yaw) * shoulder
     );
-    this.lookTarget.set(SPAWN.x, PLAYER_LOOK_H, SPAWN.z);
+    this.lookTarget.set(sp.x, this.groundY + PLAYER_LOOK_H, sp.z);
     this.camera.lookAt(this.lookTarget);
     this.camFov = 55;
     this.camera.fov = 55;
     this.camera.updateProjectionMatrix();
 
-    this.live.x = SPAWN.x;
-    this.live.z = SPAWN.z;
-    this.live.heading = 0;
+    this.live.x = sp.x;
+    this.live.z = sp.z;
+    this.live.heading = sp.yaw;
     this.live.speed = 0;
   }
 
@@ -1419,8 +1148,7 @@ export class Game {
 
     // Instanced clutter owns its own geometry/material lifetimes; let it clean
     // up before the scene walk, which does not understand InstancedMesh.
-    this.clutter?.dispose();
-    this.disposeCity();
+    this.world.dispose();
     this.vehicleMats.dispose();
 
     this.scene.traverse((o) => {
