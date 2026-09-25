@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { roadLines, WORLD_LIMIT, ROAD_W } from "@/lib/game/city";
+import type { MapData } from "@/lib/game/world/mapData";
 import type { LiveState, TaskSnapshot, Telemetry } from "@/lib/game/engine";
 import type { District } from "@/lib/game/districts";
 import type { BaseLangCode } from "@/lib/i18n/base-lang";
@@ -136,16 +136,68 @@ function kindLabel(kind: TaskKind): string {
  * store 60 times a second inside the game's own rAF callback. That was the
  * single largest source of frame-time jitter in the whole app.
  */
+/** Pixels per metre in the pre-rendered street map. */
+const MAP_RES = 2;
+
+/**
+ * The district's streets, water and parks drawn once at MAP_RES; the minimap
+ * then just rotates and crops this every frame.
+ */
+function renderStreetMap(map: MapData): HTMLCanvasElement {
+  const px = Math.ceil(map.half * 2 * MAP_RES);
+  const c = document.createElement("canvas");
+  c.width = px;
+  c.height = px;
+  const g = c.getContext("2d")!;
+  const X = (v: number) => (v + map.half) * MAP_RES;
+  g.fillStyle = "#1d2229";
+  g.fillRect(0, 0, px, px);
+  const ring = (pts: [number, number][]) => {
+    pts.forEach(([x, z], i) => (i ? g.lineTo(X(x), X(z)) : g.moveTo(X(x), X(z))));
+    g.closePath();
+  };
+  for (const a of map.areas) {
+    g.beginPath();
+    ring(a.pts);
+    a.holes?.forEach(ring);
+    g.fillStyle = a.kind === "water" || a.kind === "sea" ? "#2d5f86" : a.kind === "park" || a.kind === "pitch" ? "#2e4f33" : "#2a2f36";
+    g.fill("evenodd");
+  }
+  g.lineCap = "round";
+  g.lineJoin = "round";
+  for (const r of map.roads) {
+    g.beginPath();
+    r.pts.forEach(([x, z], i) => (i ? g.lineTo(X(x), X(z)) : g.moveTo(X(x), X(z))));
+    const path = r.cls === "footway" || r.cls === "steps";
+    g.strokeStyle = path ? "#3a414b" : r.w >= 10 ? "#6a7582" : "#4d5763";
+    g.lineWidth = Math.max(1.5, r.w * MAP_RES);
+    g.stroke();
+  }
+  for (const l of map.landmarks) {
+    g.fillStyle = "#c9a23a";
+    g.beginPath();
+    g.arc(X(l.x), X(l.z), 5 * MAP_RES, 0, Math.PI * 2);
+    g.fill();
+  }
+  return c;
+}
+
 function Minimap({
   live,
   tasks,
   size,
+  map,
 }: {
   live: LiveState | null;
   tasks: TaskSnapshot[];
   size: number;
+  map: MapData;
 }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
+  const streets = useRef<{ map: MapData; canvas: HTMLCanvasElement } | null>(null);
+  if (typeof document !== "undefined" && streets.current?.map !== map) {
+    streets.current = { map, canvas: renderStreetMap(map) };
+  }
   // Read through a ref so the draw loop never needs to be torn down and
   // rebuilt when the (throttled) task list changes.
   const tasksRef = useRef(tasks);
@@ -192,19 +244,10 @@ function Minimap({
       ctx.rotate(l.heading + Math.PI);
       ctx.translate(-l.x * scale, -l.z * scale);
 
-      ctx.strokeStyle = "#454f5a";
-      ctx.lineWidth = ROAD_W * scale;
-      const L = WORLD_LIMIT;
-      for (const c of roadLines()) {
-        ctx.beginPath();
-        ctx.moveTo(c * scale, -L * scale);
-        ctx.lineTo(c * scale, L * scale);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(-L * scale, c * scale);
-        ctx.lineTo(L * scale, c * scale);
-        ctx.stroke();
+      const sm = streets.current;
+      if (sm) {
+        const h = sm.map.half;
+        ctx.drawImage(sm.canvas, -h * scale, -h * scale, h * 2 * scale, h * 2 * scale);
       }
 
       for (const t of tasksRef.current) {
@@ -259,16 +302,22 @@ function MinimapPanel({
   live,
   tasks,
   size,
+  map,
   onRecenter,
 }: {
   live: LiveState | null;
   tasks: TaskSnapshot[];
   size: number;
+  map: MapData;
   onRecenter: () => void;
 }) {
   return (
     <div className="relative inline-block">
-      <Minimap live={live} tasks={tasks} size={size} />
+      <Minimap live={live} tasks={tasks} size={size} map={map} />
+      {/* ODbL requires the attribution wherever the map data is shown. */}
+      <span className="pointer-events-none absolute bottom-0.5 left-1 text-[8px] leading-none text-white/70">
+        © OpenStreetMap contributors
+      </span>
       <Button
         variant="neutral"
         size="icon"
@@ -382,7 +431,9 @@ export default function Hud({
   onTogglePanels,
   audioOn,
   onToggleAudio,
+  map,
 }: {
+  map: MapData;
   district: District;
   baseLang: BaseLangCode;
   tasks: StreetTask[];
@@ -471,6 +522,7 @@ export default function Hud({
               <HudCard className="pointer-events-auto p-1">
                 <CardContent className="px-0 py-0">
                   <MinimapPanel
+                    map={map}
                     live={live}
                     tasks={tel.tasks}
                     size={mapSize}
@@ -627,6 +679,7 @@ export default function Hud({
               <HudCard className="p-2">
                 <CardContent className="px-2 py-0">
                   <MinimapPanel
+                    map={map}
                     live={live}
                     tasks={tel.tasks}
                     size={mapSize}

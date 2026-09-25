@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Game, type LiveState, type Telemetry } from "@/lib/game/engine";
+import { loadMap } from "@/lib/game/world";
+import type { MapData } from "@/lib/game/world/mapData";
 import type { District } from "@/lib/game/districts";
 import {
   errandIndexForTask,
@@ -56,6 +58,8 @@ export default function GameShell() {
   const gameRef = useRef<Game | null>(null);
 
   const [district, setDistrict] = useState<District | null>(null);
+  /** The district's compiled street map (public/maps), loaded with it. */
+  const [worldMap, setWorldMap] = useState<MapData | null>(null);
   const [tasks, setTasks] = useState<StreetTask[]>([]);
   const [taskFinale, setTaskFinale] = useState<DistrictTaskPack["finale"] | null>(null);
   const [entering, setEntering] = useState(false);
@@ -152,9 +156,10 @@ export default function GameShell() {
       setEnteringCity(cityLabel);
       const startedAt = Date.now();
       try {
-        const [districtRes, progressRes] = await Promise.all([
+        const [districtRes, progressRes, map] = await Promise.all([
           fetch(`/api/districts/${encodeURIComponent(districtId)}`),
           fetch(`/api/progress?districtId=${encodeURIComponent(districtId)}`),
+          loadMap(districtId),
         ]);
         if (!districtRes.ok) {
           throw new Error("Could not load district.");
@@ -180,6 +185,7 @@ export default function GameShell() {
           await new Promise((r) => setTimeout(r, ENTER_DWELL_MS - elapsed));
         }
 
+        setWorldMap(map);
         setDistrict(districtPayload.district);
         setTasks(districtPayload.tasks);
         setTaskFinale(districtPayload.taskPack.finale);
@@ -203,7 +209,8 @@ export default function GameShell() {
           prior_xp: saved.xp,
           prior_completed_count: saved.completedTaskIds.length,
         });
-      } catch {
+      } catch (err) {
+        console.error("[game] entering district failed", err);
         setToast("Could not enter district");
         setTimeout(() => setToast(null), 4000);
       } finally {
@@ -279,12 +286,18 @@ export default function GameShell() {
   }, [duck, talking, menuOpen, mobilePlay, portrait]);
 
   useEffect(() => {
-    if (!district || !canvasRef.current) return;
+    if (!district || !worldMap || !canvasRef.current) return;
 
-    const game = new Game(canvasRef.current, district, tasks, (t) => {
-      nearbyRef.current = t.nearby;
-      setTel(t);
-    });
+    const game = new Game(
+      canvasRef.current,
+      district,
+      tasks,
+      (t) => {
+        nearbyRef.current = t.nearby;
+        setTel(t);
+      },
+      worldMap
+    );
     gameRef.current = game;
     setLive(game.live);
     if (process.env.NODE_ENV !== "production") {
@@ -297,7 +310,7 @@ export default function GameShell() {
       gameRef.current = null;
       setLive(null);
     };
-  }, [district, tasks]);
+  }, [district, tasks, worldMap]);
 
   const openTalk = useCallback(() => {
     if (!district || talkingRef.current) return;
@@ -325,7 +338,7 @@ export default function GameShell() {
       return;
     }
     setTalking(task);
-  }, [district, tasks]);
+  }, [district, tasks, worldMap]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -444,7 +457,8 @@ export default function GameShell() {
   const gameplayFrozen =
     talking !== null || menuOpen || card !== null || (mobilePlay && portrait);
 
-  if (!district) {
+  // District and map are set together when a district is entered.
+  if (!district || !worldMap) {
     return (
       <>
         <Title defaultDistrictId={lastDistrictId} onEnter={enterDistrict} />
@@ -461,6 +475,7 @@ export default function GameShell() {
       <canvas ref={canvasRef} className="scene" />
 
       <Hud
+        map={worldMap}
         district={district}
         baseLang={baseLang}
         tasks={tasks}
