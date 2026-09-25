@@ -306,10 +306,18 @@ function glassShape(p: Profile): THREE.Shape {
  * makeCar
  * ------------------------------------------------------------------ */
 
+/**
+ * How a city paints its taxis. Kolkata's are yellow Ambassadors, Mumbai's
+ * kaali-peeli are black with a yellow roof; elsewhere a cab is an ordinary
+ * white car.
+ */
+export type TaxiStyle = "yellow" | "kaaliPeeli" | "plain";
+
 export type CarOptions = {
   kind?: CarKind;
   colour?: number;
   seed?: number;
+  taxiStyle?: TaxiStyle;
 };
 
 /**
@@ -324,14 +332,22 @@ export function makeCar(mats: VehicleMaterials, opts: CarOptions = {}): THREE.Gr
 
   // A taxi is yellow with a black roof whatever the caller asks for; that
   // livery is the whole point of it being on the street.
+  const taxiStyle = kind === "taxi" ? opts.taxiStyle ?? "yellow" : null;
   const colour =
-    kind === "taxi" ? 0xf0b71c : opts.colour ?? CAR_COLOURS[Math.floor(rand() * CAR_COLOURS.length)];
+    taxiStyle === "yellow"
+      ? 0xf0b71c
+      : taxiStyle === "kaaliPeeli"
+      ? 0x141414
+      : taxiStyle === "plain"
+      ? 0xeceded
+      : opts.colour ?? CAR_COLOURS[Math.floor(rand() * CAR_COLOURS.length)];
 
   const g = new THREE.Group();
   g.name = `car_${kind}`;
 
   const paintMat = mats.paint(colour);
-  const roofMat = kind === "taxi" ? mats.trim : paintMat;
+  const roofMat =
+    taxiStyle === "yellow" ? mats.trim : taxiStyle === "kaaliPeeli" ? mats.paint(0xf2c21b) : paintMat;
 
   const paint: THREE.BufferGeometry[] = [];
   const roofParts: THREE.BufferGeometry[] = [];
