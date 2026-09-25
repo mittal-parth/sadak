@@ -34,7 +34,7 @@ export type ClutterOpts = {
   colliders: Box[];
   /**
    * The subset of `colliders` that are actual building footprints. Anything
-   * that mounts on a wall (posters, signboards, hoardings, a leaning bicycle)
+   * that mounts on a wall (posters, hoardings, a leaning bicycle)
    * is placed against these, so a poster never ends up pasted to a parked car
    * or floating in a tree. Defaults to `colliders`.
    */
@@ -263,7 +263,7 @@ function districtWeights(landmark: Theme["landmark"]): Weights {
     groundPatch: 1, drainCover: 1, puddle: 1, rubble: 1,
     cart: 1, chairStack: 1, drum: 1, rubbishPile: 1, tyreStack: 1,
     sackBundle: 1, gasCylinder: 1, crate: 1, paanStall: 1,
-    signboard: 1, poster: 1, barberPole: 1, hoarding: 1,
+    poster: 1, barberPole: 1, hoarding: 1,
     pottedPlant: 1, bananaClump: 1, weed: 1,
     bicycle: 1, scooter: 1, coveredVehicle: 1,
   };
@@ -290,7 +290,7 @@ function districtWeights(landmark: Theme["landmark"]): Weights {
     case "ahmedabad":
       return { ...base, cart: 1.8, chairStack: 1.6, paanStall: 1.5, pottedPlant: 1.4, sackBundle: 1.4 };
     case "amritsar":
-      return { ...base, cart: 1.6, drum: 1.5, sackBundle: 1.7, signboard: 1.6, gasCylinder: 1.4 };
+      return { ...base, cart: 1.6, drum: 1.5, sackBundle: 1.7, gasCylinder: 1.4 };
     case "bhubaneswar":
       return { ...base, bananaClump: 1.7, weed: 1.6, pottedPlant: 1.6, groundPatch: 1.3, bicycle: 1.5 };
   }
@@ -502,17 +502,6 @@ function buildPaanStallGeo(): THREE.BufferGeometry {
     box(1.32, 0.35, 0.05, 0, 1.1, -0.26, bright),
     box(0.05, 0.9, 0.05, -0.6, 0.45, 0.24, C(0x2a2018)),
     box(0.05, 0.9, 0.05, 0.6, 0.45, 0.24, C(0x2a2018)),
-  ]);
-}
-
-function buildSignboardGeo(): THREE.BufferGeometry {
-  const r = rng(41);
-  const colours = [0xd94f4f, 0x2f8f5a, 0xe0a52f, 0x2f6f9f, 0xf2f2ec];
-  const c = C(colours[Math.floor(r() * colours.length)]);
-  return merge([
-    box(1.5, 0.55, 0.06, 0, 0, 0, c),
-    box(0.05, 0.4, 0.05, -0.5, -0.4, 0.15, C(0x2a2a2a)),
-    box(0.05, 0.4, 0.05, 0.5, -0.4, 0.15, C(0x2a2a2a)),
   ]);
 }
 
@@ -996,20 +985,9 @@ export function createClutter(
     }
   }
 
-  {
-    const geo = track_(buildSignboardGeo());
-    const wanted = Math.round(facades.length * 0.9 * W.signboard);
-    const n = spawn(group, geo, ownMat(0.6), wanted, r, (i, d, rr) => {
-      const b = facades[Math.floor(rr() * facades.length)];
-      const p = facadePoint(b, rr);
-      d.position.set(p.x, GY + 3.4 + rr() * 1.2, p.z);
-      d.rotation.y = p.ny;
-      const s = 0.8 + rr() * 0.5;
-      d.scale.set(s, s, 1);
-      return true;
-    });
-    track(n);
-  }
+  // Shop signboards are part of the buildings now (lettered, in the local
+  // script, see signage.ts); the blank clutter boards that used to hang here
+  // sat at the same height and covered them.
 
   {
     const geo = track_(buildPosterGeo());
