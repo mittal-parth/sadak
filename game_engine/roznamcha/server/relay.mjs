@@ -14,7 +14,7 @@
  * probe.mjs):
  *
  *   STT connect:  wss://api.sarvam.ai/speech-to-text/ws
- *                 ?language-code=hi-IN&model=saaras:v3&mode=transcribe
+ *                 ?language-code=hi-IN&model=saaras:v4&mode=transcribe
  *                 &sample_rate=16000&vad_signals=true&high_vad_sensitivity=true
  *                 &input_audio_codec=pcm_s16le
  *                 header: Api-Subscription-Key
@@ -146,7 +146,7 @@ function logHandshakeFailure(tag, res) {
 function openSttSocket(browserWs, state, language, sampleRate) {
   const qs = new URLSearchParams({
     "language-code": language,
-    model: "saaras:v3",
+    model: "saaras:v4",
     mode: "transcribe",
     sample_rate: String(sampleRate || 16000),
     vad_signals: "true",
