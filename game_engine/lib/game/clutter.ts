@@ -67,6 +67,8 @@ export type ClutterOpts = {
   density?: number;
   /** Deterministic seed so the street looks the same on every reload. */
   seed?: number;
+  /** Extra no-spawn test, e.g. the footpath walking lines the crowd uses. */
+  keepOut?: (x: number, z: number) => boolean;
 };
 
 export type Clutter = {
@@ -206,6 +208,7 @@ function makePlacer(opts: ClutterOpts): Placer {
       if (!this.inBounds(x, z)) return false;
       if (this.onRoad(x, z, margin)) return false;
       if (this.onBuilding(x, z, margin)) return false;
+      if (opts.keepOut?.(x, z)) return false;
       return true;
     },
     inBounds(x, z) {

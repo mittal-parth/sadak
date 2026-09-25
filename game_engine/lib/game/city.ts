@@ -8,7 +8,10 @@ import type { Theme } from "./districts";
 import { buildBuildingParts } from "./buildings";
 import type { MaterialLibrary } from "./materials";
 import { createClutter, type Clutter } from "./clutter";
-import { makeCar, TRAFFIC_KINDS, type VehicleMaterials } from "./vehicles";
+import { createCrowd, type Crowd } from "./crowd";
+import { createMetro, METRO, type Metro } from "./metro";
+import { makeCar, TRAFFIC_KINDS, type TaxiStyle, type VehicleMaterials } from "./vehicles";
+import { CITY_TRAFFIC, makeTwoWheeler } from "./transit";
 import { makeBazaarGate, makeHaveliBalcony, makeIndiaGate } from "./assets/delhi";
 import { getDistrictKit } from "./assets";
 import { createSignAtlas, type SignAtlas } from "./signage";
@@ -26,6 +29,32 @@ export const BLOCK = 40;         // building block size
 export const SPACING = BLOCK + ROAD_W;
 export const GRID = 3;           // road lines run from -GRID..GRID
 export const WORLD_LIMIT = GRID * SPACING + BLOCK / 2;
+
+/**
+ * Footpath between the kerb and the shopfronts. Widening the carriageway to
+ * ROAD_W without shrinking the blocks put every facade flush on the kerb, so
+ * there was nowhere to walk and the street lights and trees stood inside the
+ * buildings. The strip is zoned the way a real one is: street furniture in
+ * the kerb zone, people in the middle, shop spill-over against the fronts.
+ */
+export const FOOTPATH = 3.6;
+/** Distances from the kerb edge into the block. */
+export const KERB_ZONE = { light: 0.6, tree: 0.95 };
+/** Walking lines on the footpath, one per direction, from the kerb edge. */
+export const WALK_LANES = [1.6, 2.2] as const;
+
+/**
+ * True when (x, z) lies on a footpath walking band (either lane, with room
+ * for a body either side). The crowd walks these; clutter must not spawn on
+ * them. The chowk is excluded: its strollers roam the whole square.
+ */
+export function onWalkway(x: number, z: number): boolean {
+  const cx = Math.floor(x / SPACING) * SPACING + SPACING / 2;
+  const cz = Math.floor(z / SPACING) * SPACING + SPACING / 2;
+  if (cx === CHOWK.x && cz === CHOWK.z) return false;
+  const inset = BLOCK / 2 - Math.max(Math.abs(x - cx), Math.abs(z - cz));
+  return inset > WALK_LANES[0] - 0.4 && inset < WALK_LANES[1] + 0.4;
+}
 
 /** Half-width of the junction box, where lane markings stop. */
 const JUNCTION_HALF = ROAD_W / 2;
@@ -47,6 +76,10 @@ export type City = {
   /** Street clutter, kept separate so the caller can dispose its instanced
    *  meshes properly rather than relying on a scene walk. */
   clutter: Clutter | null;
+  /** Pedestrians; the engine ticks it every frame. */
+  crowd: Crowd;
+  /** Elevated metro, in the cities that have one. */
+  metro: Metro | null;
   /** Junction signal masts, tagged with the approach axis they govern, so the
    *  engine can cycle them in step with the traffic that obeys them. */
   signals: SignalMast[];
@@ -380,10 +413,12 @@ export function buildCity(
         // Plot widths vary so the roofline is ragged, but they ABUT: the
         // running offset never leaves a gap.
         const depth = 11 + rand() * 4;
-        const faceOffset = BLOCK / 2 - depth / 2;
+        const faceOffset = BLOCK / 2 - FOOTPATH - depth / 2;
 
         let used = 0;
-        const runLength = BLOCK - 2;
+        // Stop short of the cross street's footpath, and just inside the
+        // perpendicular terrace's frontage so the two never share a face.
+        const runLength = BLOCK - FOOTPATH * 2 - 1;
 
         while (used < runLength - 4) {
           const plot = Math.min(6 + rand() * 7, runLength - used);
@@ -436,7 +471,7 @@ export function buildCity(
   // Ranking them along both kerbs at 26m read as a car park lot; staggering
   // them is both how it is really done and what opens the street up.
   const LIGHT_STEP = 38;
-  const off = ROAD_W / 2 + 1.4;
+  const off = ROAD_W / 2 + KERB_ZONE.light;
 
   for (const c of lines) {
     let n = 0;
@@ -469,8 +504,8 @@ export function buildCity(
       for (let k = 0; k < 3; k++) {
         const along = t + k * 7.5;
         if (lines.some((o) => Math.abs(along - o) < ROAD_W + 3)) continue;
-        const x = axis ? c + side * (off + 1.2) : along;
-        const z = axis ? along : c + side * (off + 1.2);
+        const x = axis ? c + side * (ROAD_W / 2 + KERB_ZONE.tree) : along;
+        const z = axis ? along : c + side * (ROAD_W / 2 + KERB_ZONE.tree);
         const tr = makeTree(Math.floor(rand() * 1e6), theme.leaf, theme.trunk);
         tr.position.set(x, 0.26, z);
         tr.rotation.y = rand() * Math.PI * 2;
@@ -487,7 +522,27 @@ export function buildCity(
   // Landmarks before parked cars: a gate pier stands in the parking strip,
   // and the parking pass skips any spot that overlaps an existing collider.
   addLandmarks(group, colliders, theme, rand, mats);
-  addParkedCars(group, colliders, lines, rand, vehicleMats);
+
+  // Elevated metro up the east avenue beside the chowk, where the player
+  // sees it from spawn. Before parked vehicles, which avoid its colliders.
+  const metroLine = METRO[theme.landmark];
+  const metro = metroLine
+    ? createMetro({
+        line: metroLine,
+        x: SPACING,
+        reach: WORLD_LIMIT + 30,
+        stationZ: CHOWK.z + SPACING,
+        crossLines: lines,
+        roadWidth: ROAD_W,
+        groundY: 0,
+      })
+    : null;
+  if (metro) {
+    group.add(metro.group);
+    colliders.push(...metro.colliders);
+  }
+  addParkedCars(group, colliders, lines, rand, vehicleMats, CITY_TRAFFIC[theme.landmark].taxi);
+  addParkedBikes(group, colliders, lines, kit.decor);
 
   // Street clutter goes last: it needs the finished collider list so nothing
   // spawns inside a building or a tree.
@@ -507,15 +562,34 @@ export function buildCity(
     // objects rather than texture. Raised from 0.34 — with the brighter grade
     // the street had gone from atmospheric to bare.
     density: 0.5,
+    keepOut: onWalkway,
   });
+
+  const crowd = createCrowd({
+    landmark: theme.landmark,
+    blocks: blockCentres().filter((b) => b.cx !== CHOWK.x || b.cz !== CHOWK.z),
+    blockSize: BLOCK,
+    lanes: WALK_LANES,
+    groundY: 0.26,
+    chowk: { x: CHOWK.x, z: CHOWK.z, half: BLOCK / 2 - 1 },
+    // Same array the engine later adds task sites to, so strollers route
+    // around those too.
+    colliders,
+    gatherings: crowdGatherings(),
+  });
+  group.add(crowd.group);
 
   return {
     group,
     colliders,
     roadLines: lines,
     clutter,
+    crowd,
+    metro,
     signals,
     dispose() {
+      crowd.dispose();
+      metro?.dispose();
       kit.atlas?.dispose();
       owned.forEach((t) => t.dispose());
     },
@@ -571,7 +645,8 @@ function addParkedCars(
   colliders: Box[],
   lines: number[],
   rand: () => number,
-  vehicleMats?: VehicleMaterials
+  vehicleMats: VehicleMaterials | undefined,
+  taxiStyle: TaxiStyle
 ) {
   if (!vehicleMats) return;
 
@@ -601,7 +676,7 @@ function addParkedCars(
         }
 
         const kind = TRAFFIC_KINDS[Math.floor(rand() * TRAFFIC_KINDS.length)];
-        const car = makeCar(vehicleMats, { kind, seed: Math.floor(rand() * 1e6) });
+        const car = makeCar(vehicleMats, { kind, seed: Math.floor(rand() * 1e6), taxiStyle });
         // Parked cars face the direction of travel for their side of the road.
         car.rotation.y =
           axis === "z" ? (side > 0 ? Math.PI : 0) : side > 0 ? Math.PI / 2 : -Math.PI / 2;
@@ -615,6 +690,53 @@ function addParkedCars(
       }
     }
   }
+}
+
+/**
+ * Rows of parked scooters and motorcycles nosed in at an angle against the
+ * kerb, in the parking strip. Every bike in the city is baked into one mesh:
+ * they never move, and a hundred separate bikes were a hundred draw calls.
+ * Own PRNG, so adding them moves nothing else.
+ */
+function addParkedBikes(group: THREE.Group, colliders: Box[], lines: number[], material: THREE.Material) {
+  const rand = mulberry32(7717);
+  const baked: THREE.BufferGeometry[] = [];
+  const lay = ROAD_W / 2 - 0.9;
+  for (const c of lines) {
+    for (let t = -WORLD_LIMIT + 18; t < WORLD_LIMIT - 18; t += 17) {
+      if (rand() > 0.5) continue;
+      const side = rand() > 0.5 ? 1 : -1;
+      const axis = rand() > 0.5 ? "z" : "x";
+      const n = 3 + Math.floor(rand() * 5);
+      const len = n * 0.85;
+      if (lines.some((o) => Math.abs(t - o) < ROAD_W + 4 || Math.abs(t + len - o) < ROAD_W + 4)) continue;
+      const mid = t + len / 2;
+      const cx = axis === "z" ? c + side * lay : mid;
+      const cz = axis === "z" ? mid : c + side * lay;
+      const hw = axis === "z" ? 0.9 : len / 2;
+      const hd = axis === "z" ? len / 2 : 0.9;
+      if (colliders.some((b) => Math.abs(cx - b.x) < hw + b.hw && Math.abs(cz - b.z) < hd + b.hd)) continue;
+
+      for (let k = 0; k < n; k++) {
+        const along = t + k * 0.85 + 0.4;
+        const bike = makeTwoWheeler(material, Math.floor(rand() * 1e6), { parked: true });
+        // Nose to the kerb at ~60 degrees, the way a row actually gets parked.
+        const toKerb = axis === "z" ? (side > 0 ? Math.PI / 2 : -Math.PI / 2) : side > 0 ? 0 : Math.PI;
+        bike.rotation.y = toKerb + (0.5 + (rand() - 0.5) * 0.2);
+        bike.position.set(axis === "z" ? cx : along, 0.02, axis === "z" ? along : cz);
+        bike.updateMatrixWorld(true);
+        const mesh = bike.children[0] as THREE.Mesh;
+        baked.push(mesh.geometry.applyMatrix4(mesh.matrixWorld));
+      }
+      colliders.push({ x: cx, z: cz, hw, hd });
+    }
+  }
+  if (!baked.length) return;
+  const all = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(baked, false)!, material);
+  baked.forEach((g) => g.dispose());
+  all.castShadow = true;
+  all.receiveShadow = true;
+  group.add(all);
 }
 
 /**
@@ -720,12 +842,9 @@ function addLandmarks(
     }
 
     case "bengaluru": {
-      // Tech park slab facing the square, metro viaduct pillars marching up
-      // the east avenue — the two things that actually define this city.
+      // Tech park slab facing the square.
+      // The metro itself runs up the east avenue (see metro.ts).
       place(kit.hero[0](), CHOWK.x, HERO_Z, Math.PI, 6.5, 4.0, 1.15);
-      for (let i = 0; i < 3; i++) {
-        place(kit.hero[1](), east + 8, CHOWK.z - 30 + i * 30, 0, 1.1, 1.1, 1.4);
-      }
 
       // Hoardings kept on two corners — they were the whole district before.
       place(makeBillboard(Math.floor(rand() * 1e6)), east + 9, south - 9, -0.6, 3.2, 0.4);
@@ -784,12 +903,9 @@ function addLandmarks(
     }
 
     case "mumbai": {
-      // Cinema facing the square, its Deco fin above the roofline; metro
-      // viaduct marching up the east avenue behind it.
+      // Cinema facing the square, its Deco fin above the roofline.
+      // The metro itself runs up the east avenue (see metro.ts).
       place(kit.hero[0](), CHOWK.x, HERO_Z, Math.PI, 5.6, 3.8, 1.15);
-      for (let i = 0; i < 3; i++) {
-        place(kit.hero[1](), east + 8, CHOWK.z - 30 + i * 30, 0, 1.1, 1.1, 1.4);
-      }
       break;
     }
 
@@ -843,9 +959,15 @@ function addLandmarks(
   }
 }
 
-/** The central square: stalls and trees, placed as offsets from the chowk centre. */
-/** Lays out the open square. Returns the textures it created, for the city
- *  to dispose. */
+/** Chowk stalls: [dx, dz, rotation] from the chowk centre. */
+const CHOWK_STALLS: [number, number, number][] = [
+  [13, -15, 0],
+  [-17, 9, Math.PI / 2],
+  [16, 16, Math.PI],
+];
+
+/** The central square: stalls and trees, placed as offsets from the chowk
+ *  centre. Returns the textures it created, for the city to dispose. */
 function addChowk(
   group: THREE.Group,
   colliders: Box[],
@@ -866,11 +988,7 @@ function addChowk(
   group.add(plaza);
 
   // Offsets from the chowk centre, sited just behind the NPC positions.
-  const stalls: [number, number, number][] = [
-    [13, -15, 0],
-    [-17, 9, Math.PI / 2],
-    [16, 16, Math.PI],
-  ];
+  const stalls = CHOWK_STALLS;
   stalls.forEach(([dx, dz, rot], i) => {
     const x = CHOWK.x + dx;
     const z = CHOWK.z + dz;
@@ -1025,4 +1143,54 @@ function addBunting(group: THREE.Group, rand: () => number) {
   flags.forEach((g) => g.dispose());
   strings.forEach((g) => g.dispose());
   group.add(flagMesh, stringMesh);
+}
+
+function blockCentres(): { cx: number; cz: number }[] {
+  const out: { cx: number; cz: number }[] = [];
+  for (let i = -GRID; i < GRID; i++) {
+    for (let j = -GRID; j < GRID; j++) {
+      out.push({ cx: i * SPACING + SPACING / 2, cz: j * SPACING + SPACING / 2 });
+    }
+  }
+  return out;
+}
+
+/**
+ * Where people stand about: customers at the chowk stalls, knots waiting on
+ * the corners of the four junctions round the square, and pairs chatting in
+ * front of the shops on every block (between the walking lane and the
+ * shopfronts, so the walkers pass them).
+ */
+function crowdGatherings(): { x: number; z: number; size: number }[] {
+  const out: { x: number; z: number; size: number }[] = [];
+  for (const [dx, dz, rot] of CHOWK_STALLS) {
+    // In front of the counter (stall front faces local +z).
+    out.push({
+      x: CHOWK.x + dx + Math.sin(rot) * 2.2,
+      z: CHOWK.z + dz + Math.cos(rot) * 2.2,
+      size: 3,
+    });
+  }
+  const corner = ROAD_W / 2 + 1.3;
+  for (const jx of [0, SPACING]) {
+    for (const jz of [0, SPACING]) {
+      for (const [sx, sz] of [[1, 1], [-1, 1], [1, -1], [-1, -1]] as const) {
+        out.push({ x: jx + sx * corner, z: jz + sz * corner, size: 2 });
+      }
+    }
+  }
+  const rand = mulberry32(5150);
+  const front = BLOCK / 2 - (WALK_LANES[1] + FOOTPATH) / 2 - 0.1;
+  for (const b of blockCentres()) {
+    if (b.cx === CHOWK.x && b.cz === CHOWK.z) continue;
+    const n = 1 + Math.floor(rand() * 2);
+    for (let k = 0; k < n; k++) {
+      const along = (rand() - 0.5) * (BLOCK - FOOTPATH * 2 - 4);
+      const side = Math.floor(rand() * 4);
+      const x = b.cx + (side === 0 ? along : side === 1 ? front : side === 2 ? -along : -front);
+      const z = b.cz + (side === 0 ? front : side === 1 ? along : side === 2 ? -front : along);
+      out.push({ x, z, size: 2 });
+    }
+  }
+  return out;
 }
