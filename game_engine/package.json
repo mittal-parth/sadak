@@ -20,6 +20,7 @@
     "@supabase/supabase-js": "^2.110.9",
     "@tailwindcss/postcss": "^4.3.3",
     "@tailwindcss/typography": "^0.5.20",
+    "@vercel/functions": "^3.7.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "livekit-client": "^2.21.0",
@@ -39,11 +40,12 @@
     "ws": "^8.21.1"
   },
   "devDependencies": {
-    "dotenv": "^16.4.7",
     "@types/node": "^22.10.7",
     "@types/react": "^19.0.7",
     "@types/react-dom": "^19.0.3",
     "@types/three": "^0.172.0",
+    "@types/ws": "^8.18.1",
+    "dotenv": "^16.4.7",
     "tsx": "^4.23.1",
     "typescript": "^5.7.3"
   }
