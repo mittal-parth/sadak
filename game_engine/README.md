@@ -124,9 +124,19 @@ Two things had to be right for this to work at all:
 
 ## The world
 
-- **Procedural city.** 6×6 blocks on a road grid, buildings with canvas-painted
-  facades (lit windows, balconies, shopfront awnings, rooftop water tanks, dish
-  antennas), pavements, streetlights, trees.
+- **Procedural city.** 6×6 blocks on a road grid, terraces of buildings with
+  recessed shop bays, windows, balconies, chhajjas and jali, plus a lived-in
+  layer: split-AC units, tin sunshades, drain pipes, laundry on the rails,
+  potted plants, black Sintex tanks and dish antennas, kirana packet strips,
+  stocked shelves in open shops, and a painted signboard in the district's own
+  script over every shop. Festival bunting is strung across the streets around
+  the chowk.
+- **Illustrated render.** Everything is cel-shaded (`lib/game/fx/toon.ts`):
+  flat light bands with shadows that shift toward a cool violet, a depth-based
+  ink line on silhouettes and creases, a split-tone grade, a painted sky with
+  flat cel clouds, and a hazy skyline past the last road (`fx/celShader.ts`,
+  `fx/sky.ts`, `render.ts`). Per-district ink, tone and grade live in
+  `fx/presets.ts`.
 - **Per-district theming.** Sky gradient, fog, sun colour and intensity, ground,
   tarmac, building palette and traffic density all shift per city. Delhi is
   golden and dusty; Chennai is hard coastal light; Bengaluru is monsoon
@@ -209,6 +219,17 @@ fully walkable. Only conversation returns an error.
 >    memory to avoid most of it. For builds, exclude the folder from OneDrive
 >    sync or move the repo out of OneDrive.
 
+### Tests
+
+```bash
+npm test
+```
+
+Runs the `lib/**/*.test.ts` unit tests with Node's test runner (via `tsx`):
+cel material conversion, building geometry (including regressions for windows
+and shop bays hidden inside the wall), and sign/preset coverage for every
+district.
+
 ## Controls
 
 | | |
@@ -242,9 +263,13 @@ lib/
   game/
     districts.ts        THE BIBLE: themes, personas, missions, clues, finales
     prompt.ts           the prompts both paths share, built from the bible
-    city.ts             procedural city layout + colliders
+    city.ts             procedural city layout + colliders, bunting, plaza
+    buildings.ts        facade geometry + the lived-in detail layer
+    signage.ts          per-language shop signboard atlas
     props.ts            autos, cows, buildings, stalls, characters
-    engine.ts           three.js scene, controller, camera, traffic
+    engine.ts           three.js scene, controller, camera, traffic, lights
+    render.ts           cel pipeline: scene -> ink/grade pass -> FXAA
+    fx/                 toon materials, cel shader, sky, per-district presets
 components/
   Title.tsx             landing page, Sarvam-aligned
   Game.tsx              shell: districts, wanted level, overlays
@@ -264,6 +289,11 @@ components/
   Kannada and Bengali are loaded explicitly rather than left to fallback.
 
 ## Provenance
+
+The cel look (toon ramps with tinted shadow bands, the depth-based ink pass,
+the split-tone grade, painted sky and cloud cards) is adapted from
+[sakura-crossing](https://github.com/Kenton-GMI/sakura-crossing), MIT License,
+Copyright (c) 2026 Kenton Wang. The ported files carry that notice.
 
 Sibling to [kahani](https://github.com/harshagw/kahani), our AI game studio that
 generates isometric worlds from a text premise. Kahani's Sarvam TTS client is the
