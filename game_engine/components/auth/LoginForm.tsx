@@ -2,11 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import posthog from "posthog-js";
-import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const IS_DEV = process.env.NODE_ENV === "development";
@@ -48,18 +46,15 @@ export default function LoginForm() {
   const safeNext =
     next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
 
-  const [email, setEmail] = useState("");
   const [devEmail, setDevEmail] = useState("");
   const [devPassword, setDevPassword] = useState("");
-  const [busy, setBusy] = useState<"google" | "magic" | "password" | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState<"google" | "password" | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   const supabase = useMemo(() => createClient(), []);
 
   async function signInWithGoogle() {
     setFormError(null);
-    setMessage(null);
     setBusy("google");
     posthog.capture("sign_in_attempted", { method: "google" });
     const redirectTo = authRedirectPath(next);
@@ -73,34 +68,11 @@ export default function LoginForm() {
     }
   }
 
-  async function sendMagicLink(event: React.FormEvent) {
-    event.preventDefault();
-    setFormError(null);
-    setMessage(null);
-    setBusy("magic");
-    posthog.capture("sign_in_attempted", { method: "magic_link" });
-    const redirectTo = authRedirectPath(next);
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        shouldCreateUser: true,
-        emailRedirectTo: redirectTo,
-      },
-    });
-    setBusy(null);
-    if (error) {
-      setFormError(error.message);
-      return;
-    }
-    setMessage("Check your email for a sign-in link.");
-  }
-
   async function signInWithPassword(event: React.FormEvent) {
     event.preventDefault();
     const trimmedEmail = devEmail.trim();
     if (!trimmedEmail || !devPassword) return;
     setFormError(null);
-    setMessage(null);
     setBusy("password");
     const { error } = await supabase.auth.signInWithPassword({
       email: trimmedEmail,
@@ -116,8 +88,8 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-md">
-      <div className="flex items-baseline gap-2">
+    <div className="mx-auto w-full max-w-md text-center">
+      <div className="flex items-baseline justify-center gap-2">
         <span className="font-indic text-2xl font-heading" lang="hi">
           सड़क
         </span>
@@ -128,128 +100,80 @@ export default function LoginForm() {
       </p>
 
       {authError ? (
-        <Alert variant="destructive" className="mt-6">
+        <Alert variant="destructive" className="mt-6 text-left">
           <AlertTitle>Sign-in failed</AlertTitle>
           <AlertDescription>The link may have expired. Try again below.</AlertDescription>
         </Alert>
       ) : null}
       {formError ? (
-        <Alert variant="destructive" className="mt-6">
+        <Alert variant="destructive" className="mt-6 text-left">
           <AlertTitle>Something went wrong</AlertTitle>
           <AlertDescription>{formError}</AlertDescription>
         </Alert>
       ) : null}
 
-      {message ? (
-        <Card className="mt-8 gap-0 py-5">
-          <CardContent className="px-5">
-            <div className="mb-3 flex size-10 items-center justify-center rounded-base border-2 border-border bg-main/20 text-foreground">
-              <Mail size={20} strokeWidth={2} />
+      <div className="mt-8 flex flex-col items-center gap-4">
+        <Button
+          type="button"
+          variant="neutral"
+          className="w-full max-w-xs"
+          disabled={busy !== null}
+          onClick={() => void signInWithGoogle()}
+        >
+          <GoogleMark />
+          {busy === "google" ? "Redirecting…" : "Continue with Google"}
+        </Button>
+
+        {IS_DEV ? (
+          <>
+            <div className="relative w-full max-w-xs text-center text-sm text-foreground/70">
+              <span className="bg-background px-2 relative z-10 uppercase tracking-widest text-[11px] font-heading">
+                development only
+              </span>
+              <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-border" aria-hidden />
             </div>
-            <h2 className="font-heading text-xl">Check your email</h2>
-            <p className="mt-2 text-sm leading-relaxed text-foreground/80">{message}</p>
-            <Button
-              type="button"
-              variant="neutral"
-              size="sm"
-              className="mt-4"
-              onClick={() => {
-                setMessage(null);
-                setEmail("");
-              }}
+
+            <form
+              className="flex w-full max-w-xs flex-col gap-3 rounded-base border-2 border-dashed border-border p-3 text-left"
+              onSubmit={(e) => void signInWithPassword(e)}
             >
-              Use a different email
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="mt-8 flex flex-col gap-4">
-          <Button
-            type="button"
-            variant="neutral"
-            className="w-full"
-            disabled={busy !== null}
-            onClick={() => void signInWithGoogle()}
-          >
-            <GoogleMark />
-            {busy === "google" ? "Redirecting…" : "Continue with Google"}
-          </Button>
-
-          <div className="relative text-center text-sm text-foreground/70">
-            <span className="bg-background px-2 relative z-10">or</span>
-            <div className="absolute inset-x-0 top-1/2 border-t border-border" aria-hidden />
-          </div>
-
-          <form className="flex flex-col gap-3" onSubmit={(e) => void sendMagicLink(e)}>
-            <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-heading">Email</span>
-              <input
-                type="email"
-                name="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="h-10 rounded-base border-2 border-border bg-secondary-background px-3 text-foreground shadow-shadow focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-                placeholder="you@example.com"
-              />
-            </label>
-            <Button type="submit" className="w-full" disabled={busy !== null || !email.trim()}>
-              {busy === "magic" ? "Sending…" : "Email me a magic link"}
-            </Button>
-          </form>
-
-          {IS_DEV ? (
-            <>
-              <div className="relative text-center text-sm text-foreground/70">
-                <span className="bg-background px-2 relative z-10 uppercase tracking-widest text-[11px] font-heading">
-                  development only
-                </span>
-                <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-border" aria-hidden />
-              </div>
-
-              <form
-                className="flex flex-col gap-3 rounded-base border-2 border-dashed border-border p-3"
-                onSubmit={(e) => void signInWithPassword(e)}
+              <label className="flex flex-col gap-1.5 text-sm">
+                <span className="font-heading">Email</span>
+                <input
+                  type="email"
+                  name="dev-email"
+                  autoComplete="email"
+                  required
+                  value={devEmail}
+                  onChange={(e) => setDevEmail(e.target.value)}
+                  className="h-10 rounded-base border-2 border-border bg-secondary-background px-3 text-foreground shadow-shadow focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                  placeholder="you@example.com"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm">
+                <span className="font-heading">Password</span>
+                <input
+                  type="password"
+                  name="dev-password"
+                  autoComplete="current-password"
+                  required
+                  value={devPassword}
+                  onChange={(e) => setDevPassword(e.target.value)}
+                  className="h-10 rounded-base border-2 border-border bg-secondary-background px-3 text-foreground shadow-shadow focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                  placeholder="Password"
+                />
+              </label>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={busy !== null || !devEmail.trim() || !devPassword}
               >
-                <label className="flex flex-col gap-1.5 text-sm">
-                  <span className="font-heading">Email</span>
-                  <input
-                    type="email"
-                    name="dev-email"
-                    autoComplete="email"
-                    required
-                    value={devEmail}
-                    onChange={(e) => setDevEmail(e.target.value)}
-                    className="h-10 rounded-base border-2 border-border bg-secondary-background px-3 text-foreground shadow-shadow focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-                    placeholder="you@example.com"
-                  />
-                </label>
-                <label className="flex flex-col gap-1.5 text-sm">
-                  <span className="font-heading">Password</span>
-                  <input
-                    type="password"
-                    name="dev-password"
-                    autoComplete="current-password"
-                    required
-                    value={devPassword}
-                    onChange={(e) => setDevPassword(e.target.value)}
-                    className="h-10 rounded-base border-2 border-border bg-secondary-background px-3 text-foreground shadow-shadow focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-                    placeholder="Password"
-                  />
-                </label>
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={busy !== null || !devEmail.trim() || !devPassword}
-                >
-                  {busy === "password" ? "Signing in…" : "Sign in with password"}
-                </Button>
-              </form>
-            </>
-          ) : null}
-        </div>
-      )}
+                {busy === "password" ? "Signing in…" : "Sign in with password"}
+              </Button>
+            </form>
+          </>
+        ) : null}
+      </div>
     </div>
   );
 }

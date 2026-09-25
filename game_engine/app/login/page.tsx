@@ -4,7 +4,7 @@ import { LoginShowcase } from "@/components/auth/LoginShowcase";
 
 export const metadata = {
   title: "Sign in — SADAK",
-  description: "Sign in with Google or a magic link to access SADAK.",
+  description: "Sign in with Google to access SADAK.",
 };
 
 function LoginFallback() {
