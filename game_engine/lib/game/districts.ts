@@ -62,6 +62,11 @@ export type Theme = {
   cars: number;
   /** Canopy colour of the auto-rickshaws in this city. */
   autoCanopy: number;
+  /**
+   * @deprecated Unused. Exposure is owned by the cel pipeline's per-district
+   * preset (fx/presets.ts `tone.exposure`) now that the scene renders
+   * untonemapped. Kept because district rows in Supabase still carry it.
+   */
   exposure: number;
   /** District-specific street furniture, so the cities do not read alike.
    *  One value per district — see assets/index.ts `Landmark`. */

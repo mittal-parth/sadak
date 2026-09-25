@@ -11,6 +11,8 @@ import { createClutter, type Clutter } from "./clutter";
 import { makeCar, TRAFFIC_KINDS, type VehicleMaterials } from "./vehicles";
 import { makeBazaarGate, makeHaveliBalcony, makeIndiaGate } from "./assets/delhi";
 import { getDistrictKit } from "./assets";
+import { createSignAtlas, type SignAtlas } from "./signage";
+import type { LangCode } from "@/lib/sarvam";
 
 /**
  * Two lanes each way plus a parking strip. The old 9m gully put the facades
@@ -48,15 +50,64 @@ export type City = {
   /** Junction signal masts, tagged with the approach axis they govern, so the
    *  engine can cycle them in step with the traffic that obeys them. */
   signals: SignalMast[];
+  /** Frees city-owned textures (sign atlas, plaza paving). Materials and geometry are
+   *  released by the engine's scene walk. */
+  dispose(): void;
 };
 
 /** One signal mast and the axis of travel it shows its aspect to. */
 export type SignalMast = { group: THREE.Group; axis: "x" | "z" };
 
 /**
- * Assembles one building from merged geometry parts. Four meshes rather than
- * forty, so a facade with recessed windows, balconies and shopfronts still
- * costs almost nothing in draw calls.
+ * Materials every building in the city shares. Built once per city: making a
+ * glass material per building (as this used to) cost one material object per
+ * facade for no visual difference.
+ */
+type StructureKit = {
+  glass: THREE.Material;
+  metal: THREE.Material;
+  decor: THREE.Material;
+  signs: THREE.Material | null;
+  atlas: SignAtlas | null;
+};
+
+function createStructureKit(theme: Theme, mats: MaterialLibrary | undefined, language?: LangCode): StructureKit {
+  // Glass reads as a dark pane with the sky in it. There is no environment
+  // map, so the upper sky colour is mixed in by hand and a little emissive
+  // keeps the shadow-side windows from going to black holes.
+  const glass = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(theme.sky[1]).lerp(new THREE.Color(0x1b2331), 0.62),
+    emissive: new THREE.Color(theme.sky[2]),
+    emissiveIntensity: 0.1,
+  });
+  const metal = mats
+    ? mats.tint("corrugated_metal", 0x8f979c, 2)
+    : new THREE.MeshLambertMaterial({ color: 0x8f979c });
+  const decor = new THREE.MeshLambertMaterial({ vertexColors: true });
+  const atlas = language && typeof document !== "undefined" ? createSignAtlas(language) : null;
+  const signs = atlas ? new THREE.MeshLambertMaterial({ map: atlas.texture }) : null;
+  return { glass, metal, decor, signs, atlas };
+}
+
+const _hsl = { h: 0, s: 0, l: 0 };
+
+/**
+ * Trim colour for a wall: cream on saturated or dark walls, a deeper shade of
+ * the wall itself on pale ones, so the surrounds and ledges always separate.
+ */
+function trimFor(wall: number): number {
+  const c = new THREE.Color(wall);
+  c.getHSL(_hsl, THREE.SRGBColorSpace);
+  if (_hsl.l > 0.78) {
+    return c.setHSL(_hsl.h, Math.min(1, _hsl.s + 0.15), _hsl.l * 0.66, THREE.SRGBColorSpace).getHex();
+  }
+  return 0xf3ead6;
+}
+
+/**
+ * Assembles one building from merged geometry parts. Seven meshes rather than
+ * several hundred, so a facade with recessed windows, balconies, AC units and
+ * lettered shop boards still costs almost nothing in draw calls.
  */
 function makeStructure(
   w: number,
@@ -64,50 +115,43 @@ function makeStructure(
   floors: number,
   seed: number,
   theme: Theme,
+  kit: StructureKit,
   mats?: MaterialLibrary
 ): THREE.Group {
   const g = new THREE.Group();
-  const parts = buildBuildingParts(w, d, floors, seed, theme.archStyle);
+  const parts = buildBuildingParts(w, d, floors, seed, {
+    style: theme.archStyle,
+    signs: kit.atlas ?? undefined,
+  });
   const wall = theme.buildings[seed % theme.buildings.length];
+  const trim = trimFor(wall);
 
   const shellMat = mats
     ? mats.tint(seed % 3 === 0 ? "painted_plaster" : "weathered_plaster", wall)
     : new THREE.MeshLambertMaterial({ color: wall });
-
-  // Glass takes its colour from the district's horizon rather than a fixed
-  // navy. There is no environment map in this scene — the old envMapIntensity
-  // here was a no-op — so a window can only reflect the sky if we put the sky
-  // in it by hand. Without this every window reads as a black hole punched in
-  // a brightly lit facade.
-  const skyTint = new THREE.Color(theme.sky[2]);
-  const glassMat = new THREE.MeshStandardMaterial({
-    color: skyTint.clone().multiplyScalar(0.55),
-    roughness: 0.12,
-    metalness: 0.25,
-    emissive: skyTint,
-    emissiveIntensity: 0.18,
-  });
-
-  const metalMat = mats
-    ? mats.tint("corrugated_metal", 0x9aa3aa, 2)
-    : new THREE.MeshLambertMaterial({ color: 0x9aa3aa });
-
+  const trimMat = mats
+    ? mats.tint("painted_plaster", trim)
+    : new THREE.MeshLambertMaterial({ color: trim });
   const signMat = mats
     ? mats.tint("painted_wood", theme.canopies[seed % theme.canopies.length])
     : new THREE.MeshLambertMaterial({ color: theme.canopies[0] });
 
-  const add = (geo: THREE.BufferGeometry, mat: THREE.Material) => {
-    if (!geo.attributes.position) return;
+  const add = (geo: THREE.BufferGeometry, mat: THREE.Material | null, shadows = true) => {
+    if (!mat || !geo.attributes.position) return;
     const m = new THREE.Mesh(geo, mat);
-    m.castShadow = true;
+    m.castShadow = shadows;
     m.receiveShadow = true;
     g.add(m);
   };
 
   add(parts.shell, shellMat);
-  add(parts.glass, glassMat);
-  add(parts.metal, metalMat);
+  add(parts.trim, trimMat);
+  add(parts.glass, kit.glass);
+  add(parts.metal, kit.metal);
   add(parts.signage, signMat);
+  add(parts.decor, kit.decor);
+  // Flat boards sit on the signage slab; they would only shadow-acne it.
+  add(parts.signs, kit.signs, false);
   return g;
 }
 
@@ -211,9 +255,13 @@ function buildRoadMarkings(lines: number[], theme: Theme): THREE.Mesh[] {
 export function buildCity(
   theme: Theme,
   mats?: MaterialLibrary,
-  vehicleMats?: VehicleMaterials
+  vehicleMats?: VehicleMaterials,
+  opts: { language?: LangCode } = {}
 ): City {
   const group = new THREE.Group();
+  const kit = createStructureKit(theme, mats, opts.language);
+  /** Textures the city creates itself; freed by dispose(). */
+  const owned: THREE.Texture[] = [];
   const colliders: Box[] = [];
   const lines = roadLines();
   const rand = mulberry32(20260730);
@@ -221,7 +269,8 @@ export function buildCity(
   /* ---------------- ground + tarmac ---------------- */
 
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(WORLD_LIMIT * 2.4, WORLD_LIMIT * 2.4),
+    // Wide enough to run under the skyline silhouettes past the grid (fx/sky.ts).
+    new THREE.PlaneGeometry(WORLD_LIMIT * 3.8, WORLD_LIMIT * 3.8),
     mats ? mats.tint("dry_mud", theme.ground, 48) : new THREE.MeshLambertMaterial({ color: theme.ground })
   );
   ground.rotation.x = -Math.PI / 2;
@@ -265,10 +314,14 @@ export function buildCity(
       const cx = i * SPACING + SPACING / 2;
       const cz = j * SPACING + SPACING / 2;
 
-      const pave = new THREE.Mesh(new THREE.BoxGeometry(BLOCK, 0.26, BLOCK), paveMat);
-      pave.position.set(cx, 0.13, cz);
-      pave.receiveShadow = true;
-      group.add(pave);
+      // The chowk block is paved by addChowk; a pavement slab here sat 2cm
+      // above the plaza and hid it entirely.
+      if (cx !== CHOWK.x || cz !== CHOWK.z) {
+        const pave = new THREE.Mesh(new THREE.BoxGeometry(BLOCK, 0.26, BLOCK), paveMat);
+        pave.position.set(cx, 0.13, cz);
+        pave.receiveShadow = true;
+        group.add(pave);
+      }
 
       // Kerbstone lip around each block: a paler band at the pavement edge is
       // what draws the line between footpath and carriageway from a distance.
@@ -311,7 +364,7 @@ export function buildCity(
 
       // The chowk is left open, it is where the NPCs stand.
       if (cx === CHOWK.x && cz === CHOWK.z) {
-        addChowk(group, colliders, theme, rand, mats);
+        owned.push(...addChowk(group, colliders, theme, rand));
         continue;
       }
 
@@ -356,6 +409,7 @@ export function buildCity(
             floors,
             Math.floor(rand() * 1e6),
             theme,
+            kit,
             mats
           );
           b.position.set(bx, 0.22, bz);
@@ -427,6 +481,9 @@ export function buildCity(
   }
 
   const signals = addJunctionSignals(group, colliders);
+  // Own PRNG: drawing from `rand` here would shift every landmark and parked
+  // car placed after it.
+  addBunting(group, mulberry32(9011));
   // Landmarks before parked cars: a gate pier stands in the parking strip,
   // and the parking pass skips any spot that overlaps an existing collider.
   addLandmarks(group, colliders, theme, rand, mats);
@@ -452,7 +509,17 @@ export function buildCity(
     density: 0.5,
   });
 
-  return { group, colliders, roadLines: lines, clutter, signals };
+  return {
+    group,
+    colliders,
+    roadLines: lines,
+    clutter,
+    signals,
+    dispose() {
+      kit.atlas?.dispose();
+      owned.forEach((t) => t.dispose());
+    },
+  };
 }
 
 /**
@@ -777,18 +844,24 @@ function addLandmarks(
 }
 
 /** The central square: stalls and trees, placed as offsets from the chowk centre. */
+/** Lays out the open square. Returns the textures it created, for the city
+ *  to dispose. */
 function addChowk(
   group: THREE.Group,
   colliders: Box[],
   theme: Theme,
-  rand: () => number,
-  mats?: MaterialLibrary
-) {
+  rand: () => number
+): THREE.Texture[] {
+  // Kerb to kerb, at pavement height, like every other block.
+  const size = BLOCK;
+  const paving = typeof document !== "undefined" ? plazaTexture(theme, size) : null;
   const plaza = new THREE.Mesh(
-    new THREE.BoxGeometry(BLOCK + 5, 0.24, BLOCK + 5),
-    mats ? mats.tint("tile", theme.plaza, 16) : new THREE.MeshLambertMaterial({ color: theme.plaza })
+    new THREE.BoxGeometry(size, 0.26, size),
+    paving
+      ? new THREE.MeshLambertMaterial({ map: paving })
+      : new THREE.MeshLambertMaterial({ color: theme.plaza })
   );
-  plaza.position.set(CHOWK.x, 0.12, CHOWK.z);
+  plaza.position.set(CHOWK.x, 0.13, CHOWK.z);
   plaza.receiveShadow = true;
   group.add(plaza);
 
@@ -816,4 +889,140 @@ function addChowk(
     group.add(t);
     colliders.push({ x, z, hw: 0.6, hd: 0.6 });
   }
+  return paving ? [paving] : [];
+}
+
+/**
+ * Flagstone joints and a darker border band for the chowk, painted into one
+ * canvas that spans the whole plaza. Under flat cel light a 45m plaza in one
+ * colour reads as an unfinished floor; the joint grid gives it scale and the
+ * border frames it. Baked into a texture rather than laid as coplanar strips:
+ * strips need a depth offset, and at grazing angles the ink pass outlines
+ * every one of them.
+ */
+function plazaTexture(theme: Theme, size: number): THREE.CanvasTexture {
+  const px = 1024;
+  const canvas = document.createElement("canvas");
+  canvas.width = px;
+  canvas.height = px;
+  const ctx = canvas.getContext("2d")!;
+  const m = px / size;
+  const hex = (c: THREE.Color) => `#${c.getHexString()}`;
+  const plaza = new THREE.Color(theme.plaza);
+
+  ctx.fillStyle = hex(plaza);
+  ctx.fillRect(0, 0, px, px);
+
+  // Border band.
+  const band = plaza.clone().lerp(new THREE.Color(theme.pavement), 0.4).multiplyScalar(0.84);
+  ctx.fillStyle = hex(band);
+  const bw = 1.6 * m;
+  ctx.fillRect(0, 0, px, bw);
+  ctx.fillRect(0, px - bw, px, bw);
+  ctx.fillRect(0, 0, bw, px);
+  ctx.fillRect(px - bw, 0, bw, px);
+
+  // Joints.
+  ctx.strokeStyle = hex(plaza.clone().multiplyScalar(0.78));
+  ctx.lineWidth = 0.12 * m;
+  const step = 2.6 * m;
+  for (let t = bw + step; t < px - bw - 1; t += step) {
+    ctx.beginPath();
+    ctx.moveTo(t, bw);
+    ctx.lineTo(t, px - bw);
+    ctx.moveTo(bw, t);
+    ctx.lineTo(px - bw, t);
+    ctx.stroke();
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
+
+const BUNTING_COLOURS = [0xe63946, 0xf4a261, 0xffd166, 0x2a9d8f, 0x3a86ff, 0xff70a6, 0xffffff, 0x8338ec];
+
+/**
+ * Strings of triangular pennants across the four streets that bound the
+ * chowk and diagonally over the square itself. Festival bunting is the most
+ * immediately Indian thing you can hang over a street, it fills the empty
+ * band between the rooftops and the traffic, and its shadow dapples the road.
+ * One merged, vertex-coloured mesh for every flag and string.
+ */
+function addBunting(group: THREE.Group, rand: () => number) {
+  const flags: THREE.BufferGeometry[] = [];
+  const strings: THREE.BufferGeometry[] = [];
+  const up = new THREE.Vector3(0, 1, 0);
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  const dir = new THREE.Vector3();
+
+  const run = (x0: number, z0: number, x1: number, z1: number, h: number, sag: number) => {
+    const span = Math.hypot(x1 - x0, z1 - z0);
+    const at = (t: number, out: THREE.Vector3) =>
+      out.set(x0 + (x1 - x0) * t, h - sag * 4 * t * (1 - t), z0 + (z1 - z0) * t);
+
+    // The string, as short straight chords along the catenary.
+    const segs = 12;
+    for (let i = 0; i < segs; i++) {
+      at(i / segs, a);
+      at((i + 1) / segs, b);
+      const len = a.distanceTo(b);
+      const g = new THREE.CylinderGeometry(0.018, 0.018, len, 4);
+      g.translate(0, len / 2, 0);
+      g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(up, dir.subVectors(b, a).normalize()));
+      g.translate(a.x, a.y, a.z);
+      strings.push(g.toNonIndexed());
+      g.dispose();
+    }
+
+    // Pennants: a down-pointing triangle in the plane of the string.
+    const n = Math.floor(span / 0.5);
+    const colourOffset = Math.floor(rand() * BUNTING_COLOURS.length);
+    for (let i = 1; i < n; i++) {
+      const t = i / n;
+      at(t, a);
+      at(Math.min(1, t + 0.01), b);
+      dir.subVectors(b, a).normalize();
+      const half = 0.17;
+      const p0 = a.clone().addScaledVector(dir, -half);
+      const p1 = a.clone().addScaledVector(dir, half);
+      const p2 = a.clone().add(new THREE.Vector3(0, -0.42, 0));
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.Float32BufferAttribute([...p0.toArray(), ...p2.toArray(), ...p1.toArray()], 3));
+      g.computeVertexNormals();
+      const c = new THREE.Color(BUNTING_COLOURS[(i + colourOffset) % BUNTING_COLOURS.length]);
+      g.setAttribute("color", new THREE.Float32BufferAttribute([...c.toArray(), ...c.toArray(), ...c.toArray()], 3));
+      flags.push(g);
+    }
+  };
+
+  // Across the four bounding streets, every 7m, kerb to kerb and a little
+  // beyond, so each string ties off at the facades.
+  const reach = ROAD_W / 2 + 4;
+  for (const line of [0, SPACING]) {
+    for (let t = 5; t < SPACING - 4; t += 7) {
+      const h = 6.4 + rand() * 0.8;
+      run(line - reach, t, line + reach, t, h, 0.7 + rand() * 0.3);
+      run(t, line - reach, t, line + reach, h, 0.7 + rand() * 0.3);
+    }
+  }
+  // Diagonals over the chowk, crossing at the centre.
+  const c = BLOCK / 2;
+  run(CHOWK.x - c, CHOWK.z - c, CHOWK.x + c, CHOWK.z + c, 7.2, 1.6);
+  run(CHOWK.x - c, CHOWK.z + c, CHOWK.x + c, CHOWK.z - c, 7.2, 1.6);
+
+  const flagMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
+  // Thin cloth: keep it light on the shadow side (see fx/toon.ts ramps).
+  flagMat.userData.celRamp = "soft";
+  const flagMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(flags, false)!, flagMat);
+  flagMesh.castShadow = true;
+  const stringMesh = new THREE.Mesh(
+    BufferGeometryUtils.mergeGeometries(strings, false)!,
+    new THREE.MeshLambertMaterial({ color: 0x3a3330 })
+  );
+  flags.forEach((g) => g.dispose());
+  strings.forEach((g) => g.dispose());
+  group.add(flagMesh, stringMesh);
 }

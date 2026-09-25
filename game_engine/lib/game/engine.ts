@@ -21,6 +21,9 @@ import type { District } from "./districts";
 import { type StreetTask, type TaskKind } from "./tasks";
 import { createMaterialLibrary, type MaterialLibrary } from "./materials";
 import { createRenderPipeline, type RenderPipeline } from "./render";
+import { presetFor } from "./fx/presets";
+import { createCelifier } from "./fx/toon";
+import { createSky, type SkyRig } from "./fx/sky";
 
 export type TaskSnapshot = {
   id: string;
@@ -99,37 +102,6 @@ function dampAngle(current: number, target: number, k: number, dt: number): numb
 
 function damp(current: number, target: number, k: number, dt: number): number {
   return current + (target - current) * (1 - Math.exp(-k * dt));
-}
-
-/**
- * GTA-style sky: a vertical gradient painted onto an inward-facing sphere.
- *
- * Resolution matters more than it looks: this strip is stretched over a
- * kilometre-wide dome, so every texel is metres tall on screen and a 256-step
- * ramp shows its steps. The grade pass dithers the final frame (see
- * fx/gradeShader.ts) which removes the rest of the banding.
- */
-function makeSky(stops: readonly string[]): THREE.Mesh {
-  const H = 1024;
-  const canvas = document.createElement("canvas");
-  canvas.width = 4;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d")!;
-
-  const grad = ctx.createLinearGradient(0, 0, 0, H);
-  stops.forEach((c, i) => grad.addColorStop(i / (stops.length - 1), c));
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 4, H);
-
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.minFilter = THREE.LinearFilter;
-  tex.generateMipmaps = false;
-
-  return new THREE.Mesh(
-    new THREE.SphereGeometry(WORLD_LIMIT * 2.2, 32, 24),
-    new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, depthWrite: false, fog: false })
-  );
 }
 
 /**
@@ -382,6 +354,8 @@ export class Game {
   private vehicleMats = createVehicleMaterials();
   private pipeline: RenderPipeline | null = null;
   private sun!: THREE.DirectionalLight;
+  private skyRig: SkyRig;
+  private disposeCity: () => void = () => {};
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -396,20 +370,21 @@ export class Game {
 
     const theme = district.theme;
 
-    // No MSAA: once the EffectComposer is active it renders into its own
-    // targets and the canvas-level antialias flag does nothing. AA comes from
-    // the SMAA pass in render.ts.
+    // No MSAA: the pipeline renders into its own targets, where the canvas
+    // antialias flag does nothing. AA is supersampling plus FXAA, and the
+    // pipeline owns pixel ratio and tone mapping (see render.ts).
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = theme.exposure;
 
     this.camera = new THREE.PerspectiveCamera(55, 1, 0.1, WORLD_LIMIT * 5);
 
-    this.scene.add(makeSky(theme.sky));
+    this.skyRig = createSky(theme.sky, theme.buildings, {
+      radius: WORLD_LIMIT * 2.2,
+      skylineInner: WORLD_LIMIT + 25,
+    });
+    this.scene.add(this.skyRig.sky);
+    this.scene.add(this.skyRig.skyline);
     // Atmosphere is owned by the render pipeline's depth haze. Leaving
     // scene.fog on as well double-fogs and drowns the whole frame in beige.
     this.scene.fog = null;
@@ -418,6 +393,14 @@ export class Game {
     this.buildLights();
     this.buildWorld();
     this.buildPlayer();
+
+    // Everything is built with ordinary lit materials; convert the finished
+    // scene to cel shading in one pass. Anything added to the scene later
+    // would need converting too; today nothing is.
+    createCelifier({
+      shadowTint: new THREE.Color(presetFor(district.id).celShadowTint),
+    }).apply(this.scene);
+
     this.bindInput();
   }
 
@@ -426,50 +409,47 @@ export class Game {
   private buildLights() {
     const t = this.district.theme;
 
-    // Small flat fill, strong directional key. The reverse — a big ambient
-    // term propping up a weak sun — is what made every district read flat and
-    // washed no matter what the colour grade did afterwards.
-    this.scene.add(new THREE.AmbientLight(0xffffff, t.ambient));
-    this.scene.add(new THREE.HemisphereLight(t.hemiSky, t.hemiGround, t.hemiIntensity));
+    // Cel lighting: one strong warm key that casts the only shadows, and a
+    // cool fill from the opposite quarter that carries most of what the
+    // shadow side looks like. Shadows are *coloured* by that fill and the
+    // violet hemisphere ground, never just darker. A big flat ambient term
+    // instead is what made every district read washed out.
+    this.scene.add(new THREE.AmbientLight(0xffffff, t.ambient * 0.3));
 
-    const sun = new THREE.DirectionalLight(t.sunColour, t.sunIntensity);
+    const hemiGround = new THREE.Color(t.hemiGround).lerp(new THREE.Color(0x8a80b8), 0.55);
+    this.scene.add(new THREE.HemisphereLight(t.hemiSky, hemiGround, t.hemiIntensity));
+
+    const sun = new THREE.DirectionalLight(t.sunColour, t.sunIntensity * 1.1);
     this.sun = sun;
-    sun.position.set(60, 90, 30);
+    sun.position.set(CHOWK.x + 60, 90, CHOWK.z + 30);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
-
-    // Without these the ground, one huge flat quad, self-shadows across its
-    // whole surface and renders solid black.
-    sun.shadow.normalBias = 0.06;
-    sun.shadow.bias = -0.0004;
-
-    const c = sun.shadow.camera as THREE.OrthographicCamera;
-    c.left = -90; c.right = 90; c.top = 90; c.bottom = -90;
-    // Tight near/far around the lit region keeps depth precision high.
-    c.near = 20; c.far = 320;
-
-    // Follow the player so shadows stay resolved wherever they walk.
     sun.target.position.set(CHOWK.x, 0, CHOWK.z);
     this.scene.add(sun);
     this.scene.add(sun.target);
 
-    // Cool rim from behind and opposite the sun. This is what separates a
-    // silhouette from the building behind it in a stylized look — raising
-    // flat ambient to get the same visibility instead is what kills form.
-    const rim = new THREE.DirectionalLight(t.hemiSky, 0.25);
-    rim.position.set(-70, 45, -55);
-    rim.castShadow = false;
-    this.scene.add(rim);
+    const fillColour = new THREE.Color(t.hemiSky).lerp(new THREE.Color(0xa99ce0), 0.4);
+    const fill = new THREE.DirectionalLight(fillColour, t.sunIntensity * 0.42);
+    fill.position.set(-70, 40, -55);
+    this.scene.add(fill);
+
+    // Low warm bounce off the street, so undersides (awnings, balconies,
+    // chhajjas) are not the flattest thing in the frame.
+    const bounce = new THREE.DirectionalLight(t.hemiGround, t.sunIntensity * 0.12);
+    bounce.position.set(-30, -20, 60);
+    this.scene.add(bounce);
   }
 
   private buildWorld() {
     const theme = this.district.theme;
 
-    const city = buildCity(theme, this.materials, this.vehicleMats);
+    const city = buildCity(theme, this.materials, this.vehicleMats, {
+      language: this.district.language,
+    });
     this.scene.add(city.group);
     this.colliders = city.colliders;
     this.signals = city.signals;
     this.clutter = city.clutter;
+    this.disposeCity = city.dispose;
 
     const rand = mulberry32(77);
     this.buildTraffic(rand);
@@ -791,10 +771,11 @@ export class Game {
   private onResize = () => {
     const w = this.canvas.clientWidth || window.innerWidth;
     const h = this.canvas.clientHeight || window.innerHeight;
-    this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-    this.pipeline?.resize(w, h);
+    // The pipeline owns the canvas size because it owns the supersample factor.
+    if (this.pipeline) this.pipeline.resize(w, h);
+    else this.renderer.setSize(w, h, false);
   };
 
   /* ---------------- collision ---------------- */
@@ -870,6 +851,7 @@ export class Game {
         this.sun,
         this.district.id
       );
+      this.onResize();
     }
     const tick = () => {
       if (this.disposed) return;
@@ -881,6 +863,7 @@ export class Game {
       // Keep the shadow frustum on the player, otherwise a frustum wide enough
       // for the whole city gives soft mush everywhere.
       this.pipeline?.focusShadows(this.playerPos);
+      this.skyRig.follow(this.camera);
 
       if (this.pipeline) this.pipeline.render(dt);
       else this.renderer.render(this.scene, this.camera);
@@ -1409,6 +1392,7 @@ export class Game {
     // Instanced clutter owns its own geometry/material lifetimes; let it clean
     // up before the scene walk, which does not understand InstancedMesh.
     this.clutter?.dispose();
+    this.disposeCity();
     this.vehicleMats.dispose();
 
     this.scene.traverse((o) => {
