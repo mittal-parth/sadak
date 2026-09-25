@@ -124,17 +124,28 @@ Two things had to be right for this to work at all:
 
 ## The world
 
-- **Procedural city.** 6×6 blocks on a road grid, terraces of buildings with
-  recessed shop bays, windows, balconies, chhajjas and jali, plus a lived-in
-  layer: split-AC units, tin sunshades, drain pipes, laundry on the rails,
-  potted plants, black Sintex tanks and dish antennas, kirana packet strips,
-  stocked shelves in open shops, and a painted signboard in the district's own
-  script over every shop. Festival bunting is strung across the streets around
-  the chowk.
+- **Real neighbourhoods.** Each district is a 720m OpenStreetMap extract of
+  the place it is set in (Chandni Chowk, Dadar, Triplicane, Majestic, Park
+  Street, Charminar, Fort Kochi, Manek Chowk, the Golden Temple, Old Town
+  Bhubaneswar): the real street network, water, parks, railways, bus stops
+  and landmark sites. OSM has only a fraction of the ordinary buildings, so
+  the map compiler fills every street frontage with building plots in the
+  city's own grain, and the named landmarks are rebuilt as walkable monuments
+  on their footprints (Jama Masjid on its plinth, Charminar in its
+  roundabout, Harmandir Sahib in the sarovar).
+- **Streaming detail.** Every building has a cheap far version; tiles near
+  the player swap to full detail (recessed shops, windows, balconies, AC
+  units, laundry, lettered signs in the local script) a few milliseconds a
+  frame.
+- **Street life.** Traffic drives the real roads on the left, turns at real
+  junctions and fits the road (buses on arterials, scooters and cycle
+  rickshaws in the gullies); a dressed-per-city crowd walks the footpaths;
+  Mumbai's locals, Chennai's MRTS and Kolkata's trams run on their mapped
+  lines; underground metros get entrances with trilingual signs.
 - **Illustrated render.** Everything is cel-shaded (`lib/game/fx/toon.ts`):
   flat light bands with shadows that shift toward a cool violet, a depth-based
   ink line on silhouettes and creases, a split-tone grade, a painted sky with
-  flat cel clouds, and a hazy skyline past the last road (`fx/celShader.ts`,
+  flat cel clouds, and a hazy skyline past the map edge (`fx/celShader.ts`,
   `fx/sky.ts`, `render.ts`). Per-district ink, tone and grade live in
   `fx/presets.ts`.
 - **Per-district theming.** Sky gradient, fog, sun colour and intensity, ground,
@@ -219,6 +230,22 @@ fully walkable. Only conversation returns an error.
 >    memory to avoid most of it. For builds, exclude the folder from OneDrive
 >    sync or move the repo out of OneDrive.
 
+### District maps
+
+The maps in `public/maps/` are compiled from OpenStreetMap and committed, so
+the game never calls the OSM API. To rebuild them:
+
+```bash
+npx tsx scripts/osm/fetch.ts            # download extracts (needs network)
+npx tsx scripts/osm/build.ts            # compile public/maps/*.json
+npx tsx scripts/osm/write-task-positions.ts   # move tasks onto the map spots
+```
+
+`scripts/osm/cities.ts` holds each district's centre, building grain,
+landmark rules and task anchors. Moving a task spot changes task positions:
+re-run the last script and apply the migration it writes
+(`supabase/migrations/012_osm_task_positions.sql`).
+
 ### Tests
 
 ```bash
@@ -263,7 +290,8 @@ lib/
   game/
     districts.ts        THE BIBLE: themes, personas, missions, clues, finales
     prompt.ts           the prompts both paths share, built from the bible
-    city.ts             procedural city layout + colliders, bunting, plaza
+    world/              the district from its map: roads, areas, buildings,
+                        landmarks, street furniture, traffic, rails, collision
     buildings.ts        facade geometry + the lived-in detail layer
     signage.ts          per-language shop signboard atlas
     props.ts            autos, cows, buildings, stalls, characters
@@ -289,6 +317,10 @@ components/
   Kannada and Bengali are loaded explicitly rather than left to fallback.
 
 ## Provenance
+
+Map data © OpenStreetMap contributors, available under the Open Database
+License (ODbL 1.0): https://www.openstreetmap.org/copyright. The compiled maps
+in `public/maps/` are derived from it, and the game credits OSM on the minimap.
 
 The cel look (toon ramps with tinted shadow bands, the depth-based ink pass,
 the split-tone grade, painted sky and cloud cards) is adapted from
