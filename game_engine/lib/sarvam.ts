@@ -3,7 +3,7 @@
  *
  * Base URL + auth header per https://docs.sarvam.ai/api/getting-started/quickstart.md
  *   chat : POST /v1/chat/completions   (sarvam-105b | sarvam-30b)
- *   tts  : POST /text-to-speech        (bulbul:v4)
+ *   tts  : POST /text-to-speech        (bulbul:v3)
  *   stt  : POST /speech-to-text        (saaras:v4, multipart)
  *
  * The TTS shape here follows the pattern already proven in Kahani.
@@ -12,7 +12,7 @@
 import { DEFAULT_RETRY_OPTS, withRetry } from "@/lib/retry";
 
 const BASE = "https://api.sarvam.ai";
-const TTS_MODEL = process.env.SARVAM_TTS_MODEL || "bulbul:v4";
+const TTS_MODEL = process.env.SARVAM_TTS_MODEL || "bulbul:v3";
 const CHAT_MODEL = process.env.SARVAM_CHAT_MODEL || "sarvam-105b";
 
 function key(): string {
@@ -34,9 +34,9 @@ export type LangCode =
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
 /**
- * bulbul:v4 speakers. NOT interchangeable with the v2 set
+ * bulbul:v3 speakers. NOT interchangeable with the v2 set
  * (anushka / manisha / vidya / arya / abhilash / karun / hitesh), passing a v2
- * name to v4 is rejected by the API.
+ * name to v3 is rejected by the API.
  */
 export const V3_SPEAKERS = [
   "shubh", "aditya", "ritu", "priya", "neha", "rahul", "pooja", "rohan",

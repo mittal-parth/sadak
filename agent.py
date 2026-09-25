@@ -6,7 +6,7 @@ participant metadata, minted by the game at
 `game_engine/app/api/voice/token/route.ts`, so the game bible
 (`game_engine/lib/game/districts.ts`) stays the only copy of the writing.
 
-    mic → saaras:v4 → sarvam-105b → bulbul:v4 → the player's speakers
+    mic → saaras:v4 → sarvam-105b → bulbul:v3 → the player's speakers
 
 Everything said in either direction is republished to the room on the `sadak`
 data topic so the browser can draw subtitles, and every NPC line kicks off a
@@ -40,7 +40,7 @@ DATA_TOPIC = "sadak"
 SARVAM_CHAT_URL = "https://api.sarvam.ai/v1/chat/completions"
 GRADER_MODEL = os.getenv("SARVAM_GRADER_MODEL", "sarvam-105b")
 NPC_MODEL = os.getenv("SARVAM_CHAT_MODEL", "sarvam-105b")
-TTS_MODEL = os.getenv("SARVAM_TTS_MODEL", "bulbul:v4")
+TTS_MODEL = os.getenv("SARVAM_TTS_MODEL", "bulbul:v3")
 
 # Used when nobody hands us a brief: `python agent.py console`, or a room opened
 # by something other than the game.
