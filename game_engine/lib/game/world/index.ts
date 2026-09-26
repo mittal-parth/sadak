@@ -9,7 +9,7 @@ import * as THREE from "three";
 import type { District } from "../districts";
 import type { MaterialLibrary } from "../materials";
 import type { VehicleMaterials } from "../vehicles";
-import { createSignAtlas } from "../signage";
+import { createFilmPosters, createSignAtlas } from "../signage";
 import { createCrowd, type Crowd } from "../crowd";
 import { buildAreas } from "./areas";
 import { buildRoads, footpathStrips, isDrivable, offsetPolyline } from "./roads";
@@ -23,6 +23,8 @@ import { buildRails } from "./rails";
 import { createFlocks, flockSites } from "./birds";
 import { buildMarkets, marketStalls } from "./market";
 import { buildBeach } from "./beach";
+import { buildBusYards, STAND_LIVERIES } from "./busyard";
+import { CITY_TRAFFIC } from "../transit";
 import { CollisionWorld } from "./collide";
 import { HeightField } from "./height";
 import { KERB_H, type MapData } from "./mapData";
@@ -90,6 +92,60 @@ export function buildWorld(map: MapData, district: District, deps: WorldDeps): W
 
   const landmarks = placeLandmarks(map.landmarks, theme.landmark, collide, height);
   group.add(landmarks.group);
+
+  // A film hoarding on every cinema's roof, over its street front, in the
+  // district's own script.
+  const posters = typeof document !== "undefined" && map.landmarks.some((l) => l.model === "cinema") ? createFilmPosters(district.language) : null;
+  const posterMat = posters ? deps.toon(new THREE.MeshLambertMaterial({ map: posters.texture })) : null;
+  if (posters && posterMat) {
+    map.landmarks
+      .filter((l) => l.model === "cinema")
+      .forEach((l, i) => {
+        const g = landmarks.group.children.find((c) => c.userData.landmark === l.name);
+        if (!g) throw new Error(`cinema ${l.name} was not placed`);
+        // The roof at the front edge (the Deco fin rises far above it).
+        // The model is fitted inside the footprint, so step in until the
+        // probe lands on it.
+        g.updateMatrixWorld(true);
+        let top = -1;
+        let fz = 0;
+        for (let z = l.d / 2 - 1; z > 0 && top < 0; z -= 1) {
+          const probe = new THREE.Raycaster(
+            new THREE.Vector3(l.x + Math.sin(l.rot) * z, 200, l.z + Math.cos(l.rot) * z),
+            new THREE.Vector3(0, -1, 0)
+          );
+          const hit = probe.intersectObject(g, true)[0];
+          if (hit && hit.point.y > 2) {
+            top = hit.point.y;
+            fz = z - 1;
+          }
+        }
+        if (top < 0) throw new Error(`cinema ${l.name}: no roof at its front`);
+        const w = Math.min(l.w * 0.8, 22);
+        const h = w * (224 / 512);
+        const board = new THREE.PlaneGeometry(w, h);
+        const [u0, v0, u1, v1] = posters.rect(i);
+        const uv = board.getAttribute("uv");
+        for (let k = 0; k < uv.count; k++) uv.setXY(k, uv.getX(k) ? u1 : u0, uv.getY(k) ? v1 : v0);
+        const mesh = new THREE.Mesh(board, posterMat);
+        // Local frame of the landmark: the front is +z.
+        mesh.position.set(l.x + Math.sin(l.rot) * fz, top + h / 2 + 0.8, l.z + Math.cos(l.rot) * fz);
+        mesh.rotation.y = l.rot;
+        group.add(mesh);
+        // Its frame and struts behind.
+        const frame = new THREE.Mesh(
+          new THREE.BoxGeometry(w + 0.5, h + 0.5, 0.3).translate(0, 0, -0.2),
+          deps.toon(new THREE.MeshLambertMaterial({ color: 0x3a3d42 }))
+        );
+        frame.position.copy(mesh.position);
+        frame.rotation.y = l.rot;
+        group.add(frame);
+      });
+  }
+
+  // Buses nosed in along the bus stands' platforms.
+  const yards = buildBusYards(map, [CITY_TRAFFIC[theme.landmark].bus, ...(STAND_LIVERIES[theme.landmark] ?? [])], collide);
+  group.add(yards.group);
 
   const rails = buildRails(map, theme.landmark, collide);
   group.add(rails.group);
@@ -247,6 +303,8 @@ export function buildWorld(map: MapData, district: District, deps: WorldDeps): W
       flocks.dispose();
       markets.dispose();
       beach.dispose();
+      yards.dispose();
+      posters?.dispose();
       clutter.dispose();
       areas.dispose();
       roads.textures.forEach((t) => t.dispose());
