@@ -143,3 +143,14 @@ export type MapData = {
 
 /** Surface height of raised footpaths. */
 export const KERB_H = 0.2;
+
+/**
+ * Where a task happens on the map: its city errand's own spot, else the spot
+ * the compiler reserved for its kind. The map is the only source of task
+ * positions; a task pack's stored `pos` is not read.
+ */
+export function taskSpot(map: MapData, task: { id: string; kind: string }): Spot {
+  const spot = map.errandSpots[task.id] ?? map.spots[task.kind as TaskSpotKind];
+  if (!spot) throw new Error(`${map.id}: no spot for task ${task.id} (${task.kind})`);
+  return spot;
+}
