@@ -372,7 +372,7 @@ const hallBazaar: DistrictTaskPack = {
       id: "hall-bazaar-auto",
       districtId: "hall-bazaar",
       kind: "auto",
-      pos: [-26, 293.3],
+      pos: [57.8, 179.8],
       title: "Auto to Harmandir Sahib",
       brief: "Hail the auto to Sri Harmandir Sahib and agree the fare.",
       reward: 250,

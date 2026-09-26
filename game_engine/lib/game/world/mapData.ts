@@ -24,8 +24,12 @@ export type RoadClass =
   | "footway"
   | "steps";
 
+/** Paving of a pedestrian street, where it is not the city's plain paving. */
+export type RoadSurface = "sandstone";
+
 export type MapRoad = {
   cls: RoadClass;
+  surface?: RoadSurface;
   /** Carriageway width, metres. */
   w: number;
   /** Raised footpath width on each side; 0 where the lane is shared. */

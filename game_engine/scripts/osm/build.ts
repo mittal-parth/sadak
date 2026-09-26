@@ -24,6 +24,8 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { OSM_CITIES, type OsmCity } from "./cities";
+import { planRoute, reachShare } from "../../lib/game/world/route";
+import { polylineLength } from "../../lib/game/world/roads";
 import type {
   MapArea,
   MapBuilding,
@@ -291,6 +293,10 @@ function nearestOnPolyline(pts: Pt[], p: Pt): { pt: Pt; dist: number; dir: Pt; a
   return best;
 }
 
+/** Landmark models that stand in or over the carriageway: a fountain or a
+ *  pigeon house on a traffic island, a gateway the street runs through. */
+const IN_THE_ROAD = new Set(["fountain", "kabutar_khana", "kaman", "teen_darwaza", "promenade", "fishing_nets"]);
+
 /* ------------------------------------------------------------------ *
  * Occupancy grid (1m cells)
  * ------------------------------------------------------------------ */
@@ -510,8 +516,10 @@ function compile(city: OsmCity): MapData {
 
   const roads: MapRoad[] = [];
   for (const w of hwWays) {
-    const cls = CLASS_OF[w.tags!.highway];
+    const rule = city.streets?.find((r) => r.match.test(nameOf(w.tags) ?? ""));
+    const cls = rule?.as ?? CLASS_OF[w.tags!.highway];
     const size = roadSize(cls, city);
+    if (rule?.w) size.w = rule.w;
     const oneway = w.tags!.oneway === "yes" || w.tags!.junction === "roundabout";
     const bridge = w.tags!.bridge === "yes" && Number(w.tags!.layer ?? 1) > 0;
     // Flyovers are left out: without modelled ramps nothing could get onto
@@ -536,6 +544,7 @@ function compile(city: OsmCity): MapData {
           b: nodeAt(piece[piece.length - 1]),
           pts: piece.map(([x, z]) => [r1(x), r1(z)] as Pt),
           name: nameOf(w.tags),
+          ...(rule?.surface ? { surface: rule.surface } : {}),
         });
       }
     }
@@ -690,8 +699,8 @@ function compile(city: OsmCity): MapData {
   for (const { e, outer: ring, holes } of footprints) {
     const name = nameOf(e.tags);
     const rule = ruleFor(name);
-    if (rule && name && !claimed.has(`${rule.model}:${name}`)) {
-      claimed.add(`${rule.model}:${name}`);
+    if (rule && name && !claimed.has(`${rule.model}:${name.toLowerCase()}`)) {
+      claimed.add(`${rule.model}:${name.toLowerCase()}`);
       const box = orientedBox(ring);
       landmarks.push({ model: rule.model, name, x: r1(box.x), z: r1(box.z), rot: +box.rot.toFixed(3), w: r1(box.w), d: r1(box.d) });
       grid.markBox(box.x, box.z, box.rot, box.w + 2, box.d + 2, BUILT);
@@ -706,19 +715,39 @@ function compile(city: OsmCity): MapData {
     grid.fill(ring, BUILT, holes);
   }
 
-  // Landmarks mapped only as points.
+  // Landmarks mapped only as points. The node is wherever the mapper
+  // clicked, often mid-block: a shrine or a small temple is brought up to
+  // its street, front on the kerb. Islands and gateways stay put, in or over
+  // the road where they really are.
   for (const e of els) {
     if (e.type !== "node") continue;
     const name = nameOf(e.tags);
     const rule = ruleFor(name);
-    if (!rule || !name || claimed.has(`${rule.model}:${name}`)) continue;
-    const [x, z] = P(e);
+    if (!rule || !name || claimed.has(`${rule.model}:${name.toLowerCase()}`)) continue;
+    let [x, z] = P(e);
     if (Math.abs(x) > H - 5 || Math.abs(z) > H - 5) continue;
-    claimed.add(`${rule.model}:${name}`);
     const [w, d] = rule.size ?? [10, 10];
-    // Face the nearest street.
-    const near = nearestRoad(roads, [x, z], ["footway", "steps"]);
-    const rot = near ? Math.atan2(near.pt[0] - x, near.pt[1] - z) : 0;
+    // The same place again as a point, beside its own footprint.
+    if (landmarks.some((l) => l.model === rule.model && Math.hypot(l.x - x, l.z - z) < Math.max(l.w, l.d) / 2 + 15)) continue;
+    claimed.add(`${rule.model}:${name.toLowerCase()}`);
+    let rot = 0;
+    let street: { r: MapRoad; n: ReturnType<typeof nearestOnPolyline> } | null = null;
+    for (const r of roads) {
+      if (r.cls === "footway" || r.cls === "steps") continue;
+      const n = nearestOnPolyline(r.pts, [x, z]);
+      if (!street || n.dist < street.n.dist) street = { r, n };
+    }
+    if (street) {
+      const { r, n } = street;
+      if (!IN_THE_ROAD.has(rule.model) && n.dist < 40) {
+        const back = r.w / 2 + r.foot + d / 2 + 0.6;
+        const ux = (x - n.pt[0]) / (n.dist || 1);
+        const uz = (z - n.pt[1]) / (n.dist || 1);
+        x = n.pt[0] + ux * back;
+        z = n.pt[1] + uz * back;
+      }
+      rot = Math.atan2(n.pt[0] - x, n.pt[1] - z);
+    }
     landmarks.push({ model: rule.model, name, x: r1(x), z: r1(z), rot: +rot.toFixed(3), w, d });
     grid.markBox(x, z, rot, w + 2, d + 2, BUILT);
   }
@@ -729,7 +758,36 @@ function compile(city: OsmCity): MapData {
   const landmarkNamed = (re: RegExp) => landmarks.find((l) => re.test(l.name));
 
   /** A standing spot at the kerb of the nearest street to `p`, facing `p`. */
-  const kerbSpot = (p: Pt, filter: (r: MapRoad) => boolean, minDist = 0, avoid: Spot[] = [], clearance = 0): Spot => {
+  /** No building between (x, z) and `p`, up to `reach` short of `p`. */
+  const inSight = (x: number, z: number, p: Pt, reach: number) => {
+    const L = Math.hypot(p[0] - x, p[1] - z);
+    for (let t = 1; t < L - reach; t += 0.5) {
+      if (grid.get(x + ((p[0] - x) * t) / L, z + ((p[1] - z) * t) / L) === BUILT) return false;
+    }
+    return true;
+  };
+
+  const kerbSpot = (
+    p: Pt,
+    filter: (r: MapRoad) => boolean,
+    minDist = 0,
+    avoid: Spot[] = [],
+    clearance = 0,
+    opts: { avoidR?: number; sight?: number } = {}
+  ): Spot => {
+    const spot = kerbSpotOrNull(p, filter, minDist, avoid, clearance, opts);
+    if (!spot) throw new Error(`${city.id}: no street near (${p[0]}, ${p[1]})`);
+    return spot;
+  };
+
+  function kerbSpotOrNull(
+    p: Pt,
+    filter: (r: MapRoad) => boolean,
+    minDist: number,
+    avoid: Spot[],
+    clearance: number,
+    opts: { avoidR?: number; sight?: number }
+  ): Spot | null {
     let best: { spot: Spot; d: number } | null = null;
     for (const r of roads) {
       if (!filter(r)) continue;
@@ -751,12 +809,12 @@ function compile(city: OsmCity): MapData {
       // one either.
       if (grid.near(x, z, clearance, BUILT)) continue;
       // Keep clear of spots already taken, so two set pieces never share a kerb.
-      if (avoid.some((a) => Math.hypot(a.x - x, a.z - z) < 12)) continue;
+      if (avoid.some((a) => Math.hypot(a.x - x, a.z - z) < (opts.avoidR ?? 12))) continue;
+      if (opts.sight !== undefined && !inSight(x, z, p, opts.sight)) continue;
       if (!best || d < best.d) best = { spot: { x: r1(x), z: r1(z), yaw: +Math.atan2(p[0] - x, p[1] - z).toFixed(3) }, d };
     }
-    if (!best) throw new Error(`${city.id}: no street near (${p[0]}, ${p[1]})`);
-    return best.spot;
-  };
+    return best?.spot ?? null;
+  }
 
   const spawnMark = landmarkNamed(city.spawnNear);
   if (!spawnMark) throw new Error(`${city.id}: spawn landmark ${city.spawnNear} not in the extract`);
@@ -796,14 +854,15 @@ function compile(city: OsmCity): MapData {
       .sort((a, b) => a.d - b.d)[0]?.p;
 
   const major = (r: MapRoad) => ["trunk", "primary", "secondary", "tertiary", "unclassified"].includes(r.cls);
+  /** Streets a vehicle can wait on: not a footpath or a pedestrian street. */
+  const drivable = (r: MapRoad) => walkable(r) && r.cls !== "pedestrian";
   /** A kerb on a main road if there is one within reach, else the nearest
    *  lane: buses and autos wait where the traffic is, but not 400m away. */
   const roadside = (p: Pt, minDist: number, avoid: Spot[]) => {
     const onMajor = roads.some(major) ? kerbSpot(p, major, minDist, avoid) : null;
     if (onMajor && Math.hypot(onMajor.x - spawn.x, onMajor.z - spawn.z) < 150) return onMajor;
-    return kerbSpot(p, walkable, minDist, avoid);
+    return kerbSpot(p, drivable, minDist, avoid);
   };
-  const busPoi = near("bus_stop", 260);
   const taken = [templeSpot, shopSpot];
   /** A stop on a street a bus can use, if one is within reach. */
   const busStop = (p: Pt, minDist: number) => {
@@ -814,17 +873,81 @@ function compile(city: OsmCity): MapData {
     }
     return roadside(p, minDist, taken);
   };
-  const busSpot = busPoi ? busStop([busPoi.x, busPoi.z], 0) : busStop([spawn.x - 60, spawn.z + 30], 50);
+  // The bus pulls in on the left and has to drive on from there: a stop on
+  // a one-way stretch that runs off the map (Delhi's, north of Chandni
+  // Chowk) would be a ride to nowhere.
+  const routeMap = { nodes: [...nodes.values()], roads } as unknown as MapData;
+  const busLeaves = (st: Spot) => {
+    let q: { dir: Pt; pt: Pt; dist: number } | null = null;
+    for (const r of roads) {
+      if (!drivable(r)) continue;
+      const n = nearestOnPolyline(r.pts, [st.x, st.z]);
+      if (!q || n.dist < q.dist) q = n;
+    }
+    if (!q) return false;
+    // Keep left: the kerb is on the left of travel, left = (dz, -dx).
+    const left = (st.x - q.pt[0]) * q.dir[1] - (st.z - q.pt[1]) * q.dir[0];
+    const sgn = left >= 0 ? 1 : -1;
+    const tx = st.x + q.dir[0] * sgn * 250;
+    const tz = st.z + q.dir[1] * sgn * 250;
+    return [7.5, 6, 5].some((w) => {
+      const path = planRoute(routeMap, st.x, st.z, tx, tz, w, 2);
+      return !!path && polylineLength(path) >= 150;
+    });
+  };
+  const busCandidates = [
+    ...pois
+      .filter((p) => p.kind === "bus_stop" && Math.hypot(p.x - spawn.x, p.z - spawn.z) < 260)
+      .sort((a, b) => Math.hypot(a.x - spawn.x, a.z - spawn.z) - Math.hypot(b.x - spawn.x, b.z - spawn.z))
+      .map((p) => () => busStop([p.x, p.z], 0)),
+    () => busStop([spawn.x - 60, spawn.z + 30], 50),
+    () => busStop([spawn.x + 60, spawn.z - 30], 50),
+  ];
+  let busSpot: Spot | null = null;
+  for (const make of busCandidates) {
+    const st = make();
+    if (busLeaves(st)) {
+      busSpot = st;
+      break;
+    }
+  }
+  if (!busSpot) throw new Error(`${city.id}: no bus stop a bus can drive on from`);
+  // The auto stand, likewise, has to be somewhere an auto can drive off
+  // from to most of the district.
   const taxiPoi = near("taxi", 220);
-  const autoSpot = taxiPoi
-    ? kerbSpot([taxiPoi.x, taxiPoi.z], walkable, 0, [...taken, busSpot])
-    : roadside([spawn.x + 45, spawn.z - 20], 30, [...taken, busSpot]);
+  const autoAt: Pt = taxiPoi ? [taxiPoi.x, taxiPoi.z] : [spawn.x + 45, spawn.z - 20];
+  const byDistance = roads
+    .filter((r) => drivable(r) && r.w >= 4.2)
+    .map((r) => ({ r, d: nearestOnPolyline(r.pts, autoAt).dist }))
+    .sort((a, b) => a.d - b.d);
+  let autoSpot: Spot | null = null;
+  // Main roads within reach first (autos wait where the traffic is), then
+  // any street, nearest first.
+  for (const pass of [(r: MapRoad) => major(r), () => true]) {
+    for (const { r, d } of byDistance) {
+      if (autoSpot || d > 150 || !pass(r)) continue;
+      const st = kerbSpotOrNull(autoAt, (x) => x === r, taxiPoi ? 0 : 30, [...taken, busSpot], 0, {});
+      if (st && reachShare(routeMap, st.x, st.z, 4.2) >= 0.5) autoSpot = st;
+    }
+  }
+  if (!autoSpot) throw new Error(`${city.id}: no auto stand an auto can drive off from`);
 
   const spots: Record<TaskSpotKind, Spot> = { auto: autoSpot, bus: busSpot, temple: templeSpot, shop: shopSpot };
+  // Stand where the landmark is in full view: across the street from its
+  // front if nothing is in the way, else the nearest kerb round it.
+  function spawnSpot(): Spot {
+    const at: Pt = [spawnMark!.x, spawnMark!.z];
+    const minDist = Math.max(spawnMark!.w, spawnMark!.d) / 2 + 8;
+    const reach = Math.hypot(spawnMark!.w, spawnMark!.d) / 2 + 1.5;
+    const inView = kerbSpotOrNull(at, () => true, minDist, Object.values(spots), 0, { avoidR: 8, sight: reach });
+    if (inView) return inView;
+    console.log(`${city.id}: no kerb with ${spawnMark!.name} in view; spawning at the nearest kerb`);
+    return kerbSpot(at, () => true, minDist, Object.values(spots));
+  }
   Object.assign(
     spawn,
     // Footways count: the approach to a temple complex is often all paths.
-    kerbSpot([spawnMark.x, spawnMark.z], () => true, Math.max(spawnMark.w, spawnMark.d) / 2 + 8, Object.values(spots))
+    spawnSpot()
   );
   // The city's own errands: at the named place, on the nearest path to it.
   const errandSpots: Record<string, Spot> = {};
@@ -989,16 +1112,6 @@ function pointInPolygon(p: Pt, poly: Pt[]): boolean {
     if (zi > p[1] !== zj > p[1] && p[0] < ((xj - xi) * (p[1] - zi)) / (zj - zi) + xi) inside = !inside;
   }
   return inside;
-}
-
-function nearestRoad(roads: MapRoad[], p: Pt, exclude: RoadClass[]) {
-  let best: ReturnType<typeof nearestOnPolyline> | null = null;
-  for (const r of roads) {
-    if (exclude.includes(r.cls)) continue;
-    const n = nearestOnPolyline(r.pts, p);
-    if (!best || n.dist < best.dist) best = n;
-  }
-  return best;
 }
 
 function nearestPlotRot(plots: Plot[], x: number, z: number): number {

@@ -10,7 +10,21 @@
  * colonial mansions on Park Street, low heritage houses in Fort Kochi).
  */
 
+import type { RoadClass, RoadSurface } from "../../lib/game/world/mapData";
+
 export const MAP_HALF = 360;
+
+/** Retags a real street the way it is used now (OSM lags the street). */
+export type StreetRule = {
+  /** Matched against the road name. */
+  match: RegExp;
+  /** Road class to use instead of the OSM highway tag. */
+  as?: RoadClass;
+  /** Paving for pedestrian streets. */
+  surface?: RoadSurface;
+  /** Width override, metres. */
+  w?: number;
+};
 
 export type LandmarkRule = {
   /** Matched against the OSM name (and name:en). */
@@ -56,6 +70,8 @@ export type OsmCity = {
    *  matched against point names, then landmarks, areas and roads.
    *  `street` keeps the spot off footpaths (a ticket hall on the road). */
   errands?: { id: string; at: RegExp; street?: boolean }[];
+  /** Streets that are not what their OSM tags say. */
+  streets?: StreetRule[];
 };
 
 const SMALL_TEMPLE: [number, number] = [9, 9];
@@ -72,8 +88,11 @@ export const OSM_CITIES: OsmCity[] = [
       { match: /Sunehri Masjid/, model: "mosque_small" },
       { match: /Sis Ganj/, model: "gurdwara_small" },
       { match: /Gauri Shankar/, model: "temple", size: SMALL_TEMPLE },
-      { match: /Central Baptist/, model: "church_small" },
+      { match: /^Central Baptist Church$/, model: "church_small" },
     ],
+    // Chandni Chowk was pedestrianised in 2021: red sandstone from the Red
+    // Fort to Fatehpuri, a planted median, no cars.
+    streets: [{ match: /^Chandni Chowk$/, as: "pedestrian", surface: "sandstone", w: 8 }],
     spawnNear: /Gauri Shankar/,
     temple: /Gauri Shankar/,
     shopStreet: /Dariba Kalan|Kinari Bazar/,
