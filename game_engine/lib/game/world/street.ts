@@ -11,7 +11,7 @@ import { mulberry32 } from "../props";
 import { CITY_TRAFFIC } from "../transit";
 import type { MapData, Pt } from "./mapData";
 import type { CollisionWorld } from "./collide";
-import { isDrivable } from "./roads";
+import { isDrivable, medians, polylineLength, trimPolyline } from "./roads";
 import { RoadNet } from "./network";
 import { Parts, paint } from "./vc";
 
@@ -83,6 +83,39 @@ function lampGeometry(): THREE.BufferGeometry {
     paint(new THREE.BoxGeometry(0.34, 0.14, 0.6).translate(0, 6.92, 1.75), 0x3a3d42),
     paint(new THREE.BoxGeometry(0.26, 0.04, 0.5).translate(0, 6.84, 1.75), 0xfff3c8),
   ])!;
+}
+
+/** A raised sandstone planter, 8m long along local z, with clipped shrubs. */
+function planterGeometry(w: number): THREE.BufferGeometry {
+  const P = new Parts();
+  P.box(w, 0.5, 8, 0, 0.25, 0, 0xa4583f);
+  P.box(w + 0.12, 0.08, 8.12, 0, 0.52, 0, 0xd9c3a0);
+  P.box(w - 0.3, 0.1, 7.7, 0, 0.58, 0, 0x5b4632);
+  // Clipped bushes in two greens, with a flowering one here and there.
+  const greens = [0x4f8f3f, 0x3f7f3a, 0x4f8f3f, 0xc2417a, 0x3f7f3a];
+  for (let i = 0, z = -3.3; z <= 3.3; z += 1.1, i++) P.dome(Math.min(0.55, w * 0.3), 0, 0.5, z, greens[i % greens.length], 1);
+  return P.geometry()!;
+}
+
+/** A cast-iron heritage lamp: fluted post, cross arm, two lanterns. */
+function heritageLampGeometry(): THREE.BufferGeometry {
+  const P = new Parts();
+  P.cyl(0.22, 0.26, 0.6, 0, 0.3, 0, 0x2b2d31);
+  P.cyl(0.08, 0.11, 4.2, 0, 2.7, 0, 0x2b2d31);
+  P.box(1.4, 0.08, 0.08, 0, 4.6, 0, 0x2b2d31);
+  for (const x of [-0.7, 0.7]) {
+    P.box(0.3, 0.42, 0.3, x, 4.35, 0, 0xfff1c2);
+    P.cone(0.26, 0.24, x, 4.68, 0, 0x2b2d31, 4);
+  }
+  P.cone(0.12, 0.3, 0, 4.9, 0, 0x2b2d31, 6);
+  return P.geometry()!;
+}
+
+function bollardGeometry(): THREE.BufferGeometry {
+  const P = new Parts();
+  P.cyl(0.16, 0.19, 0.75, 0, 0.375, 0, 0xa4583f);
+  P.dome(0.16, 0, 0.75, 0, 0xd9c3a0);
+  return P.geometry()!;
 }
 
 export type StreetFurniture = { group: THREE.Group; dispose(): void };
@@ -157,6 +190,70 @@ export function buildStreet(
     }
   }
 
+  /* ---- divided pedestrian streets: planted median, lamps, bollards ---- */
+
+  const planters: (Spot & { w: number })[] = [];
+  const heritage: Spot[] = [];
+  const bollards: Spot[] = [];
+  for (const m of medians(map)) {
+    // Open at the ends for the cross streets; 8m planters with 3.5m gaps
+    // to cross by, a lamp in each gap.
+    const run = trimPolyline(m.pts, 7, 7);
+    if (!run || m.w < 1.6) continue;
+    const L = polylineLength(run);
+    /** Point and heading `s` metres along the run. */
+    const at = (s: number) => {
+      let acc = 0;
+      for (let i = 0; i < run.length - 1; i++) {
+        const [ax, az] = run[i];
+        const [bx, bz] = run[i + 1];
+        const seg = Math.hypot(bx - ax, bz - az);
+        if (acc + seg >= s || i === run.length - 2) {
+          const t = seg ? Math.min(1, (s - acc) / seg) : 0;
+          return { x: ax + (bx - ax) * t, z: az + (bz - az) * t, yaw: Math.atan2(bx - ax, bz - az) };
+        }
+        acc += seg;
+      }
+      throw new Error("median run has no segments");
+    };
+    for (let s = 0; s + 8 <= L; s += 11.5) {
+      const c = at(s + 4);
+      const w = Math.round(Math.min(m.w - 0.6, 2.4) * 5) / 5;
+      planters.push({ ...c, w });
+      collide.box(c.x, c.z, w / 2, 4, c.yaw);
+      if (s + 9.75 < L) {
+        const g = at(s + 9.75);
+        if (free(g.x, g.z, 0.3)) {
+          heritage.push({ ...g, yaw: g.yaw + Math.PI / 2 });
+          collide.box(g.x, g.z, 0.25, 0.25);
+        }
+      }
+    }
+  }
+  // Where a paved street meets traffic, a row of bollards across its mouth.
+  const atNode = new Map<number, typeof map.roads>();
+  for (const r of map.roads) for (const id of [r.a, r.b]) atNode.set(id, [...(atNode.get(id) ?? []), r]);
+  for (const r of map.roads) {
+    if (!r.surface) continue;
+    for (const end of [r.a, r.b]) {
+      if (!(atNode.get(end) ?? []).some(isDrivable)) continue;
+      const pts = end === r.a ? r.pts : [...r.pts].reverse();
+      const inset = trimPolyline(pts, 4, Math.max(0, polylineLength(pts) - 4.5));
+      if (!inset) continue;
+      const [a, b] = inset;
+      const d = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+      const nx = (b[1] - a[1]) / d;
+      const nz = -(b[0] - a[0]) / d;
+      for (let o = -r.w / 2 + 0.8; o <= r.w / 2 - 0.8; o += 1.6) {
+        const x = a[0] + nx * o;
+        const z = a[1] + nz * o;
+        if (!free(x, z, 0.2)) continue;
+        bollards.push({ x, z, yaw: 0 });
+        collide.box(x, z, 0.18, 0.18);
+      }
+    }
+  }
+
   /* ---- instancing ---- */
 
   const dummy = new THREE.Object3D();
@@ -190,6 +287,10 @@ export function buildStreet(
   instance(canopyGeo, broad, (i) => canopy[i], (i) => scales[i]);
   instance(palmGeometry(), palms, undefined, () => 0.9 + rand() * 0.35);
   instance(lampGeometry(), lamps);
+  // One planter mesh per width (a divided street keeps one width).
+  for (const w of new Set(planters.map((p) => p.w))) instance(planterGeometry(w), planters.filter((p) => p.w === w));
+  instance(heritageLampGeometry(), heritage);
+  instance(bollardGeometry(), bollards);
 
   /* ---- bus shelters ---- */
 

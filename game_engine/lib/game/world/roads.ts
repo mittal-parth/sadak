@@ -10,6 +10,7 @@ import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUti
 import type { MaterialLibrary } from "../materials";
 import type { Theme } from "../districts";
 import { KERB_H, type MapData, type MapRoad, type Pt } from "./mapData";
+import { mulberry32 } from "../props";
 
 /** Surface heights, stacked so coplanar layers never z-fight. */
 export const Y = {
@@ -209,6 +210,124 @@ function pavingTexture(base: number): THREE.CanvasTexture | null {
   return tex;
 }
 
+/** Red sandstone slabs in running bond, joints a shade darker, each slab a
+ *  touch lighter or darker than the next (Chandni Chowk). */
+function sandstoneTexture(): THREE.CanvasTexture | null {
+  if (typeof document === "undefined") return null;
+  const px = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = px;
+  canvas.height = px;
+  const ctx = canvas.getContext("2d")!;
+  const rand = mulberry32(4411);
+  const base = new THREE.Color(0xb0624a);
+  ctx.fillStyle = `#${base.clone().multiplyScalar(0.72).getHexString()}`;
+  ctx.fillRect(0, 0, px, px);
+  // 2 slabs along, 4 across; every other row offset by half a slab.
+  const along = px / 2;
+  const across = px / 4;
+  for (let row = 0; row < 4; row++) {
+    for (let k = -1; k < 2; k++) {
+      const x = k * along + (row % 2 ? along / 2 : 0);
+      const c = base.clone().multiplyScalar(0.9 + rand() * 0.2);
+      ctx.fillStyle = `#${c.getHexString()}`;
+      ctx.fillRect(x + 2, row * across + 2, along - 4, across - 4);
+    }
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
+
+/* ------------------------------------------------------------------ *
+ * Medians
+ * ------------------------------------------------------------------ */
+
+/** The strip between the two halves of a divided pedestrian street. */
+export type Median = { pts: Pt[]; w: number };
+
+/**
+ * Medians of divided paved streets (Chandni Chowk: two one-way halves in
+ * OSM, a planted strip between them). Each half finds its same-named partner
+ * across the gap; the strip runs down the middle of the gap, once per pair.
+ */
+export function medians(map: MapData): Median[] {
+  const out: Median[] = [];
+  const paved = map.roads.filter((r) => r.cls === "pedestrian" && r.surface && r.name);
+  for (const r of paved) {
+    const pts = dedupe(r.pts);
+    const L = polylineLength(pts);
+    if (L < 12) continue;
+    // Midpoint and the left normal there.
+    const mid = trimPolyline(pts, L / 2 - 0.5, L / 2 - 0.5);
+    if (!mid) continue;
+    const [mx, mz] = mid[0];
+    const d = norm(mid[1][0] - mx, mid[1][1] - mz);
+    if (!d) continue;
+    const left: Pt = [d[1], -d[0]];
+    let best: { d: number; side: number } | null = null;
+    for (const o of paved) {
+      if (o === r || o.name !== r.name) continue;
+      // Pieces of the same half meet end to end; the partner never touches.
+      if (o.a === r.a || o.a === r.b || o.b === r.a || o.b === r.b) continue;
+      for (let i = 0; i < o.pts.length - 1; i++) {
+        const [ax, az] = o.pts[i];
+        const [bx, bz] = o.pts[i + 1];
+        const L2 = (bx - ax) ** 2 + (bz - az) ** 2 || 1e-9;
+        const t = Math.max(0, Math.min(1, ((mx - ax) * (bx - ax) + (mz - az) * (bz - az)) / L2));
+        const qx = ax + (bx - ax) * t - mx;
+        const qz = az + (bz - az) * t - mz;
+        const dist = Math.hypot(qx, qz);
+        if (!best || dist < best.d) best = { d: dist, side: Math.sign(qx * left[0] + qz * left[1]) };
+      }
+    }
+    if (!best || best.d < r.w + 1 || best.d > r.w + 8) continue;
+    const w = best.d - r.w;
+    const line = resample(offsetPolyline(pts, best.side * (r.w / 2 + w / 2)), 2);
+    // The partner finds the same strip from the other side, split at other
+    // junctions: keep only the stretches no earlier strip already covers.
+    const covered = (p: Pt) =>
+      out.some((m) => m.pts.some((q, i) => i < m.pts.length - 1 && segDist(p, q, m.pts[i + 1]) < 1.5));
+    let run: Pt[] = [];
+    const flush = () => {
+      if (run.length >= 3) out.push({ pts: run, w });
+      run = [];
+    };
+    for (const p of line) {
+      if (covered(p)) flush();
+      else run.push(p);
+    }
+    flush();
+  }
+  return out;
+}
+
+/** Points every `step` metres along the polyline, ends included. */
+function resample(pts: Pt[], step: number): Pt[] {
+  const out: Pt[] = [pts[0]];
+  let carry = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, az] = pts[i];
+    const [bx, bz] = pts[i + 1];
+    const L = Math.hypot(bx - ax, bz - az);
+    let s = step - carry;
+    for (; s < L; s += step) out.push([ax + ((bx - ax) * s) / L, az + ((bz - az) * s) / L]);
+    carry = L - (s - step);
+  }
+  const last = pts[pts.length - 1];
+  const tail = out[out.length - 1];
+  if (Math.hypot(last[0] - tail[0], last[1] - tail[1]) > 0.3) out.push(last);
+  return out;
+}
+
+function segDist(p: Pt, a: Pt, b: Pt): number {
+  const L2 = (b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2 || 1e-9;
+  const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / L2));
+  return Math.hypot(p[0] - a[0] - t * (b[0] - a[0]), p[1] - a[1] - t * (b[1] - a[1]));
+}
+
 /* ------------------------------------------------------------------ *
  * Build
  * ------------------------------------------------------------------ */
@@ -263,12 +382,20 @@ export function buildRoads(map: MapData, theme: Theme, mats?: MaterialLibrary): 
 
   const tarmac: THREE.BufferGeometry[] = [];
   const paving: THREE.BufferGeometry[] = [];
+  const sandstone: THREE.BufferGeometry[] = [];
+  const buff: THREE.BufferGeometry[] = [];
   const footTop: THREE.BufferGeometry[] = [];
   const kerb: THREE.BufferGeometry[] = [];
   const white: THREE.BufferGeometry[] = [];
   const yellow: THREE.BufferGeometry[] = [];
 
   for (const r of map.roads) {
+    if (r.surface === "sandstone") {
+      sandstone.push(ribbon(r.pts, -r.w / 2, r.w / 2, Y.paving, 2.6));
+      // Buff stone borders down both edges.
+      for (const side of [1, -1]) buff.push(ribbon(r.pts, side * (r.w / 2 - 0.55), side * (r.w / 2 - 0.1), Y.paint, 2.6));
+      continue;
+    }
     if (PAVED.has(r.cls)) {
       paving.push(ribbon(r.pts, -r.w / 2, r.w / 2, r.cls === "pedestrian" ? Y.paving : Y.footway, 2.6));
       continue;
@@ -347,6 +474,13 @@ export function buildRoads(map: MapData, theme: Theme, mats?: MaterialLibrary): 
   const paveTex = pavingTexture(theme.plaza);
   if (paveTex) textures.push(paveTex);
   add(paving, new THREE.MeshLambertMaterial({ color: paveTex ? 0xffffff : theme.plaza, map: paveTex }));
+
+  // Laid a hair above the halves it overlaps, so the seams never flicker.
+  for (const m of medians(map)) sandstone.push(ribbon(m.pts, -m.w / 2 - 0.1, m.w / 2 + 0.1, (Y.paving + Y.paint) / 2, 2.6));
+  const stoneTex = sandstoneTexture();
+  if (stoneTex) textures.push(stoneTex);
+  add(sandstone, new THREE.MeshLambertMaterial({ color: stoneTex ? 0xffffff : 0xb0624a, map: stoneTex }));
+  add(buff, new THREE.MeshLambertMaterial({ color: 0xd9c3a0 }));
 
   const footTex = pavingTexture(theme.pavement);
   if (footTex) textures.push(footTex);
