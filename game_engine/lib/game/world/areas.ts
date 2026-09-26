@@ -109,6 +109,98 @@ function rippleTexture(deep: number, light: number): THREE.CanvasTexture | null 
   return tex;
 }
 
+/**
+ * A tiling surface texture in the given base colour, painted the way the cel
+ * look wants it: soft mottling, a few specks, and for paving, stones laid in
+ * a running bond with their joints. Seamless, so it repeats without seams.
+ */
+function surfaceTexture(kind: "ground" | "paving" | "grass" | "sand", base: number, seed: number): THREE.CanvasTexture | null {
+  if (typeof document === "undefined") return null;
+  const px = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = px;
+  canvas.height = px;
+  const ctx = canvas.getContext("2d")!;
+  const c = new THREE.Color(base);
+  const tint = (k: number) => `#${c.clone().offsetHSL(0, 0, k).getHexString()}`;
+  ctx.fillStyle = tint(0);
+  ctx.fillRect(0, 0, px, px);
+  let s = seed;
+  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  // Draw a shape at (x, y) and its wrapped copies, so the tile is seamless.
+  const wrap = (x: number, y: number, r: number, draw: (x: number, y: number) => void) => {
+    for (const dx of [0, -px, px]) for (const dy of [0, -px, px]) {
+      if (x + dx + r < 0 || x + dx - r > px || y + dy + r < 0 || y + dy - r > px) continue;
+      draw(x + dx, y + dy);
+    }
+  };
+  const blob = (x: number, y: number, r: number, style: string) =>
+    wrap(x, y, r, (bx, by) => {
+      ctx.fillStyle = style;
+      ctx.beginPath();
+      ctx.ellipse(bx, by, r, r * (0.55 + rnd() * 0.4), rnd() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+  if (kind === "paving") {
+    // Stones in a running bond, each a touch lighter or darker, over the
+    // darker line of their joints.
+    ctx.fillStyle = tint(-0.1);
+    ctx.fillRect(0, 0, px, px);
+    const rows = 6;
+    const h = px / rows;
+    for (let r = 0; r < rows; r++) {
+      const w = h * 1.6;
+      const off = (r % 2) * (w / 2);
+      for (let x = -w; x < px + w; x += w) {
+        ctx.fillStyle = tint((rnd() - 0.5) * 0.08);
+        ctx.fillRect(x + off + 1.5, r * h + 1.5, w - 3, h - 3);
+      }
+    }
+    ctx.globalAlpha = 0.35;
+    for (let i = 0; i < 18; i++) blob(rnd() * px, rnd() * px, 6 + rnd() * 14, tint(-0.05));
+    ctx.globalAlpha = 1;
+  } else {
+    // Soft mottling in broad, faint patches.
+    const spread = kind === "grass" ? 0.07 : 0.05;
+    ctx.globalAlpha = 0.5;
+    for (let i = 0; i < 26; i++) blob(rnd() * px, rnd() * px, 16 + rnd() * 34, tint((rnd() - 0.5) * spread * 2));
+    ctx.globalAlpha = 1;
+    // Specks: grit on the ground, tufts in the grass, grains in the sand.
+    const n = kind === "grass" ? 160 : kind === "sand" ? 220 : 180;
+    for (let i = 0; i < n; i++) {
+      const x = rnd() * px;
+      const y = rnd() * px;
+      if (kind === "grass") {
+        ctx.strokeStyle = tint(rnd() < 0.5 ? -0.08 : 0.06);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + (rnd() - 0.5) * 3, y - 3 - rnd() * 3);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = tint(rnd() < 0.6 ? -0.07 : 0.06);
+        ctx.fillRect(x, y, 1 + rnd() * 1.6, 1 + rnd() * 1.6);
+      }
+    }
+    if (kind === "sand") {
+      // Wind ripples.
+      ctx.strokeStyle = tint(-0.04);
+      ctx.lineWidth = 1.5;
+      for (let y = 8; y < px; y += 18) {
+        ctx.beginPath();
+        for (let x = 0; x <= px; x += 8) ctx.lineTo(x, y + Math.sin((x / px) * Math.PI * 4 + y) * 3);
+        ctx.stroke();
+      }
+    }
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}
+
 const PARK = 0x7fb069;
 const PITCH = 0x6aa85c;
 const SAND = 0xead9a8;
@@ -120,9 +212,15 @@ export function buildAreas(map: MapData, theme: Theme): AreaMeshes {
   const textures: THREE.Texture[] = [];
 
   // Base ground, wide enough to run under the skyline and out to the haze.
+  const G = H * 2 + 900;
+  const dirt = surfaceTexture("ground", theme.ground, 11);
+  if (dirt) {
+    dirt.repeat.set(G / 22, G / 22);
+    textures.push(dirt);
+  }
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(H * 2 + 900, H * 2 + 900).rotateX(-Math.PI / 2),
-    new THREE.MeshLambertMaterial({ color: theme.ground })
+    new THREE.PlaneGeometry(G, G).rotateX(-Math.PI / 2),
+    new THREE.MeshLambertMaterial({ color: dirt ? 0xffffff : theme.ground, map: dirt })
   );
   ground.receiveShadow = true;
   group.add(ground);
@@ -152,8 +250,10 @@ export function buildAreas(map: MapData, theme: Theme): AreaMeshes {
       }
       continue;
     }
-    const kind = a.kind === "park" ? "park" : a.kind === "pitch" ? "pitch" : a.kind === "beach" ? "beach" : "plaza";
-    push(kind, flatPolygon(a.pts, holes, Y.area, kind === "plaza" ? 2.6 : 1));
+    // The Golden Temple's parikrama is white marble, not the city's paving.
+    const kind =
+      a.kind === "park" ? "park" : a.kind === "pitch" ? "pitch" : a.kind === "beach" ? "beach" : a.name === "Parikrama" ? "marble" : "plaza";
+    push(kind, flatPolygon(a.pts, holes, Y.area, kind === "plaza" || kind === "marble" ? 2.6 : 1));
   }
 
   // The sea beyond the map edge on each side its polygon touches, out to
@@ -197,10 +297,20 @@ export function buildAreas(map: MapData, theme: Theme): AreaMeshes {
     group.add(m);
   };
 
-  add("park", new THREE.MeshLambertMaterial({ color: PARK }));
-  add("pitch", new THREE.MeshLambertMaterial({ color: PITCH }));
-  add("beach", new THREE.MeshLambertMaterial({ color: SAND }));
-  add("plaza", new THREE.MeshLambertMaterial({ color: theme.plaza }));
+  // Surfaces with their textures (world UVs: a metre per unit, a plaza's
+  // per 2.6m), each repeating every few metres.
+  const surface = (kind: "paving" | "grass" | "sand", colour: number, seed: number, every: number) => {
+    const t = surfaceTexture(kind, colour, seed);
+    if (!t) return new THREE.MeshLambertMaterial({ color: colour });
+    t.repeat.set(1 / every, 1 / every);
+    textures.push(t);
+    return new THREE.MeshLambertMaterial({ color: 0xffffff, map: t });
+  };
+  add("park", surface("grass", PARK, 5, 14));
+  add("pitch", surface("grass", PITCH, 6, 14));
+  add("beach", surface("sand", SAND, 7, 16));
+  add("plaza", surface("paving", theme.plaza, 8, 3));
+  add("marble", surface("paving", 0xefebe3, 9, 2));
   add("rim", new THREE.MeshLambertMaterial({ color: 0xefe9dc }));
   add("step", new THREE.MeshLambertMaterial({ color: 0xcdc6b6 }));
 
