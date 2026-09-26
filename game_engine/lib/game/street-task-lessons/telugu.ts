@@ -5,14 +5,14 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
   "charminar-lane-auto": {
     easy: [
       s("ఎక్కడికి వెళ్ళాలి?", "Ekkadiki vellali?", "Where do you want to go?", "సికింద్రాబాద్ రైల్వే స్టేషన్", "Secunderabad railway station", "Secunderabad railway station"),
-      s("సరే, ఎంత ఇస్తారు?", "Sare, enta istaru?", "Fine, what will you pay?", "ఒకటినూటలు పోతారా?", "Okati nootlu potara?", "Will you go for 150?"),
+      s("సరే, ఎంత ఇస్తారు?", "Sare, enta istaru?", "Fine, what will you pay?", "నూట యాభైకి పోతారా?", "Noota yabhaiki potara?", "Will you go for 150?"),
       s("రా, ఎక్కు", "Raa, ekku", "Come on, get in", "ధన్యవాదాలు, వెళ్దాం", "Dhanyavaadalu, veldaam", "Thank you, let's go"),
     ],
     medium: [
       s("ఎక్కడికి వెళ్ళాలి?", "Ekkadiki vellali?", "Where do you want to go?", "సికింద్రాబాద్ రైల్వే స్టేషన్", "Secunderabad railway station", "Secunderabad railway station"),
       s("మూడు వందలు! petrol ఖరీదు అన్న", "Moodu vandlu! petrol khareedu anna", "Three hundred! Petrol is costly, brother", "అర్థమైంది, కొంచెం తగ్గించండి", "Arthamaindi, konchem taggincandi", "I understand, please reduce it a bit"),
       s("సరే, చెప్పు", "Sare, cheppu", "Fine, tell me", "ఎంత?", "Enta?", "How much?"),
-      s("సరే, ఎంత ఇస్తారు?", "Sare, enta istaru?", "Fine, what will you pay?", "ఒకటినూటలు పోతారా?", "Okati nootlu potara?", "Will you go for 150?"),
+      s("సరే, ఎంత ఇస్తారు?", "Sare, enta istaru?", "Fine, what will you pay?", "నూట యాభైకి పోతారా?", "Noota yabhaiki potara?", "Will you go for 150?"),
       s("రా, ఎక్కు", "Raa, ekku", "Come on, get in", "ధన్యవాదాలు, వెళ్దాం", "Dhanyavaadalu, veldaam", "Thank you, let's go"),
     ],
     hard: [
@@ -20,7 +20,7 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("ఈ రోజు crowd ఎక్కువ", "Ee roju crowd ekkuva", "Crowd is heavy today", "అవును, తొందరగా", "Avunu, tondaraga", "Yes, I'm in a hurry"),
       s("మూడు వందలు! petrol ఖరీదు అన్న", "Moodu vandlu! petrol khareedu anna", "Three hundred! Petrol is costly, brother", "అర్థమైంది, కొంచెం తగ్గించండి", "Arthamaindi, konchem taggincandi", "I understand, please reduce it a bit"),
       s("సరే, చెప్పు", "Sare, cheppu", "Fine, tell me", "ఎంత?", "Enta?", "How much?"),
-      s("సరే, ఎంత ఇస్తారు?", "Sare, enta istaru?", "Fine, what will you pay?", "ఒకటినూటలు పోతారా?", "Okati nootlu potara?", "Will you go for 150?"),
+      s("సరే, ఎంత ఇస్తారు?", "Sare, enta istaru?", "Fine, what will you pay?", "నూట యాభైకి పోతారా?", "Noota yabhaiki potara?", "Will you go for 150?"),
       s("meter తోనా?", "Meter thona?", "By meter?", "లేదు, fix fare", "Ledu, fix fare", "No, fixed fare"),
       s("రా, ఎక్కు", "Raa, ekku", "Come on, get in", "ధన్యవాదాలు, వెళ్దాం", "Dhanyavaadalu, veldaam", "Thank you, let's go"),
     ],

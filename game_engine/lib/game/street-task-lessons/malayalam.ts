@@ -79,14 +79,14 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
     ],
     medium: [
       s("എവിടെ?", "Evide?", "Where to?", "Fort Kochi", "Fort Kochi", "Fort Kochi"),
-      s("പുറകിൽ നിന്ന് കയറൂ, തിരക്കുണ്ട്", "Purakil ninnu kayaroo, thirakku undu", "Board from the back, it's crowded", "ശരി, പുറകിൽ നിന്ന് കയരാം", "Shari, purakil ninnu kayaraam", "Okay, I'll board from the back"),
+      s("പുറകിൽ നിന്ന് കയറൂ, തിരക്കുണ്ട്", "Purakil ninnu kayaroo, thirakkundu", "Board from the back, it's crowded", "ശരി, പുറകിൽ നിന്ന് കയരാം", "Shari, purakil ninnu kayaraam", "Okay, I'll board from the back"),
       s("അതെ, പറ", "Athe, para", "Yes, tell me", "എത്ര?", "Ethra?", "How much?"),
       s("ഇരുപത് രൂപ", "Irupathu roopa", "Twenty rupees", "ഇതാ", "Ithaa", "Here you go"),
       s("ഇതാ, ticket", "Ithaa, ticket", "Here, your ticket", "നന്ദി", "Nandi", "Thank you"),
     ],
     hard: [
       s("എവിടെ?", "Evide?", "Where to?", "Fort Kochi", "Fort Kochi", "Fort Kochi"),
-      s("പുറകിൽ നിന്ന് കയറൂ, തിരക്കുണ്ട്", "Purakil ninnu kayaroo, thirakku undu", "Board from the back, it's crowded", "ശരി, പുറകിൽ നിന്ന് കയരാം", "Shari, purakil ninnu kayaraam", "Okay, I'll board from the back"),
+      s("പുറകിൽ നിന്ന് കയറൂ, തിരക്കുണ്ട്", "Purakil ninnu kayaroo, thirakkundu", "Board from the back, it's crowded", "ശരി, പുറകിൽ നിന്ന് കയരാം", "Shari, purakil ninnu kayaraam", "Okay, I'll board from the back"),
       s("അതെ, പറ", "Athe, para", "Yes, tell me", "ഒരു ticket", "Oru ticket", "One ticket, please"),
       s("പറ", "Para", "Tell me", "എത്ര?", "Ethra?", "How much?"),
       s("ഇരുപത് രൂപ", "Irupathu roopa", "Twenty rupees", "ഇതാ", "Ithaa", "Here you go"),

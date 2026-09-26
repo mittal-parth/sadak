@@ -79,14 +79,14 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
     ],
     medium: [
       s("কোথায়?", "Kothay?", "Where to?", "এসপ্ল্যানেড", "Esplanade", "Esplanade"),
-      s("ট্রাম আসছে!", "Tram asche!", "Tram is coming!", "ঠিক আছে, ট্রামে উঠব", "Thik ache, tram e uthbo", "Okay, I'll board the tram"),
+      s("ট্রাম আসছে!", "Tram asche!", "Tram is coming!", "ঠিক আছে, ট্রামে উঠব", "Thik ache, trame uthbo", "Okay, I'll board the tram"),
       s("ঠিক আছে", "Thik ache", "Okay", "কত?", "Koto?", "How much?"),
       s("দশ টাকা", "Dash taka", "Ten taka", "নিন", "Nin", "Take it"),
       s("যান", "Jan", "Go", "ধন্যবাদ", "Dhonnobad", "Thank you"),
     ],
     hard: [
       s("কোথায়?", "Kothay?", "Where to?", "এসপ্ল্যানেড", "Esplanade", "Esplanade"),
-      s("ট্রাম আসছে!", "Tram asche!", "Tram is coming!", "ঠিক আছে, ট্রামে উঠব", "Thik ache, tram e uthbo", "Okay, I'll board the tram"),
+      s("ট্রাম আসছে!", "Tram asche!", "Tram is coming!", "ঠিক আছে, ট্রামে উঠব", "Thik ache, trame uthbo", "Okay, I'll board the tram"),
       s("ঠিক আছে", "Thik ache", "Okay", "একটা টিকিট", "Ekta ticket", "One ticket"),
       s("ঠিক আছে", "Thik ache", "Okay", "কত?", "Koto?", "How much?"),
       s("দশ টাকা", "Dash taka", "Ten taka", "নিন", "Nin", "Take it"),
