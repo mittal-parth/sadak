@@ -171,7 +171,17 @@ export function buildStreet(
       collide.box(x, z, 0.3, 0.3);
     }
   }
-  // Parks: a loose grove.
+  // Parks: a loose grove. A memorial garden (Jallianwala Bagh) keeps its
+  // lawns mostly open: a band of trees round its walls, a few in the lawns.
+  const gardens = map.landmarks.filter((l) => l.model === "memorial_garden");
+  const openLawn = (x: number, z: number) =>
+    gardens.some((l) => {
+      const c = Math.cos(l.rot);
+      const s = Math.sin(l.rot);
+      const u = Math.abs((x - l.x) * c - (z - l.z) * s);
+      const v = Math.abs((x - l.x) * s + (z - l.z) * c);
+      return u < l.w / 2 - 9 && v < l.d / 2 - 9;
+    });
   for (const a of map.areas) {
     if (a.kind !== "park") continue;
     let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
@@ -183,7 +193,7 @@ export function buildStreet(
       for (let x = minX + 4; x < maxX - 4; x += 9) {
         const px = x + (rand() - 0.5) * 5;
         const pz = z + (rand() - 0.5) * 5;
-        if (!inRing(px, pz, a.pts) || !free(px, pz, 1.5)) continue;
+        if (!inRing(px, pz, a.pts) || (openLawn(px, pz) && rand() < 0.8) || !free(px, pz, 1.5)) continue;
         trees.push({ x: px, z: pz, yaw: rand() * Math.PI * 2 });
         collide.box(px, pz, 0.3, 0.3);
       }

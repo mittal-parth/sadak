@@ -887,20 +887,49 @@ export function memorialGarden(w: number, d: number): Monument {
   P.box(w - 2, 0.05, d - 2, 0, 0.03, 0, 0x7fb069);
   P.box(3, 0.08, d - 2, 0, 0.05, 0, 0xd9c9a8);
   P.box(w - 2, 0.08, 3, 0, 0.05, 0, 0xd9c9a8);
-  // Flame of Liberty: a tapering red sandstone pylon.
+  // The Flame of Liberty: a slender four-sided red sandstone pylon rising
+  // out of a shallow pool, its top opening like a flame.
   const fz = -d * 0.15;
-  P.box(9, 1, 9, 0, 0.5, fz, 0xc9a882);
-  for (let k = 0; k < 6; k++) {
-    const s = 3.2 - k * 0.42;
-    P.box(s, 2.6, s, 0, 1 + 1.3 + k * 2.6, fz, k % 2 ? 0xa4553b : 0xb5623f);
+  P.box(14, 0.5, 14, 0, 0.25, fz, 0xc9a882);
+  P.box(12.6, 0.52, 12.6, 0, 0.27, fz, 0x3f7fc0);
+  P.box(4.4, 1.2, 4.4, 0, 0.6, fz, 0xc9a882);
+  const H = 14;
+  for (let k = 0; k < 8; k++) {
+    const t0 = k / 8;
+    const s0 = 2.6 * (1 - t0 * 0.55);
+    P.box(s0, H / 8, s0, 0, 1.2 + (k + 0.5) * (H / 8), fz, k % 2 ? 0xa4553b : 0xb5623f);
   }
-  P.cone(0.9, 2.4, 0, 1 + 6 * 2.6 + 1.2, fz, 0xd9412b, 6);
-  C.push({ x: 0, z: fz, hw: 4.5, hd: 4.5 });
-  // Martyrs' well.
+  // Four petals of flame, splayed.
+  for (let k = 0; k < 4; k++) {
+    const a = (k / 4) * Math.PI * 2 + Math.PI / 4;
+    P.add(new THREE.ConeGeometry(0.55, 3.2, 4).rotateZ(0.35).rotateY(-a).translate(Math.sin(a) * 0.5, 1.2 + H + 1.3, fz + Math.cos(a) * 0.5), 0xb5623f);
+  }
+  P.cone(0.5, 3.6, 0, 1.2 + H + 1.8, fz, 0xd9412b, 4);
+  C.push({ x: 0, z: fz, hw: 7, hd: 7 });
+  // The martyrs' well, under a pavilion, a railing round its mouth.
   const wx = w * 0.28;
   P.cyl(2.4, 2.4, 1.1, wx, 0.55, 0, 0xd9d4c7, 12);
   P.cyl(1.8, 1.8, 1.12, wx, 0.56, 0, 0x1f2a33, 12);
-  C.push({ x: wx, z: 0, hw: 2.4, hd: 2.4 });
+  for (let k = 0; k < 6; k++) {
+    const a = (k / 6) * Math.PI * 2;
+    P.box(0.3, 3.6, 0.3, wx + Math.sin(a) * 3.2, 1.8, Math.cos(a) * 3.2, 0xe8e0d0);
+  }
+  P.cyl(4, 4, 0.35, wx, 3.7, 0, 0xe8e0d0, 6);
+  P.dome(2.6, wx, 3.85, 0, 0xe8e0d0, 1);
+  C.push({ x: wx, z: 0, hw: 3.4, hd: 3.4 });
+  // The wall that kept the bullet marks, framed in white where they struck.
+  const bx = -w / 2 + t + 0.6;
+  const bl = Math.min(d * 0.35, 24);
+  P.box(1.2, wh + 0.8, bl, bx, (wh + 0.8) / 2, d * 0.1, 0x9a5038);
+  let bseed = 11;
+  const brnd = () => ((bseed = (bseed * 16807) % 2147483647) / 2147483647);
+  for (let k = 0; k < 28; k++) {
+    const z = d * 0.1 - bl / 2 + 1 + brnd() * (bl - 2);
+    const y = 0.6 + brnd() * (wh - 0.4);
+    P.box(0.06, 0.35, 0.35, bx + 0.63, y, z, 0xf4efe4);
+    P.box(0.07, 0.18, 0.18, bx + 0.64, y, z, 0x3a2c26);
+  }
+  C.push({ x: bx, z: d * 0.1, hw: 0.6, hd: bl / 2 });
   return finish(P, C, []);
 }
 
