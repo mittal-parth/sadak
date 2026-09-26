@@ -239,6 +239,7 @@ the game never calls the OSM API. To rebuild them:
 npx tsx scripts/osm/fetch.ts            # download extracts (needs network)
 npx tsx scripts/osm/build.ts            # compile public/maps/*.json
 npx tsx scripts/osm/write-task-positions.ts   # move tasks onto the map spots, write the re-seed
+npx tsx scripts/audit-colliders.ts [id]       # find invisible walls: blocked places with nothing drawn
 ```
 
 `scripts/osm/cities.ts` holds each district's centre, building grain,
