@@ -33,6 +33,9 @@ export type LandmarkRule = {
   model: string;
   /** Default footprint for point features, metres. */
   size?: [number, number];
+  /** Compass bearing the main entrance faces (0 north, 90 east), where the
+   *  footprint alone can't tell: Parthasarathy's gopuram looks to the sea. */
+  faces?: number;
 };
 
 export type FillStyle = {
@@ -72,6 +75,9 @@ export type OsmCity = {
   errands?: { id: string; at: RegExp; street?: boolean }[];
   /** Streets that are not what their OSM tags say. */
   streets?: StreetRule[];
+  /** Things OSM doesn't map that the street is known for, set beside the
+   *  named street: the temple car parked on Car Street. */
+  setPieces?: { model: string; name: string; on: RegExp; size: [number, number]; near?: RegExp }[];
 };
 
 const SMALL_TEMPLE: [number, number] = [9, 9];
@@ -122,12 +128,19 @@ export const OSM_CITIES: OsmCity[] = [
   {
     id: "marina-nagar",
     lat: 13.055,
-    lon: 80.2795,
-    half: MAP_HALF,
+    lon: 80.27913,
+    // A little bigger than the rest: Triplicane runs 1.1km from the
+    // Parthasarathy temple to the Marina, and both ends belong in the box.
+    half: 420,
     fill: { width: [5, 9], depth: [8, 14], floors: [1, 3], shop: 0.5, laneWidth: 5.5, courtyards: 0.2 },
     landmarks: [
-      { match: /Sri Parthasarathy Koil/, model: "gopuram_temple" },
+      { match: /Sri Parthasarathy Koil/, model: "gopuram_temple", faces: 90 },
       { match: /Peyalvar Shrine/, model: "temple", size: SMALL_TEMPLE },
+      // The row of statues along the Marina.
+      { match: /^(Kannagi|Thiruvalluvar|Subhas Chandra Bose)$/, model: "statue", size: [4, 4] },
+    ],
+    setPieces: [
+      { model: "temple_car", name: "Parthasarathy temple car", on: /^Car Street$/, size: [6, 7], near: /Sri Parthasarathy Koil/ },
     ],
     spawnNear: /Sri Parthasarathy Koil/,
     temple: /Sri Parthasarathy Koil/,

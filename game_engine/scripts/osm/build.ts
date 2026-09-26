@@ -293,6 +293,47 @@ function nearestOnPolyline(pts: Pt[], p: Pt): { pt: Pt; dist: number; dir: Pt; a
   return best;
 }
 
+/** Turn an oriented box by quarter turns so its local +z (the entrance)
+ *  points closest to a compass bearing, swapping width and depth as it goes. */
+function facing<B extends { rot: number; w: number; d: number }>(box: B, bearing: number): B {
+  // Bearing to a direction in this frame: north is -z, east is +x.
+  const b = (bearing * Math.PI) / 180;
+  const want: Pt = [Math.sin(b), -Math.cos(b)];
+  let best = box;
+  let score = -Infinity;
+  for (let k = 0; k < 4; k++) {
+    const rot = box.rot + (k * Math.PI) / 2;
+    const s = Math.sin(rot) * want[0] + Math.cos(rot) * want[1];
+    if (s > score) {
+      score = s;
+      best = { ...box, rot, w: k % 2 ? box.d : box.w, d: k % 2 ? box.w : box.d };
+    }
+  }
+  return best;
+}
+
+/** Where a landmark's entrance is: `out` metres in front of its +z face. */
+const frontOf = (l: MapLandmark, out: number): Pt => [
+  l.x + Math.sin(l.rot) * (l.d / 2 + out),
+  l.z + Math.cos(l.rot) * (l.d / 2 + out),
+];
+
+/** The point `s` metres along a polyline. */
+function pointAlong(pts: Pt[], s: number): Pt {
+  let acc = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, az] = pts[i];
+    const [bx, bz] = pts[i + 1];
+    const L = Math.hypot(bx - ax, bz - az);
+    if (acc + L >= s) {
+      const t = L ? (s - acc) / L : 0;
+      return [ax + (bx - ax) * t, az + (bz - az) * t];
+    }
+    acc += L;
+  }
+  return pts[pts.length - 1];
+}
+
 /** Landmark models that stand in or over the carriageway: a fountain or a
  *  pigeon house on a traffic island, a gateway the street runs through. */
 const IN_THE_ROAD = new Set(["fountain", "kabutar_khana", "kaman", "teen_darwaza", "promenade", "fishing_nets"]);
@@ -701,7 +742,7 @@ function compile(city: OsmCity): MapData {
     const rule = ruleFor(name);
     if (rule && name && !claimed.has(`${rule.model}:${name.toLowerCase()}`)) {
       claimed.add(`${rule.model}:${name.toLowerCase()}`);
-      const box = orientedBox(ring);
+      const box = rule.faces === undefined ? orientedBox(ring) : facing(orientedBox(ring), rule.faces);
       landmarks.push({ model: rule.model, name, x: r1(box.x), z: r1(box.z), rot: +box.rot.toFixed(3), w: r1(box.w), d: r1(box.d) });
       grid.markBox(box.x, box.z, box.rot, box.w + 2, box.d + 2, BUILT);
       continue;
@@ -752,6 +793,29 @@ function compile(city: OsmCity): MapData {
     grid.markBox(x, z, rot, w + 2, d + 2, BUILT);
   }
 
+  // Set pieces OSM doesn't map, beside their street (the stretch nearest
+  // the named landmark, else the longest), long side along it.
+  for (const piece of city.setPieces ?? []) {
+    const anchor = piece.near ? landmarks.find((l) => piece.near!.test(l.name)) : undefined;
+    if (piece.near && !anchor) throw new Error(`${city.id}: set piece landmark ${piece.near} not in the extract`);
+    const candidates = roads.filter((r) => r.cls !== "footway" && r.cls !== "steps" && piece.on.test(r.name ?? ""));
+    const street = anchor
+      ? candidates.sort((a, b) => nearestOnPolyline(a.pts, [anchor.x, anchor.z]).dist - nearestOnPolyline(b.pts, [anchor.x, anchor.z]).dist)[0]
+      : candidates.sort((a, b) => polylineLength(b.pts) - polylineLength(a.pts))[0];
+    if (!street) throw new Error(`${city.id}: set piece street ${piece.on} not in the extract`);
+    const [w, d] = piece.size;
+    const L = polylineLength(street.pts);
+    // Near the landmark's end, clear of the junction.
+    const along = anchor ? Math.min(L / 2, Math.max(12, nearestOnPolyline(street.pts, [anchor.x, anchor.z]).along)) : L / 2;
+    const n = nearestOnPolyline(street.pts, pointAlong(street.pts, along));
+    const off = street.w / 2 + street.foot + w / 2 + 0.4;
+    const x = n.pt[0] - n.dir[1] * off;
+    const z = n.pt[1] + n.dir[0] * off;
+    const rot = Math.atan2(n.dir[0], n.dir[1]);
+    landmarks.push({ model: piece.model, name: piece.name, x: r1(x), z: r1(z), rot: +rot.toFixed(3), w, d });
+    grid.markBox(x, z, rot, w + 2, d + 2, BUILT);
+  }
+
   /* ---- spawn and task spots ---- */
 
   const walkable = (r: MapRoad) => r.cls !== "footway" && r.cls !== "steps";
@@ -773,7 +837,7 @@ function compile(city: OsmCity): MapData {
     minDist = 0,
     avoid: Spot[] = [],
     clearance = 0,
-    opts: { avoidR?: number; sight?: number } = {}
+    opts: { avoidR?: number; sight?: number; sightTo?: Pt } = {}
   ): Spot => {
     const spot = kerbSpotOrNull(p, filter, minDist, avoid, clearance, opts);
     if (!spot) throw new Error(`${city.id}: no street near (${p[0]}, ${p[1]})`);
@@ -786,7 +850,7 @@ function compile(city: OsmCity): MapData {
     minDist: number,
     avoid: Spot[],
     clearance: number,
-    opts: { avoidR?: number; sight?: number }
+    opts: { avoidR?: number; sight?: number; sightTo?: Pt }
   ): Spot | null {
     let best: { spot: Spot; d: number } | null = null;
     for (const r of roads) {
@@ -810,7 +874,7 @@ function compile(city: OsmCity): MapData {
       if (grid.near(x, z, clearance, BUILT)) continue;
       // Keep clear of spots already taken, so two set pieces never share a kerb.
       if (avoid.some((a) => Math.hypot(a.x - x, a.z - z) < (opts.avoidR ?? 12))) continue;
-      if (opts.sight !== undefined && !inSight(x, z, p, opts.sight)) continue;
+      if (opts.sight !== undefined && !inSight(x, z, opts.sightTo ?? p, opts.sight)) continue;
       if (!best || d < best.d) best = { spot: { x: r1(x), z: r1(z), yaw: +Math.atan2(p[0] - x, p[1] - z).toFixed(3) }, d };
     }
     return best?.spot ?? null;
@@ -829,7 +893,12 @@ function compile(city: OsmCity): MapData {
     if (!t) throw new Error(`${city.id}: temple ${city.temple} not in the extract`);
     // Any path will do: the way into a temple compound is often a footway
     // (the Golden Temple's parikrama), not a street.
-    templeSpot = kerbSpot([t.x, t.z], () => true, Math.min(t.w, t.d) / 2);
+    // With a known entrance, at the kerb in front of it.
+    const templeRule = city.landmarks.find((r) => r.match.test(t.name));
+    templeSpot =
+      templeRule?.faces === undefined
+        ? kerbSpot([t.x, t.z], () => true, Math.min(t.w, t.d) / 2)
+        : kerbSpot(frontOf(t, 4), () => true, 0);
   } else {
     const road = roads.filter((r) => city.shrineOn!.test(r.name ?? ""));
     if (!road.length) throw new Error(`${city.id}: shrine road ${city.shrineOn} not in the extract`);
@@ -939,6 +1008,16 @@ function compile(city: OsmCity): MapData {
     const at: Pt = [spawnMark!.x, spawnMark!.z];
     const minDist = Math.max(spawnMark!.w, spawnMark!.d) / 2 + 8;
     const reach = Math.hypot(spawnMark!.w, spawnMark!.d) / 2 + 1.5;
+    // Facing its entrance when the rule says where that is.
+    const rule = city.landmarks.find((r) => r.match.test(spawnMark!.name));
+    if (rule?.faces !== undefined) {
+      const front = kerbSpotOrNull(frontOf(spawnMark!, 14), () => true, 0, Object.values(spots), 0, {
+        avoidR: 8,
+        sight: reach,
+        sightTo: at,
+      });
+      if (front) return { ...front, yaw: +Math.atan2(at[0] - front.x, at[1] - front.z).toFixed(3) };
+    }
     const inView = kerbSpotOrNull(at, () => true, minDist, Object.values(spots), 0, { avoidR: 8, sight: reach });
     if (inView) return inView;
     console.log(`${city.id}: no kerb with ${spawnMark!.name} in view; spawning at the nearest kerb`);
