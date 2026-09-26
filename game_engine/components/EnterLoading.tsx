@@ -20,6 +20,7 @@ export default function EnterLoading({ city }: { city?: string }) {
         { keys: <Glyph>↔</Glyph>, label: "Drag the street to look around" },
         { keys: <Glyph>☝</Glyph>, label: "Tap a vendor to start talking" },
         { keys: <Glyph>🎙</Glyph>, label: "Hold the mic button to speak" },
+        { keys: <Glyph>🗺</Glyph>, label: "Tap the minimap for the full map" },
       ]
     : [
         {
@@ -42,9 +43,11 @@ export default function EnterLoading({ city }: { city?: string }) {
           ),
           label: "Look around",
         },
+        { keys: <kbd>Shift</kbd>, label: "Run" },
         { keys: <kbd>E</kbd>, label: "Talk to whoever you are facing" },
         { keys: <kbd>Space</kbd>, label: "Jump" },
         { keys: <kbd>P</kbd>, label: "Open the phrasebook" },
+        { keys: <kbd>M</kbd>, label: "Open the map" },
       ];
 
   return (

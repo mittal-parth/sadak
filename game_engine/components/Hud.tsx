@@ -144,9 +144,11 @@ function Minimap({
       const scale = R / MAP_RANGE;
       const ui = size / MAP_PX;
 
+      // A rounded square, filling its card (GTA's minimap, not a disc in a box).
+      const corner = 4 * ui;
       ctx.save();
       ctx.beginPath();
-      ctx.arc(R, R, R - 2, 0, Math.PI * 2);
+      ctx.roundRect(1, 1, size - 2, size - 2, corner);
       ctx.clip();
 
       ctx.fillStyle = "#1d2229";
@@ -226,7 +228,7 @@ function Minimap({
           const dz = (lb.z - l.z) * scale;
           const sx = R + dx * cs - dz * sn;
           const sy = R + dx * sn + dz * cs;
-          if (Math.hypot(sx - R, sy - R) > R * 0.72) continue;
+          if (Math.max(Math.abs(sx - R), Math.abs(sy - R)) > R * 0.78) continue;
           const w = ctx.measureText(lb.name).width;
           if (w > size * 0.85) continue;
           if (used.some(([ux, uy, uw]) => Math.abs(ux - sx) < (uw + w) / 2 + 4 && Math.abs(uy - sy) < 12 * ui)) continue;
@@ -248,10 +250,10 @@ function Minimap({
       ctx.closePath();
       ctx.fill();
 
-      ctx.strokeStyle = "rgba(255,255,255,0.32)";
-      ctx.lineWidth = Math.max(1, 2 * ui);
+      ctx.strokeStyle = "rgba(255,255,255,0.28)";
+      ctx.lineWidth = Math.max(1, 1.5 * ui);
       ctx.beginPath();
-      ctx.arc(R, R, R - 2, 0, Math.PI * 2);
+      ctx.roundRect(1, 1, size - 2, size - 2, corner);
       ctx.stroke();
     };
 
@@ -271,7 +273,7 @@ function Minimap({
   );
 }
 
-function MinimapPanel({
+export function MinimapPanel({
   live,
   tasks,
   barber,
@@ -279,6 +281,7 @@ function MinimapPanel({
   map,
   onRecenter,
   onOpenMap,
+  showKey = false,
 }: {
   live: LiveState | null;
   tasks: TaskSnapshot[];
@@ -287,10 +290,17 @@ function MinimapPanel({
   map: MapData;
   onRecenter: () => void;
   onOpenMap: () => void;
+  /** Show the M key on it (keyboard play). */
+  showKey?: boolean;
 }) {
   return (
-    <div className="relative inline-block">
+    <div className="relative block overflow-hidden rounded-base">
       <Minimap live={live} tasks={tasks} barber={barber} size={size} map={map} onOpen={onOpenMap} />
+      {showKey && (
+        <kbd className="pointer-events-none absolute top-1.5 left-1.5 text-[10px] leading-none opacity-90" aria-hidden>
+          M
+        </kbd>
+      )}
       {/* ODbL requires the attribution wherever the map data is shown. */}
       <span className="pointer-events-none absolute bottom-0.5 left-1 text-[8px] leading-none text-white/70">
         © OpenStreetMap contributors
@@ -602,6 +612,9 @@ export default function Hud({
               <Badge variant="neutral" className="uppercase tracking-widest">
                 {district.name} · <strong className="font-indic normal-case">{district.native}</strong>
               </Badge>
+              <Button variant="neutral" size="sm" onClick={onOpenMap}>
+                <kbd>M</kbd> Map
+              </Button>
               <Button variant="neutral" size="sm" onClick={onTogglePhrases}>
                 <kbd>P</kbd> Phrasebook
               </Button>
@@ -672,8 +685,8 @@ export default function Hud({
 
           <div className="absolute right-6 bottom-6 max-lg:origin-bottom-right max-lg:scale-90">
             {tel && (
-              <HudCard className="p-2">
-                <CardContent className="px-2 py-0">
+              <HudCard className="p-1">
+                <CardContent className="p-0">
                   <MinimapPanel
                     map={map}
                     live={live}
@@ -682,6 +695,7 @@ export default function Hud({
                     size={mapSize}
                     onRecenter={onRecenter}
                     onOpenMap={onOpenMap}
+                    showKey
                   />
                 </CardContent>
               </HudCard>

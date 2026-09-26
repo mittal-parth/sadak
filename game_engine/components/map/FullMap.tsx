@@ -11,26 +11,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Crosshair, Maximize2, Minus, Plus, X } from "lucide-react";
 import type { LiveState, TaskSnapshot } from "@/lib/game/engine";
 import type { District } from "@/lib/game/districts";
-import type { MapData, Pt } from "@/lib/game/world/mapData";
+import type { MapData } from "@/lib/game/world/mapData";
 import { placeLabels, roadLabels } from "@/lib/game/world/mapLabels";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { kindColour, kindIcon, kindLabel } from "./mapKit";
+import { drawMapBase, kindColour, kindIcon, kindLabel, MAP_STYLE } from "./mapKit";
 
 /** Pixels per metre, limits. */
 const MAX_SCALE = 9;
 
 type View = { cx: number; cz: number; scale: number };
 
-const AREA_FILL: Record<string, string> = {
-  water: "#2d5f86",
-  sea: "#2d5f86",
-  park: "#2e4f33",
-  pitch: "#355c3a",
-  beach: "#7d6c47",
-  plaza: "#2c3138",
-  market: "#3a3328",
-};
 
 export function FullMap({
   map,
@@ -61,7 +52,9 @@ export function FullMap({
   // Opens centred on the player, about 300m across.
   const [view, setView] = useState<View | null>(null);
   const [hover, setHover] = useState<TaskSnapshot | null>(null);
-  const fit = useCallback((w: number, h: number): View => ({ cx: 0, cz: 0, scale: Math.min(w, h) / (map.half * 2 * 1.04) }), [map]);
+  // The whole district across the map's longer side: the view never shows
+  // the district as a square floating in an empty rectangle.
+  const fit = useCallback((w: number, h: number): View => ({ cx: 0, cz: 0, scale: Math.max(w, h) / (map.half * 2) }), [map]);
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -72,20 +65,23 @@ export function FullMap({
     return () => ro.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (view || !size.w) return;
-    setView({ cx: live?.x ?? 0, cz: live?.z ?? 0, scale: Math.min(size.w, size.h) / 300 });
-  }, [size, view, live]);
-
   const clamp = useCallback(
     (v: View): View => {
-      const min = fit(size.w, size.h).scale * 0.9;
+      const min = fit(size.w, size.h).scale;
       const scale = Math.min(MAX_SCALE, Math.max(min, v.scale));
+      // Keep the district's edge at or beyond the view's edge.
       const h = map.half;
-      return { scale, cx: Math.max(-h, Math.min(h, v.cx)), cz: Math.max(-h, Math.min(h, v.cz)) };
+      const mx = Math.max(0, h - size.w / 2 / scale);
+      const mz = Math.max(0, h - size.h / 2 / scale);
+      return { scale, cx: Math.max(-mx, Math.min(mx, v.cx)), cz: Math.max(-mz, Math.min(mz, v.cz)) };
     },
     [fit, size, map]
   );
+
+  useEffect(() => {
+    if (view || !size.w) return;
+    setView(clamp({ cx: live?.x ?? 0, cz: live?.z ?? 0, scale: Math.min(size.w, size.h) / 300 }));
+  }, [size, view, live, clamp]);
 
   /* ---- drawing ---- */
 
@@ -100,92 +96,16 @@ export function FullMap({
     const { cx, cz, scale } = view;
     const X = (x: number) => size.w / 2 + (x - cx) * scale;
     const Z = (z: number) => size.h / 2 + (z - cz) * scale;
-    const path = (pts: Pt[], close: boolean) => {
-      pts.forEach(([x, z], i) => (i ? ctx.lineTo(X(x), Z(z)) : ctx.moveTo(X(x), Z(z))));
-      if (close) ctx.closePath();
-    };
 
-    ctx.fillStyle = "#15191f";
+    ctx.fillStyle = MAP_STYLE.outside;
     ctx.fillRect(0, 0, size.w, size.h);
-    // The district's own square.
-    ctx.fillStyle = "#1d2229";
-    ctx.fillRect(X(-map.half), Z(-map.half), map.half * 2 * scale, map.half * 2 * scale);
-
-    for (const a of map.areas) {
-      ctx.beginPath();
-      path(a.pts, true);
-      a.holes?.forEach((h) => path(h, true));
-      ctx.fillStyle = AREA_FILL[a.kind] ?? "#2a2f36";
-      ctx.fill("evenodd");
-    }
-
-    // Railways: a dashed line down the middle of the track bed.
-    ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = "#5b6470";
-    ctx.lineWidth = Math.max(1, 1.4 * scale);
-    for (const r of map.rails) {
-      if (r.underground) continue;
-      ctx.beginPath();
-      path(r.pts, false);
-      ctx.stroke();
-    }
-    ctx.setLineDash([]);
-
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    const order = ["footway", "steps", "service", "living_street", "residential", "unclassified", "pedestrian", "tertiary", "secondary", "primary", "trunk"];
-    const sorted = [...map.roads].sort((a, b) => order.indexOf(a.cls) - order.indexOf(b.cls));
-    for (const r of sorted) {
-      const footpath = r.cls === "footway" || r.cls === "steps";
-      if (footpath && scale < 1.2) continue;
-      ctx.beginPath();
-      path(r.pts, false);
-      ctx.strokeStyle = footpath ? "#39414b" : r.surface ? "#b0735e" : r.w >= 10 ? "#8a95a3" : r.w >= 7 ? "#6f7a88" : "#555f6b";
-      ctx.lineWidth = Math.max(footpath ? 0.8 : 1.4, (r.w + r.foot * 2) * scale * (footpath ? 0.6 : 1));
-      ctx.stroke();
-    }
-
-    // Buildings, once there is room to see them.
-    if (scale > 0.9) {
-      ctx.fillStyle = "#3b424c";
-      for (const p of map.plots) {
-        const c = Math.cos(p.rot);
-        const s = Math.sin(p.rot);
-        const hw = p.w / 2;
-        const hd = p.d / 2;
-        ctx.beginPath();
-        for (const [u, v] of [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]]) {
-          const x = p.x + u * c + v * s;
-          const z = p.z - u * s + v * c;
-          ctx.lineTo(X(x), Z(z));
-        }
-        ctx.closePath();
-        ctx.fill();
-      }
-    }
-    for (const b of map.buildings) {
-      ctx.beginPath();
-      path(b.pts, true);
-      b.holes?.forEach((h) => path(h, true));
-      ctx.fillStyle = b.canopy ? "rgba(200,205,212,0.25)" : "#454d58";
-      ctx.fill("evenodd");
-    }
-    for (const l of map.landmarks) {
-      const c = Math.cos(l.rot);
-      const s = Math.sin(l.rot);
-      ctx.beginPath();
-      for (const [u, v] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
-        const x = l.x + (u * l.w * c) / 2 + (v * l.d * s) / 2;
-        const z = l.z - (u * l.w * s) / 2 + (v * l.d * c) / 2;
-        ctx.lineTo(X(x), Z(z));
-      }
-      ctx.closePath();
-      ctx.fillStyle = "rgba(201,162,58,0.55)";
-      ctx.fill();
-      ctx.strokeStyle = "#e3bd52";
-      ctx.lineWidth = 1.2;
-      ctx.stroke();
-    }
+    drawMapBase(ctx, map, X, Z, scale);
+    // A soft vignette, so the edges of the view settle back.
+    const vg = ctx.createRadialGradient(size.w / 2, size.h / 2, Math.min(size.w, size.h) * 0.45, size.w / 2, size.h / 2, Math.hypot(size.w, size.h) / 2);
+    vg.addColorStop(0, "rgba(0,0,0,0)");
+    vg.addColorStop(1, "rgba(0,0,0,0.35)");
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, size.w, size.h);
 
     // Street names along their streets; the smaller streets as you zoom in.
     // Markers are drawn last but claim their space first, so no name ever
@@ -400,7 +320,7 @@ export function FullMap({
           >
             <Crosshair className="size-4" aria-hidden />
           </Button>
-          <Button variant="neutral" size="icon" aria-label="Whole district" onClick={() => setView(fit(size.w, size.h))}>
+          <Button variant="neutral" size="icon" aria-label="Whole district" onClick={() => setView(clamp(fit(size.w, size.h)))}>
             <Maximize2 className="size-4" aria-hidden />
           </Button>
           <Button variant="neutral" onClick={onClose} aria-label="Close map">
@@ -410,7 +330,8 @@ export function FullMap({
         </div>
       </div>
 
-      <div ref={wrapRef} className="relative min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1">
+      <div ref={wrapRef} className="relative min-h-0 min-w-0 flex-1">
         <canvas
           ref={canvasRef}
           className="absolute inset-0 h-full w-full cursor-grab touch-none active:cursor-grabbing"
@@ -430,7 +351,7 @@ export function FullMap({
             {hover.done ? " · done" : ""}
           </div>
         )}
-        <div className="pointer-events-none absolute bottom-3 left-3 flex flex-col gap-1 rounded-md bg-black/60 px-3 py-2 text-xs">
+        <div className="pointer-events-none absolute bottom-3 left-3 flex flex-col gap-1 rounded-md bg-black/60 px-3 py-2 text-xs lg:hidden">
           {tasks.map((t) => (
             <span key={t.id} className={cn("flex items-center gap-2", t.done && "opacity-50 line-through")}>
               <span className="inline-block size-3 rounded-full" style={{ background: t.colour }} />
@@ -451,6 +372,60 @@ export function FullMap({
         <span className="pointer-events-none absolute right-3 bottom-2 text-[10px] text-white/60">
           © OpenStreetMap contributors
         </span>
+      </div>
+      {/* On a wide screen the key sits beside the map, so the map itself is
+          nearer square and the district fills it. */}
+      <aside className="hidden w-72 shrink-0 flex-col gap-5 overflow-y-auto border-l border-white/10 px-5 py-4 text-sm lg:flex">
+        <section className="flex flex-col gap-2">
+          <h3 className="text-xs uppercase tracking-widest text-white/60">Errands</h3>
+          {tasks.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className={cn("flex items-center gap-2 text-left hover:text-white", t.done ? "text-white/40 line-through" : "text-white/85")}
+              onClick={() => setView((v) => (v ? clamp({ ...v, cx: t.x, cz: t.z, scale: Math.max(v.scale, 2.5) }) : v))}
+            >
+              <span className="inline-block size-3 shrink-0 rounded-full" style={{ background: t.colour }} />
+              <span className="shrink-0">{kindIcon(t.kind)}</span>
+              <span className="min-w-0 truncate">{titles[t.id] ?? kindLabel(t.kind)}</span>
+            </button>
+          ))}
+          {barber && (
+            <span className="flex items-center gap-2 text-white/85">
+              <span className="inline-block size-3 rounded-full" style={{ background: kindColour("barber", false) }} />
+              {kindIcon("barber")} {kindLabel("barber")}
+            </span>
+          )}
+          <span className="flex items-center gap-2 text-white/85">
+            <span className="inline-block size-3 rounded-full bg-[#5ab0ff]" /> You
+          </span>
+        </section>
+        {found && (
+          <section className="flex flex-col gap-2">
+            <h3 className="text-xs uppercase tracking-widest text-white/60">
+              Places · {places.filter((p) => found.has(p.name)).length} of {places.length}
+            </h3>
+            {places.map((p) =>
+              found.has(p.name) ? (
+                <span key={p.name} className="truncate text-white/85">
+                  {p.name}
+                </span>
+              ) : null
+            )}
+            {places.some((p) => !found.has(p.name)) && (
+              <span className="text-white/50">? marks the ones still to find</span>
+            )}
+          </section>
+        )}
+        <section className="flex flex-col gap-1.5 text-white/70">
+          <h3 className="text-xs uppercase tracking-widest text-white/60">Controls</h3>
+          <span>Drag to move, scroll to zoom</span>
+          <span>Click an errand to go to it</span>
+          <span>
+            <kbd>M</kbd> or <kbd>Esc</kbd> to close
+          </span>
+        </section>
+      </aside>
       </div>
     </div>
   );
