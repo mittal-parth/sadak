@@ -56,7 +56,25 @@ export type PersonOptions = {
   cloth2?: number;
   /** When false, skips random shoulder bag / head bundle props. */
   carryProp?: boolean;
+  /** Overrides the seeded sex (an errand host must match their voice). */
+  female?: boolean;
+  /** Overrides the seeded hair or headwear. "dupatta" is a scarf drawn over
+   *  the hair; "skullcap" a crocheted cap. */
+  headwear?: Headwear;
+  /** Colour of a turban, topi, cap, dupatta or skullcap. */
+  headColour?: number;
+  /** Work kit worn over the clothes, each piece in its own colour. */
+  kit?: KitPiece[];
+  /** Colour of an angavastram or apron, where it isn't the usual one. */
+  kitColour?: number;
 };
+
+export type Headwear = "short" | "bald" | "bun" | "braid" | "turban" | "topi" | "cap" | "dupatta" | "skullcap";
+
+/** Apron (cooks, sweet sellers), the conductor's leather cash bag, an ID on
+ *  a lanyard (ticket clerks), a towel over the shoulder (auto drivers), an
+ *  angavastram across the chest (temple stalls). */
+export type KitPiece = "apron" | "ticketBag" | "lanyard" | "towel" | "angavastram";
 
 /** Named pivots exposed on `group.userData.limbs` so callers can pose them. */
 export type PersonLimbs = {
@@ -350,7 +368,9 @@ export function makePerson(
   // ---- Build variation from the seed --------------------------------
   const heightScale = opts.heightScale ?? 0.92 + rand() * 0.2; // ~0.92-1.12
   const build = 0.98 + rand() * 0.22; // torso/limb girth multiplier
-  const female = preset === "sari" || preset === "salwar_kameez" ? rand() > 0.15 : rand() > 0.72;
+  const femaleRoll = rand();
+  const female =
+    opts.female ?? (preset === "sari" || preset === "salwar_kameez" ? femaleRoll > 0.15 : femaleRoll > 0.72);
 
   const skin = opts.skin ?? SKIN_TONES[Math.floor(rand() * SKIN_TONES.length)];
   const clothPool =
@@ -531,8 +551,9 @@ export function makePerson(
 
   // ---- Hair / headwear (also drives whether a topi/turban is worn) ----
   const hairRoll = rand();
-  const hairStyle =
-    preset === "uniform"
+  const hairStyle: Headwear | "helmet" =
+    opts.headwear ??
+    (preset === "uniform"
       ? "cap"
       : preset === "delivery_rider"
       ? "helmet"
@@ -548,7 +569,10 @@ export function makePerson(
       ? "turban"
       : hairRoll < 0.46
       ? "topi"
-      : "short";
+      : "short");
+  // Headwear in a chosen colour goes in its own mesh.
+  const headStatic: THREE.BufferGeometry[] = [];
+  const headList = (fallback: THREE.BufferGeometry[]) => (opts.headColour !== undefined ? headStatic : fallback);
 
   /** Sphere with its bottom resting on the skull crown (hip-local Y). */
   const onCrown = (r: number, sy: number, sz = 1) =>
@@ -557,7 +581,7 @@ export function makePerson(
   // Actual hair over the scalp for the uncovered styles. Without this the
   // bare lathe crown is skin-coloured and every "short"-haired character —
   // most of the crowd — reads as bald.
-  if (hairStyle === "short" || hairStyle === "bun" || hairStyle === "braid") {
+  if (hairStyle === "short" || hairStyle === "bun" || hairStyle === "braid" || hairStyle === "dupatta" || hairStyle === "skullcap") {
     // Sized to hug the crown and swept slightly back, so it shows a hairline
     // above the forehead without ever dipping over the eyes (z 0.078).
     hairStatic.push(
@@ -587,22 +611,31 @@ export function makePerson(
       );
     }
   } else if (hairStyle === "turban") {
+    const into = headList(cloth2Static);
     for (let i = 0; i < 2; i++) {
-      cloth2Static.push(
-        torusAt(0.086 - i * 0.008, 0.028, 0, skullCrownY - 0.06 + i * 0.045, 0)
-      );
+      into.push(torusAt(0.086 - i * 0.008, 0.028, 0, skullCrownY - 0.06 + i * 0.045, 0));
     }
-    cloth2Static.push(sphereAt(0.05, 0.02, skullCrownY + 0.04, 0.01, 1, 0.8, 1, 6, 4));
+    into.push(sphereAt(0.05, 0.02, skullCrownY + 0.04, 0.01, 1, 0.8, 1, 6, 4));
   } else if (hairStyle === "topi") {
-    accentStatic.push(
+    headList(accentStatic).push(
       xf(new THREE.CylinderGeometry(0.082, 0.086, 0.05, 8), 0, skullCrownY + 0.025, 0)
     );
   } else if (hairStyle === "cap") {
     // Constable's peaked cap.
-    accentStatic.push(
-      xf(new THREE.CylinderGeometry(0.09, 0.09, 0.07, 8), 0, skullCrownY + 0.035, 0)
+    const into = headList(accentStatic);
+    into.push(xf(new THREE.CylinderGeometry(0.09, 0.09, 0.07, 8), 0, skullCrownY + 0.035, 0));
+    into.push(boxAt(0.16, 0.02, 0.09, 0, skullCrownY + 0.01, 0.09));
+  } else if (hairStyle === "dupatta") {
+    // Drawn over the crown and falling down the back to the shoulders.
+    const into = headList(cloth2Static);
+    into.push(
+      xf(new THREE.SphereGeometry(0.104, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.62), 0, skullCrownY - 0.07, -0.01)
     );
-    accentStatic.push(boxAt(0.16, 0.02, 0.09, 0, skullCrownY + 0.01, 0.09));
+    into.push(boxAt(0.2, 0.3, 0.02, 0, skullCrownY - 0.2, -0.09, -0.12));
+  } else if (hairStyle === "skullcap") {
+    headList(accentStatic).push(
+      xf(new THREE.SphereGeometry(0.094, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.42), 0, skullCrownY - 0.05, -0.005)
+    );
   } else if (hairStyle === "helmet") {
     accentStatic.push(sphereAt(0.1, 0, skullCrownY - 0.04, 0, 1, 0.92, 1, 8, 6));
     accentStatic.push(boxAt(0.15, 0.03, 0.08, 0, skullCrownY - 0.14, 0.1, -0.15));
@@ -656,13 +689,59 @@ export function makePerson(
     }
   }
 
+  // ---- Work kit ----
+  const kitParts: { geo: THREE.BufferGeometry[]; colour: number }[] = [];
+  const kit = (colour: number) => {
+    const piece = { geo: [] as THREE.BufferGeometry[], colour };
+    kitParts.push(piece);
+    return piece.geo;
+  };
+  const chestZ = torsoBotR + 0.015;
+  for (const piece of opts.kit ?? []) {
+    if (piece === "apron") {
+      const g = kit(opts.kitColour ?? 0xf2efe6);
+      g.push(boxAt(hipW * 2.1, 0.62, 0.012, 0, waistTop - hipY - 0.2, chestZ + 0.01));
+      g.push(boxAt(hipW * 1.5, 0.32, 0.012, 0, shoulderY - hipY - 0.2, chestZ));
+      [-1, 1].forEach((sx) => g.push(boxAt(0.015, 0.2, 0.012, sx * 0.07, shoulderY - hipY + 0.02, chestZ - 0.03, -0.3)));
+    } else if (piece === "ticketBag") {
+      // Leather cash bag at the hip on a strap across the chest, a punch on
+      // a cord.
+      const g = kit(0x5b3a22);
+      g.push(boxAt(0.2, 0.17, 0.07, shoulderW * 0.95, -0.02, 0.05));
+      g.push(boxAt(0.2, 0.05, 0.075, shoulderW * 0.95, 0.06, 0.05));
+      g.push(boxAt(0.03, 0.62, 0.015, 0.0, shoulderY - hipY - 0.26, chestZ, 0, 0, 0.62));
+      kit(0x9aa0a6).push(boxAt(0.05, 0.08, 0.02, -shoulderW * 0.4, shoulderY - hipY - 0.33, chestZ + 0.01));
+    } else if (piece === "lanyard") {
+      const g = kit(0x2f5f8f);
+      [-1, 1].forEach((sx) => g.push(boxAt(0.012, 0.24, 0.01, sx * 0.045, shoulderY - hipY - 0.06, chestZ, 0, 0, sx * 0.18)));
+      kit(0xf4f4f0).push(boxAt(0.07, 0.095, 0.01, 0, shoulderY - hipY - 0.23, chestZ + 0.005));
+    } else if (piece === "towel") {
+      // Folded over the right shoulder, hanging front and back.
+      const g = kit(0xf2efe6);
+      g.push(boxAt(0.1, 0.04, 0.3, shoulderW * 0.8, shoulderY - hipY + 0.03, 0));
+      g.push(boxAt(0.1, 0.22, 0.02, shoulderW * 0.8, shoulderY - hipY - 0.08, chestZ));
+      g.push(boxAt(0.1, 0.26, 0.02, shoulderW * 0.8, shoulderY - hipY - 0.1, -chestZ));
+      kit(0xc0392b).push(boxAt(0.101, 0.02, 0.021, shoulderW * 0.8, shoulderY - hipY - 0.15, chestZ));
+    } else if (piece === "angavastram") {
+      // Across the chest from the left shoulder, ends hanging.
+      const g = kit(opts.kitColour ?? 0xe8872a);
+      g.push(boxAt(0.07, 0.62, 0.014, 0, shoulderY - hipY - 0.24, chestZ, 0, 0, -0.62));
+      g.push(boxAt(0.07, 0.62, 0.014, 0, shoulderY - hipY - 0.24, -chestZ, 0, 0, 0.62));
+      g.push(boxAt(0.08, 0.3, 0.014, -shoulderW * 0.75, shoulderY - hipY - 0.12, chestZ));
+    }
+  }
+
   const torsoGroup = new THREE.Group();
   const meshSkin = mergeAndMesh(skinStatic, mats.skin);
   const meshCloth = mergeAndMesh(clothStatic, mats.cloth);
   const meshCloth2 = mergeAndMesh(cloth2Static, clothMat2);
   const meshHair = mergeAndMesh(hairStatic, mats.hair);
   const meshAccent = mergeAndMesh(accentStatic, mats.accent);
-  [meshSkin, meshCloth, meshCloth2, meshHair, meshAccent].forEach((m) => {
+  const localMat = (color: number) =>
+    materials ? materials.tint("tarpaulin", color, 0.1) : new THREE.MeshStandardMaterial({ color, roughness: 0.9 });
+  const meshHead = opts.headColour !== undefined ? mergeAndMesh(headStatic, localMat(opts.headColour)) : null;
+  const meshKit = kitParts.map((k) => mergeAndMesh(k.geo, localMat(k.colour)));
+  [meshSkin, meshCloth, meshCloth2, meshHair, meshAccent, meshHead, ...meshKit].forEach((m) => {
     if (m) torsoGroup.add(m);
     countTris(m);
   });
