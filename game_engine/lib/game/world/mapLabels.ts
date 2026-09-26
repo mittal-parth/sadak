@@ -11,7 +11,23 @@ import type { MapData, MapRoad, Pt } from "./mapData";
 export type RoadLabel = { name: string; x: number; z: number; angle: number; rank: number };
 
 /** A named place: a landmark, a park or market, a station. */
-export type PlaceLabel = { name: string; x: number; z: number; kind: "landmark" | "area" | "station" };
+export type PlaceLabel = { name: string; x: number; z: number; kind: "landmark" | "area" | "station" | "building" };
+
+/** Named OSM buildings big enough to be somewhere (a langar hall, a market,
+ *  a ferry station), not every named shop or clinic. */
+const BIG_BUILDING = 600;
+
+function polyArea(p: Pt[]): number {
+  let a = 0;
+  for (let i = 0; i < p.length; i++) {
+    const [x0, z0] = p[i];
+    const [x1, z1] = p[(i + 1) % p.length];
+    a += x0 * z1 - x1 * z0;
+  }
+  return Math.abs(a / 2);
+}
+
+const namedBuildings = (map: MapData) => map.buildings.filter((b) => b.name && !b.canopy && polyArea(b.pts) >= BIG_BUILDING);
 
 /** Streets a name can be lettered on and a player can be "on". */
 const named = (r: MapRoad) => !!r.name && r.cls !== "steps";
@@ -90,7 +106,8 @@ function centroid(pts: Pt[]): Pt {
   return [x, z];
 }
 
-/** Landmarks, named parks, markets, beaches and tanks, and stations. */
+/** Landmarks, named parks, markets, beaches and tanks, stations, and the
+ *  big named buildings. */
 export function placeLabels(map: MapData): PlaceLabel[] {
   const out: PlaceLabel[] = [];
   const seen = new Set<string>();
@@ -106,6 +123,10 @@ export function placeLabels(map: MapData): PlaceLabel[] {
     add({ name: a.name, x, z, kind: "area" });
   }
   for (const p of map.pois) if (p.kind === "station" && p.name) add({ name: p.name, x: p.x, z: p.z, kind: "station" });
+  for (const b of namedBuildings(map)) {
+    const [x, z] = centroid(b.pts);
+    add({ name: b.name!, x, z, kind: "building" });
+  }
   return out;
 }
 
@@ -123,6 +144,19 @@ function inRing(x: number, z: number, ring: Pt[]): boolean {
     if (zi > z !== zj > z && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside;
   }
   return inside;
+}
+
+/** Distance from (x, z) to a ring's nearest edge. */
+function edgeDist(x: number, z: number, ring: Pt[]): number {
+  let best = Infinity;
+  for (let i = 0; i < ring.length; i++) {
+    const [ax, az] = ring[i];
+    const [bx, bz] = ring[(i + 1) % ring.length];
+    const L2 = (bx - ax) ** 2 + (bz - az) ** 2 || 1e-9;
+    const t = Math.max(0, Math.min(1, ((x - ax) * (bx - ax) + (z - az) * (bz - az)) / L2));
+    best = Math.min(best, Math.hypot(x - ax - t * (bx - ax), z - az - t * (bz - az)));
+  }
+  return best;
 }
 
 /** Answers "where am I" fast enough to ask a few times a second. */
@@ -152,6 +186,8 @@ export function createLocator(map: MapData): Locator {
     for (const k of keys) buckets.set(k, [...(buckets.get(k) ?? []), r]);
   }
   const areas = map.areas.filter((a) => a.name && a.kind !== "sea" && a.kind !== "water");
+  const buildings = namedBuildings(map);
+  const tanks = map.areas.filter((a) => a.name && a.kind === "water");
   return {
     locate(x, z) {
       // On a street: the nearest named one whose carriageway or footpath
@@ -171,17 +207,19 @@ export function createLocator(map: MapData): Locator {
           }
         }
       }
-      // At a place: inside (or on the doorstep of) a landmark, else in a
-      // named park, market or beach.
+      // At a place: inside (or on the doorstep of) a landmark (the smallest,
+      // when one stands in another's grounds), else in a named park, market
+      // or beach, else in a big named building.
       let place: string | null = null;
+      let smallest = Infinity;
       for (const l of map.landmarks) {
         const c = Math.cos(l.rot);
         const s = Math.sin(l.rot);
         const u = (x - l.x) * c - (z - l.z) * s;
         const v = (x - l.x) * s + (z - l.z) * c;
-        if (Math.abs(u) < l.w / 2 + 6 && Math.abs(v) < l.d / 2 + 6) {
+        if (Math.abs(u) < l.w / 2 + 6 && Math.abs(v) < l.d / 2 + 6 && l.w * l.d < smallest) {
+          smallest = l.w * l.d;
           place = l.name;
-          break;
         }
       }
       if (!place) {
@@ -189,6 +227,58 @@ export function createLocator(map: MapData): Locator {
           if (inRing(x, z, a.pts) && !(a.holes ?? []).some((h) => inRing(x, z, h))) {
             place = a.name!;
             break;
+          }
+        }
+      }
+      if (!place) {
+        for (const b of buildings) {
+          if (inRing(x, z, b.pts) || edgeDist(x, z, b.pts) < 6) {
+            place = b.name!;
+            break;
+          }
+        }
+      }
+      // Nowhere named underfoot: say what is near (a lane off a named street,
+      // the forecourt of a landmark), within a short walk.
+      if (!place && !road) {
+        let near = 60;
+        for (const l of map.landmarks) {
+          const d = Math.hypot(x - l.x, z - l.z) - Math.max(l.w, l.d) / 2;
+          if (d < near) {
+            near = d;
+            place = l.name;
+          }
+        }
+        for (const b of buildings) {
+          const d = edgeDist(x, z, b.pts);
+          if (d < near) {
+            near = d;
+            place = b.name!;
+          }
+        }
+        // On the bank of a named tank or lake (Bindu Sagar's ghats).
+        for (const a of tanks) {
+          const d = edgeDist(x, z, a.pts);
+          if (d < Math.min(near, 25)) {
+            near = d;
+            place = a.name!;
+          }
+        }
+      }
+      if (!place && !road) {
+        let near = 60;
+        for (const r of map.roads) {
+          if (!named(r)) continue;
+          for (let i = 0; i < r.pts.length - 1; i++) {
+            const [ax, az] = r.pts[i];
+            const [bx, bz] = r.pts[i + 1];
+            const L2 = (bx - ax) ** 2 + (bz - az) ** 2 || 1e-9;
+            const t = Math.max(0, Math.min(1, ((x - ax) * (bx - ax) + (z - az) * (bz - az)) / L2));
+            const d = Math.hypot(x - ax - t * (bx - ax), z - az - t * (bz - az));
+            if (d < near) {
+              near = d;
+              road = r.name!;
+            }
           }
         }
       }

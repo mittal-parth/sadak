@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { MapData } from "./mapData";
 import { createLocator, placeLabels, roadLabels } from "./mapLabels";
+import { SEED_DISTRICTS } from "../districts";
 
 const loadMap = (id: string) => JSON.parse(readFileSync(join(__dirname, "../../../public/maps", `${id}.json`), "utf8")) as MapData;
 
@@ -60,3 +61,27 @@ function distToSeg(p: [number, number], a: [number, number], b: [number, number]
   const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / L2));
   return Math.hypot(p[0] - a[0] - t * (b[0] - a[0]), p[1] - a[1] - t * (b[1] - a[1]));
 }
+
+test("every landmark is lettered and announced as itself, and every errand says where it is", () => {
+  for (const d of SEED_DISTRICTS) {
+    const map = loadMap(d.id);
+    const places = placeLabels(map);
+    const where = createLocator(map);
+    for (const l of map.landmarks) {
+      assert.ok(places.some((p) => p.name === l.name), `${d.id}: ${l.name} not on the map`);
+      assert.equal(where.locate(l.x, l.z).place, l.name, `${d.id}: at ${l.name} the card says otherwise`);
+    }
+    const namedRoads = map.roads.filter((r) => r.name);
+    for (const [id, s] of Object.entries({ ...map.spots, ...map.errandSpots })) {
+      const w = where.locate(s.x, s.z);
+      if (w.place || w.road) continue;
+      // Only where OSM names nothing near (the card then gives the district).
+      const nearPlace = places.some((p) => Math.hypot(p.x - s.x, p.z - s.z) < 120);
+      const nearRoad = namedRoads.some((r) => r.pts.some(([x, z]) => Math.hypot(x - s.x, z - s.z) < 120));
+      assert.ok(!nearPlace && !nearRoad, `${d.id}: the ${id} errand is nowhere, with names close by`);
+    }
+  }
+  // Big named buildings are places: Amritsar's langar hall.
+  const amritsar = loadMap("hall-bazaar");
+  assert.ok(placeLabels(amritsar).some((p) => p.kind === "building" && /Langar Ghar/.test(p.name)));
+});

@@ -40,6 +40,7 @@ export function LocationCard({
 
   useEffect(() => {
     let lastKey: string | null = null;
+    let lastTitle: string | null = null;
     let pending: { key: string; since: number } | null = null;
     let hideAt = 0;
     let n = 0;
@@ -62,11 +63,13 @@ export function LocationCard({
         // The first reading, on arrival, shows at once.
         if (lastKey !== null) return;
       } else if (now - pending.since < SETTLE_MS) return;
-      // Nothing named here: keep quiet rather than announce "nowhere".
       const title = where.place ?? where.road;
       lastKey = key;
       pending = null;
-      if (!title && n > 0) return;
+      // Off every named street (Amritsar's bazaar lanes, which OSM leaves
+      // unnamed): the district, once, rather than nothing or "nowhere".
+      if (!title && lastTitle === district.name) return;
+      lastTitle = title ?? district.name;
       // Under the name: the street you are on at a place, else the district
       // (just the city when the street is what the district is named for).
       const shown = title ?? district.name;
