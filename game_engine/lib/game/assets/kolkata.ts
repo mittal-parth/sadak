@@ -1,5 +1,5 @@
 /**
- * Kolkata / Park Gully kit.
+ * Kolkata / Park Street kit.
  *
  * Signature reads: a rounded 1950s yellow Ambassador (bulbous, unmistakably
  * not the boxy auto), a tram with a roof pantograph reaching for an overhead

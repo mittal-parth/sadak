@@ -1,5 +1,5 @@
 /**
- * Bengaluru / Majestic Cross kit.
+ * Bengaluru / Majestic kit.
  *
  * Signature reads: a glass-and-steel tech park slab with a real mullion
  * grid (not a flat-coloured box), bamboo/steel scaffolding wrapped in green

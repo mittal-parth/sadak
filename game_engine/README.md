@@ -44,10 +44,10 @@ city**, so the four arcs are not the same shape.
 
 | District | City | Language | The job | Shape |
 | --- | --- | --- | --- | --- |
-| **Purani Sadak** | Old Delhi | हिन्दी | Raju's auto is gone, and Friday's loan instalment isn't | 3 open, then a 3-clue confrontation |
-| **Marina Nagar** | Chennai | தமிழ் | Selvi's fish tempo vanished; the catch rots by noon | 2 open, a 2-clue gate, then a 3-clue confrontation |
-| **Majestic Cross** | Bengaluru | ಕನ್ನಡ | A rented delivery scooter, cash bag still under the seat | 3 open, then a 2-clue confrontation |
-| **Park Gully** | Kolkata | বাংলা | A yellow Ambassador, and the photograph clipped to its visor | 2 open, a 1-clue gate, then a 3-clue confrontation |
+| **Chandni Chowk** | Old Delhi | हिन्दी | Raju's auto is gone, and Friday's loan instalment isn't | 3 open, then a 3-clue confrontation |
+| **Triplicane** | Chennai | தமிழ் | Selvi's fish tempo vanished; the catch rots by noon | 2 open, a 2-clue gate, then a 3-clue confrontation |
+| **Majestic** | Bengaluru | ಕನ್ನಡ | A rented delivery scooter, cash bag still under the seat | 3 open, then a 2-clue confrontation |
+| **Park Street** | Kolkata | বাংলা | A yellow Ambassador, and the photograph clipped to its visor | 2 open, a 1-clue gate, then a 3-clue confrontation |
 
 Nobody hands anything over. Kumar mocks you for saying "tea" instead of chai.
 Havaldar Singh throws you out if you hint at a bribe. Dass hardens if you accuse

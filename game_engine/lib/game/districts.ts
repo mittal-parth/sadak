@@ -165,7 +165,7 @@ function phrasebookLesson(phrases: Phrase[]): LessonStep[] {
 
 const puraniSadak: District = {
   id: "purani-sadak",
-  name: "Purani Sadak",
+  name: "Chandni Chowk",
   city: "Old Delhi",
   blurb: "Dust, gold light, and an auto that isn't where it was left.",
   coverImage: "/covers/purani-sadak.png",
@@ -390,7 +390,7 @@ const marinaPhrases: Phrase[] = [
 
 const marinaNagar: District = {
   id: "marina-nagar",
-  name: "Marina Nagar",
+  name: "Triplicane",
   city: "Chennai",
   blurb: "Salt air, white light, and a fish tempo gone from the shore road.",
   coverImage: "/covers/marina-nagar.png",
@@ -550,7 +550,7 @@ const majesticPhrases: Phrase[] = [
 
 const majesticCross: District = {
   id: "majestic-cross",
-  name: "Majestic Cross",
+  name: "Majestic",
   city: "Bengaluru",
   blurb: "Bright bougainvillea, clear morning light, and a delivery scooter that never came back.",
   coverImage: "/covers/majestic-cross.png",
@@ -711,7 +711,7 @@ const parkGullyPhrases: Phrase[] = [
 
 const parkGully: District = {
   id: "park-gully",
-  name: "Park Gully",
+  name: "Park Street",
   city: "Kolkata",
   blurb: "Wet red brick, failing light, and a yellow taxi that didn't come home.",
   coverImage: "/covers/park-gully.png",

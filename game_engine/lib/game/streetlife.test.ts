@@ -305,6 +305,15 @@ test("city errands use the kinds the game knows", () => {
   assert.deepEqual(counters, ["dadar-chowk-local", "fort-kochi-ferry", "majestic-cross-metro"]);
 });
 
+test("districts carry the real place names, and migration 013 matches the seeds", () => {
+  const sql = readFileSync(join(__dirname, "../../supabase/migrations/013_real_district_names.sql"), "utf8");
+  const live = new Map([...sql.matchAll(/'"([^"]+)"'::jsonb\), updated_at = now\(\)\nwhere id = '([a-z-]+)'/g)].map((m) => [m[2], m[1]]));
+  assert.equal(live.size, SEED_DISTRICTS.length);
+  for (const d of SEED_DISTRICTS) assert.equal(live.get(d.id), d.name, `${d.id} name in migration 013`);
+  const invented = ["Purani Sadak", "Marina Nagar", "Majestic Cross", "Park Gully", "Charminar Lane", "Dadar Chowk", "Hall Bazaar", "Lingaraj Lane"];
+  for (const d of SEED_DISTRICTS) assert.ok(!invented.includes(d.name), `${d.id} still has an invented name`);
+});
+
 test("footpaths stop short of junctions", () => {
   const map = loadMap("park-gully");
   const strips = footpathStrips(map);

@@ -101,7 +101,7 @@ function preset(o: Overrides): RenderPreset {
 }
 
 export const DELHI_PRESET = preset({
-  name: "Purani Sadak — bright golden afternoon",
+  name: "Chandni Chowk — bright golden afternoon",
   celShadowTint: 0x8a7fb8,
   tone: { splitLight: [1.0, 0.97, 0.9] },
   grade: {
@@ -116,7 +116,7 @@ export const DELHI_PRESET = preset({
 });
 
 export const CHENNAI_PRESET = preset({
-  name: "Marina Nagar — clear coastal noon",
+  name: "Triplicane — clear coastal noon",
   celShadowTint: 0x7f8fc4,
   tone: { splitShadow: [0.84, 0.88, 1.0] },
   grade: {
@@ -131,7 +131,7 @@ export const CHENNAI_PRESET = preset({
 });
 
 export const BENGALURU_PRESET = preset({
-  name: "Majestic Cross — bright garden-city morning",
+  name: "Majestic — bright garden-city morning",
   celShadowTint: 0x7c93b8,
   tone: { splitShadow: [0.84, 0.9, 0.98] },
   grade: {
@@ -146,7 +146,7 @@ export const BENGALURU_PRESET = preset({
 });
 
 export const KOLKATA_PRESET = preset({
-  name: "Park Gully — pink-gold late afternoon",
+  name: "Park Street — pink-gold late afternoon",
   celShadowTint: 0x9a7cb4,
   tone: { splitShadow: [0.9, 0.82, 0.98], splitLight: [1.0, 0.95, 0.9] },
   grade: {
@@ -161,7 +161,7 @@ export const KOLKATA_PRESET = preset({
 });
 
 export const HYDERABAD_PRESET = preset({
-  name: "Charminar Lane — warm violet afternoon",
+  name: "Charminar — warm violet afternoon",
   celShadowTint: 0x9178bc,
   tone: { splitShadow: [0.88, 0.82, 1.0], splitLight: [1.0, 0.96, 0.92] },
   grade: {
@@ -193,7 +193,7 @@ export const KOCHI_PRESET = preset({
 });
 
 export const MUMBAI_PRESET = preset({
-  name: "Dadar Chowk — bright coastal midday",
+  name: "Dadar — bright coastal midday",
   celShadowTint: 0x8488c0,
   grade: {
     lift: [0.006, 0.006, 0.01],
@@ -222,7 +222,7 @@ export const AHMEDABAD_PRESET = preset({
 });
 
 export const AMRITSAR_PRESET = preset({
-  name: "Hall Bazaar — golden hour, clear",
+  name: "Golden Temple — golden hour, clear",
   celShadowTint: 0x9a7fb0,
   tone: { splitLight: [1.0, 0.95, 0.86] },
   grade: {
@@ -237,7 +237,7 @@ export const AMRITSAR_PRESET = preset({
 });
 
 export const BHUBANESWAR_PRESET = preset({
-  name: "Lingaraj Lane — warm sandstone light",
+  name: "Old Town — warm sandstone light",
   celShadowTint: 0x9280b4,
   tone: { splitLight: [1.0, 0.97, 0.9] },
   grade: {

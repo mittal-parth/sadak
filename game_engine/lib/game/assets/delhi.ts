@@ -1,5 +1,5 @@
 /**
- * Old Delhi / Purani Sadak kit.
+ * Old Delhi / Chandni Chowk kit.
  *
  * Signature reads: a pointed-arch bazaar gate crowned with chhatri domes, a
  * three-wheeled cycle-rickshaw (NOT an auto — pedal-driven, open canopy,
