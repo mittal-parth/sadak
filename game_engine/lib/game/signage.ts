@@ -300,3 +300,135 @@ export function createSignAtlas(language: LangCode, seed = 1): SignAtlas {
     },
   };
 }
+
+/* ------------------------------------------------------------------ *
+ * Film hoardings
+ * ------------------------------------------------------------------ */
+
+/** Four made-up film titles per language, one word each, the way a
+ *  mass-release hoarding shouts its title. */
+const FILM_TITLES: Record<LangCode, string[]> = {
+  "hi-IN": ["शेर", "तूफ़ान", "बादशाह", "दिलवाला"],
+  "mr-IN": ["वादळ", "राजा", "दादा", "प्रेम"],
+  "ta-IN": ["புலி", "தலைவன்", "காதல்", "மெரினா"],
+  "kn-IN": ["ಹುಲಿ", "ಬೆಂಕಿ", "ರಾಜ", "ಪ್ರೀತಿ"],
+  "bn-IN": ["বাঘ", "ঝড়", "রাজা", "প্রেম"],
+  "te-IN": ["సింహం", "రాజు", "ప్రేమ", "తుఫాను"],
+  "ml-IN": ["കടുവ", "കടൽ", "രാജാവ്", "പ്രണയം"],
+  "gu-IN": ["વાઘ", "તોફાન", "રાજા", "પ્રેમ"],
+  "pa-IN": ["ਸ਼ੇਰ", "ਤੂਫ਼ਾਨ", "ਜੱਟ", "ਪਿਆਰ"],
+  "od-IN": ["ବାଘ", "ଝଡ଼", "ରାଜା", "ପ୍ରେମ"],
+  "en-IN": ["TIGER", "STORM", "KING", "LOVE"],
+};
+
+const POSTER_W = 512;
+const POSTER_H = 224;
+const POSTER_SKIES: [string, string][] = [
+  ["#ff5e3a", "#ffcf3a"],
+  ["#1d2b64", "#f8cdda"],
+  ["#c31432", "#240b36"],
+  ["#11998e", "#38ef7d"],
+];
+
+function paintPosters(ctx: CanvasRenderingContext2D, titles: string[], stack: string, seed: number) {
+  const rand = mulberry32(seed);
+  for (let i = 0; i < 4; i++) {
+    const x = (i % 2) * POSTER_W;
+    const y = Math.floor(i / 2) * POSTER_H;
+    const [a, b] = POSTER_SKIES[i];
+    const grad = ctx.createLinearGradient(x, y, x, y + POSTER_H);
+    grad.addColorStop(0, a);
+    grad.addColorStop(1, b);
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, POSTER_W, POSTER_H);
+    // Sunburst behind the hero.
+    const cx = x + POSTER_W * 0.3;
+    const cy = y + POSTER_H * 0.55;
+    ctx.fillStyle = "rgba(255,255,255,0.14)";
+    for (let k = 0; k < 14; k++) {
+      const t0 = (k / 14) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(t0) * 400, cy + Math.sin(t0) * 400);
+      ctx.lineTo(cx + Math.cos(t0 + 0.12) * 400, cy + Math.sin(t0 + 0.12) * 400);
+      ctx.closePath();
+      ctx.fill();
+    }
+    // Hero and heroine, shoulders up, in silhouette.
+    const figure = (fx: number, s: number, hex: string) => {
+      ctx.fillStyle = hex;
+      ctx.beginPath();
+      ctx.arc(fx, y + POSTER_H - 118 * s, 34 * s, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(fx, y + POSTER_H + 10 * s, 78 * s, 82 * s, 0, Math.PI, 0);
+      ctx.fill();
+    };
+    figure(x + POSTER_W * 0.24, 1.25, "#1b1b24");
+    figure(x + POSTER_W * 0.42, 0.95, "#3a1f2e");
+    // Title: big, gold with a dark outline, the English strap small.
+    const title = titles[i % titles.length];
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    fitFont(ctx, title, 96, POSTER_W * 0.42, stack);
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = "#1b1b24";
+    ctx.strokeText(title, x + POSTER_W * 0.75, y + POSTER_H * 0.42);
+    ctx.fillStyle = rand() < 0.5 ? "#ffd23f" : "#ffffff";
+    ctx.fillText(title, x + POSTER_W * 0.75, y + POSTER_H * 0.42);
+    ctx.font = `${WEIGHT} 20px ${SYSTEM_STACK}`;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText("NOW SHOWING", x + POSTER_W * 0.75, y + POSTER_H * 0.78);
+    // Frame.
+    ctx.strokeStyle = "#f4efe4";
+    ctx.lineWidth = 6;
+    ctx.strokeRect(x + 3, y + 3, POSTER_W - 6, POSTER_H - 6);
+  }
+}
+
+export type PosterAtlas = { texture: THREE.CanvasTexture; rect(i: number): UvRect; dispose(): void };
+
+/** Four film hoardings in one texture, lettered in the district's script. */
+export function createFilmPosters(language: LangCode, seed = 5): PosterAtlas {
+  const titles = FILM_TITLES[language];
+  const family = SCRIPT_FONT[language];
+  const stack = family ? `"${family}", ${SYSTEM_STACK}` : SYSTEM_STACK;
+  const canvas = document.createElement("canvas");
+  canvas.width = POSTER_W * 2;
+  canvas.height = POSTER_H * 2;
+  const ctx = canvas.getContext("2d")!;
+  paintPosters(ctx, titles, stack, seed);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  let disposed = false;
+  if (family && document.fonts) {
+    document.fonts
+      .load(`${WEIGHT} 96px "${family}"`, titles.join(""))
+      .then((faces) => {
+        if (disposed) return;
+        if (faces.length === 0) {
+          console.warn(`[signage] "${family}" did not load; hoardings use the OS script font`);
+          return;
+        }
+        paintPosters(ctx, titles, stack, seed);
+        texture.needsUpdate = true;
+      })
+      .catch((err: unknown) => {
+        console.warn(`[signage] loading "${family}" failed; hoardings use the OS script font`, err);
+      });
+  }
+  return {
+    texture,
+    rect(i) {
+      const c = ((i % 4) + 4) % 4;
+      const u0 = (c % 2) / 2;
+      const v1 = 1 - Math.floor(c / 2) / 2;
+      return [u0, v1 - 0.5, u0 + 0.5, v1];
+    },
+    dispose() {
+      disposed = true;
+      texture.dispose();
+    },
+  };
+}
