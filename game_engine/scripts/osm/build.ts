@@ -1019,6 +1019,13 @@ function compile(city: OsmCity): MapData {
     grid.markBox(x, z, rot, w + 2, d + 2, BUILT);
   }
 
+  // Monuments that stand alone in an open square: no plots crowding them.
+  const OPEN_ROUND: Record<string, number> = { charminar: 24 };
+  for (const l of landmarks) {
+    const r = OPEN_ROUND[l.model];
+    if (r) grid.markBox(l.x, l.z, l.rot, l.w + 2 * r, l.d + 2 * r, RESERVED);
+  }
+
   // A pavilion on a tank's island.
   if (city.islandPavilion) {
     const ip = city.islandPavilion;

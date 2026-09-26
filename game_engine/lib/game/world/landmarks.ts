@@ -13,7 +13,6 @@ import * as THREE from "three";
 import type { Landmark } from "../assets";
 import {
   makeArtDecoCinema,
-  makeCharminar,
   makeChineseFishingNet,
   makeStreetMandir,
 } from "../assets";
@@ -21,7 +20,7 @@ import type { MapLandmark } from "./mapData";
 import type { CollisionWorld } from "./collide";
 import type { HeightField } from "./height";
 import { modelExtent } from "./extent";
-import { congregationalMosque, hajira } from "./mosque";
+import { charminar, congregationalMosque, hajira } from "./mosque";
 import { deul, jalamandira, lingaraj } from "./odisha";
 import { dravidianTemple } from "./south";
 import {
@@ -105,11 +104,6 @@ function fit(model: THREE.Group, w: number, d: number, maxScale = 3, solids?: So
   };
 }
 
-/** Charminar's four corner piers (makeCharminar: 2.2m square at +-4.2);
- *  the great arches between them, and the space under the dome, are open. */
-const CHARMINAR_PIERS: Solid[] = [-1, 1].flatMap((sx) =>
-  [-1, 1].map((sz): Solid => [sx * 4.2 - 1.1, sz * 4.2 - 1.1, sx * 4.2 + 1.1, sz * 4.2 + 1.1])
-);
 
 /** The cinema's hall (makeArtDecoCinema: a 9 x 6m block and the 3m-radius
  *  Deco curve at its west end, stepped in two boxes inside the curve); the
@@ -180,7 +174,7 @@ export function buildLandmark(l: MapLandmark, city: Landmark, clear?: ClearTest)
     case "bus_station":
       return busStation(w, d, CITY_TRAFFIC[city].bus, clear);
     case "charminar":
-      return fit(makeCharminar(), w, d, 4, CHARMINAR_PIERS);
+      return charminar(Math.min(w, d));
     case "cinema":
       return fit(makeArtDecoCinema(), w, d, 3, CINEMA_HALL);
     case "fishing_nets": {

@@ -457,3 +457,93 @@ export function hajira(w: number, d: number, st: MosqueStyle): Monument {
   }
   return finish(P, C, Hs, { x: 0, z: -D * 0.08 + cd / 2 + 1.4 });
 }
+
+/**
+ * Charminar: a square of four great pointed arches, one to each street, an
+ * arcaded gallery and a screen of little arches above, and at the corners
+ * the four fluted minarets with their balconies and domes. You walk through
+ * under the crossing; only the corner piers are solid.
+ */
+export function charminar(w: number): Monument {
+  const P = new Parts();
+  const C: LocalBox[] = [];
+  const S = Math.min(w, 30) * 0.72;
+  const stone = 0xd9cdb5;
+  const lime = 0xeee6d4;
+  const pier = S * 0.22;
+  const archW = S - 2 * pier;
+  const baseH = S * 0.95;
+  const spring = baseH * 0.48;
+  // The corner piers.
+  for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    const x = (a * (S - pier)) / 2;
+    const z = (b * (S - pier)) / 2;
+    P.box(pier, baseH, pier, x, baseH / 2, z, stone);
+    P.box(pier + 0.3, 0.6, pier + 0.3, x, 0.3, z, lime);
+    C.push({ x, z, hw: pier / 2, hd: pier / 2 });
+  }
+  // The four arches: a slab over each opening, framed and rimmed.
+  for (let k = 0; k < 4; k++) {
+    const rot = (k * Math.PI) / 2;
+    const sub = new Parts();
+    sub.add(archedSlab(archW, spring, baseH, pier).translate(0, 0, (S - pier) / 2), stone);
+    const fz = S / 2 + 0.04;
+    sub.add(new THREE.TorusGeometry(archW / 2 + 0.2, 0.25, 6, 22, Math.PI).translate(0, spring, fz), lime);
+    sub.box(S, 0.5, 0.1, 0, baseH - 0.6, fz, lime);
+    for (const s of [-1, 1]) {
+      sub.box(0.35, baseH - 1, 0.1, s * (archW / 2 + 0.6), (baseH - 1) / 2, fz, lime);
+      // Roundels in the spandrels.
+      sub.add(new THREE.CylinderGeometry(0.8, 0.8, 0.1, 14).rotateX(Math.PI / 2).translate(s * (archW / 2 - 0.2), baseH - 2.2, fz + 0.02), lime);
+    }
+    put(P, sub, 0, 0, 0, rot);
+  }
+  // The first storey: a gallery of small arches right round, a balcony.
+  const g1 = baseH;
+  const gh = S * 0.24;
+  P.box(S, gh, S, 0, g1 + gh / 2, 0, stone);
+  P.box(S + 1.6, 0.35, S + 1.6, 0, g1 + 0.2, 0, lime);
+  for (let k = 0; k < 4; k++) {
+    const rot = (k * Math.PI) / 2;
+    const sub = new Parts();
+    const n = 7;
+    for (let i = 0; i < n; i++) archWindow(sub, -S / 2 + ((i + 0.5) * S) / n, 0.5, S / 2 + 0.05, (S / n) * 0.62, gh * 0.72, DEEP);
+    for (let i = 0; i <= 14; i++) sub.box(0.12, 0.9, 0.12, -S / 2 - 0.7 + (i * (S + 1.4)) / 14, 0.75, S / 2 + 0.75, lime);
+    sub.box(S + 1.5, 0.12, 0.12, 0, 1.2, S / 2 + 0.75, lime);
+    put(P, sub, 0, g1, 0, rot);
+  }
+  // The second storey: a screen of little arches, crenellated.
+  const g2 = g1 + gh;
+  const sh = S * 0.14;
+  P.box(S * 0.96, sh, S * 0.96, 0, g2 + sh / 2, 0, stone);
+  for (let k = 0; k < 4; k++) {
+    const rot = (k * Math.PI) / 2;
+    const sub = new Parts();
+    const n = 12;
+    for (let i = 0; i < n; i++) archWindow(sub, -S * 0.48 + ((i + 0.5) * S * 0.96) / n, 0.3, S * 0.48 + 0.05, (S * 0.96 * 0.55) / n, sh * 0.7, DEEP);
+    kanguras(sub, S * 0.96, sh, S * 0.48, lime);
+    put(P, sub, 0, g2, 0, rot);
+  }
+  // The minarets, fluted, two balconies each, a dome on a lotus.
+  const mh = S * 2.4;
+  const mr = pier * 0.36;
+  for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    const x = (a * (S - pier * 0.5)) / 2;
+    const z = (b * (S - pier * 0.5)) / 2;
+    const y0 = baseH;
+    stripedShaft(P, mr * 0.92, mr, mh - baseH, x, y0, z, stone, lime, 16);
+    for (const f of [0.35, 0.72]) {
+      const yy = y0 + (mh - baseH) * f;
+      P.cyl(mr * 1.8, mr * 1.1, 0.8, x, yy, z, lime, 16);
+      P.cyl(mr * 1.8, mr * 1.8, 0.8, x, yy + 0.8, z, stone, 16);
+      for (let i = 0; i < 12; i++) {
+        const t = (i / 12) * Math.PI * 2;
+        archWindow(P, x + Math.sin(t) * mr * 1.2, yy + 1.2, z + Math.cos(t) * mr * 1.2, 0.5, 1.4, DEEP, t);
+      }
+      P.cyl(mr * 1.3, mr * 1.3, 1.8, x, yy + 2.1, z, stone, 16);
+    }
+    P.cyl(mr * 1.1, mr * 0.9, 0.5, x, mh + 0.25, z, lime, 16);
+    onion(P, mr * 1.15, x, mh + 0.5, z, [lime]);
+    P.cyl(0.08, 0.08, 1.4, x, mh + 0.5 + mr * 1.8 + 0.7, z, GOLD, 5);
+  }
+  return finish(P, C, []);
+}
