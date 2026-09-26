@@ -59,7 +59,15 @@ export type Plot = {
 };
 
 /** A real building footprint from OSM (outer ring). */
-export type MapBuilding = { pts: Pt[]; holes?: Pt[][]; h: number; name?: string };
+export type MapBuilding = {
+  pts: Pt[];
+  holes?: Pt[][];
+  h: number;
+  name?: string;
+  /** A roof on posts (OSM building=roof): bus platforms, fuel forecourts,
+   *  market sheds. Walk-under, no walls. */
+  canopy?: true;
+};
 
 /** A named place rendered with a hero model instead of its footprint. */
 export type MapLandmark = {

@@ -334,6 +334,9 @@ function pointAlong(pts: Pt[], s: number): Pt {
   return pts[pts.length - 1];
 }
 
+/** Footprint landmarks whose front is on the street. */
+const FACE_STREET = new Set(["cinema", "colonial", "church", "church_small", "basilica"]);
+
 /** Landmark models that stand in or over the carriageway: a fountain or a
  *  pigeon house on a traffic island, a gateway the street runs through. */
 const IN_THE_ROAD = new Set(["fountain", "kabutar_khana", "kaman", "teen_darwaza", "promenade", "fishing_nets"]);
@@ -538,6 +541,8 @@ function compile(city: OsmCity): MapData {
       e.tags.area !== "yes" &&
       e.tags.tunnel !== "yes" &&
       e.tags.tunnel !== "building_passage" &&
+      // Metro passages and their steps run below the street.
+      !(Number(e.tags.layer) < 0) &&
       !!e.geometry
   );
   const use = new Map<number, number>();
@@ -556,6 +561,8 @@ function compile(city: OsmCity): MapData {
   };
 
   const roads: MapRoad[] = [];
+  // Ramps and bridges carry traffic but nobody builds a shop on a flyover.
+  const noFrontage = new Set<MapRoad>();
   for (const w of hwWays) {
     const rule = city.streets?.find((r) => r.match.test(nameOf(w.tags) ?? ""));
     const cls = rule?.as ?? CLASS_OF[w.tags!.highway];
@@ -576,7 +583,7 @@ function compile(city: OsmCity): MapData {
       for (const piece of clipPolyline(pts, H)) {
         const len = piece.reduce((acc, p, k) => (k ? acc + Math.hypot(p[0] - piece[k - 1][0], p[1] - piece[k - 1][1]) : 0), 0);
         if (len < 1) continue;
-        roads.push({
+        const road: MapRoad = {
           cls,
           w: size.w,
           foot: size.foot,
@@ -586,7 +593,9 @@ function compile(city: OsmCity): MapData {
           pts: piece.map(([x, z]) => [r1(x), r1(z)] as Pt),
           name: nameOf(w.tags),
           ...(rule?.surface ? { surface: rule.surface } : {}),
-        });
+        };
+        roads.push(road);
+        if (w.tags!.highway.endsWith("_link") || bridge) noFrontage.add(road);
       }
     }
   }
@@ -737,12 +746,30 @@ function compile(city: OsmCity): MapData {
     .filter((f) => f.outer.length >= 3)
     .sort((a, b) => Math.abs(polygonArea(b.outer)) - Math.abs(polygonArea(a.outer)));
 
+  /** Turn a civic front (cinema marquee, church door) to its nearest street. */
+  const towardStreet = <B extends { x: number; z: number; rot: number; w: number; d: number }>(box: B): B => {
+    let best: ReturnType<typeof nearestOnPolyline> | null = null;
+    for (const r of roads) {
+      if (r.cls === "footway" || r.cls === "steps") continue;
+      const n = nearestOnPolyline(r.pts, [box.x, box.z]);
+      if (!best || n.dist < best.dist) best = n;
+    }
+    if (!best) return box;
+    const bearing = (Math.atan2(best.pt[0] - box.x, -(best.pt[1] - box.z)) * 180) / Math.PI;
+    return facing(box, bearing);
+  };
+
   for (const { e, outer: ring, holes } of footprints) {
     const name = nameOf(e.tags);
     const rule = ruleFor(name);
     if (rule && name && !claimed.has(`${rule.model}:${name.toLowerCase()}`)) {
       claimed.add(`${rule.model}:${name.toLowerCase()}`);
-      const box = rule.faces === undefined ? orientedBox(ring) : facing(orientedBox(ring), rule.faces);
+      const box =
+        rule.faces !== undefined
+          ? facing(orientedBox(ring), rule.faces)
+          : FACE_STREET.has(rule.model)
+            ? towardStreet(orientedBox(ring))
+            : orientedBox(ring);
       landmarks.push({ model: rule.model, name, x: r1(box.x), z: r1(box.z), rot: +box.rot.toFixed(3), w: r1(box.w), d: r1(box.d) });
       grid.markBox(box.x, box.z, box.rot, box.w + 2, box.d + 2, BUILT);
       continue;
@@ -751,8 +778,19 @@ function compile(city: OsmCity): MapData {
     const area = Math.abs(polygonArea(ring)) - holes.reduce((a, h) => a + Math.abs(polygonArea(h)), 0);
     if (area < 15) continue;
     const levels = Number(e.tags["building:levels"]);
-    const h = Number.isFinite(levels) && levels > 0 ? levels * 3.2 + 1 : Math.min(18, 5 + Math.sqrt(area) * 0.35);
-    buildings.push({ pts: round(ring), ...(holes.length ? { holes: holes.map(round) } : {}), h: r1(h), name });
+    const canopy = e.tags.building === "roof";
+    const h = canopy
+      ? 5
+      : Number.isFinite(levels) && levels > 0
+        ? levels * 3.2 + 1
+        : Math.min(18, 5 + Math.sqrt(area) * 0.35);
+    buildings.push({
+      pts: round(ring),
+      ...(holes.length ? { holes: holes.map(round) } : {}),
+      h: r1(h),
+      name,
+      ...(canopy ? { canopy: true as const } : {}),
+    });
     grid.fill(ring, BUILT, holes);
   }
 
@@ -1073,7 +1111,7 @@ function compile(city: OsmCity): MapData {
 
   const rand = mulberry32(hashString(city.id));
   const plots: Plot[] = [];
-  const fillable = (r: MapRoad) => r.cls !== "footway" && r.cls !== "steps";
+  const fillable = (r: MapRoad) => r.cls !== "footway" && r.cls !== "steps" && !noFrontage.has(r);
   const range = ([a, b]: [number, number]) => a + rand() * (b - a);
 
   for (const r of roads) {
