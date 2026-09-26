@@ -672,3 +672,69 @@ export function promenade(w: number, d: number): Monument {
   }
   return finish(P, C, []);
 }
+
+/** A statue on a stepped plinth, facing +z: a draped standing figure, one
+ *  arm raised (Kannagi holds up her anklet). The Marina's row of statues. */
+export function statue(w: number, d: number, figure = 0x3d3530, plinth = 0xe8e0d0): Monument {
+  const P = new Parts();
+  const s = Math.max(2.4, Math.min(w, d));
+  P.box(s, 0.5, s, 0, 0.25, 0, plinth);
+  P.box(s * 0.72, 0.5, s * 0.72, 0, 0.75, 0, plinth);
+  P.box(s * 0.5, 2.2, s * 0.5, 0, 2.1, 0, plinth);
+  P.box(s * 0.56, 0.15, s * 0.56, 0, 3.27, 0, 0xcfc6b4);
+  // Figure: robe, torso, head, one arm down and one raised.
+  const y = 3.35;
+  P.cyl(0.42, 0.62, 2.1, 0, y + 1.05, 0, figure, 10);
+  P.cyl(0.34, 0.4, 0.9, 0, y + 2.5, 0, figure, 10);
+  P.add(new THREE.SphereGeometry(0.26, 10, 8).translate(0, y + 3.2, 0), figure);
+  P.box(0.16, 1.1, 0.16, -0.48, y + 2.2, 0, figure);
+  P.add(new THREE.BoxGeometry(0.16, 1.2, 0.16).rotateZ(-0.5).translate(0.62, y + 3.2, 0), figure);
+  P.add(new THREE.TorusGeometry(0.14, 0.035, 6, 12).translate(0.92, y + 3.8, 0), 0xc9a44a);
+  return finish(P, [{ x: 0, z: 0, hw: s / 2, hd: s / 2 }], []);
+}
+
+/**
+ * A temple car (ther) parked in its street between festivals: four solid
+ * wooden wheels, a carved wooden base in tiers, and above it the frame
+ * wrapped in bands of red, white and yellow cloth, a gilt kalasam on top.
+ * Long axis along local z.
+ */
+export function templeCar(w: number, d: number): Monument {
+  const P = new Parts();
+  const bw = Math.min(w, 6);
+  const bd = Math.min(d, 7);
+  const WOOD = 0x6b4a2e;
+  const DARK_WOOD = 0x4a321f;
+  // Wheels, outside the base.
+  for (const x of [-bw / 2 - 0.2, bw / 2 + 0.2]) {
+    for (const z of [-bd / 2 + 1.2, bd / 2 - 1.2]) {
+      P.add(new THREE.CylinderGeometry(1.2, 1.2, 0.45, 14).rotateZ(Math.PI / 2).translate(x, 1.2, z), DARK_WOOD);
+      P.add(new THREE.CylinderGeometry(0.3, 0.3, 0.55, 8).rotateZ(Math.PI / 2).translate(x, 1.2, z), 0x8f8f8f);
+    }
+  }
+  // Carved base in tiers, each a little smaller.
+  let y = 0.5;
+  for (let k = 0; k < 4; k++) {
+    const f = 1 - k * 0.08;
+    const h = k === 0 ? 1.4 : 0.8;
+    P.box(bw * f, h, bd * f, 0, y + h / 2, 0, k % 2 ? WOOD : DARK_WOOD);
+    P.box(bw * f + 0.12, 0.12, bd * f + 0.12, 0, y + h, 0, 0xb08a58);
+    y += h;
+  }
+  // Pillars round the deck where the deity rides.
+  for (const x of [-bw * 0.32, bw * 0.32]) for (const z of [-bd * 0.32, bd * 0.32]) P.box(0.18, 2.2, 0.18, x, y + 1.1, z, WOOD);
+  y += 2.2;
+  // The cloth-wrapped tower, tapering, in bands.
+  const bands = [0xc0392b, 0xf4efe4, 0xe6b422, 0xc0392b, 0xf4efe4, 0x2e8b57, 0xc0392b];
+  let r = Math.min(bw, bd) * 0.46;
+  for (const hex of bands) {
+    P.cyl(r * 0.88, r, 0.75, 0, y + 0.375, 0, hex, 8);
+    y += 0.75;
+    r *= 0.86;
+  }
+  P.cone(r * 1.1, 1.2, 0, y + 0.6, 0, 0xc0392b, 8);
+  P.cyl(0.14, 0.2, 0.7, 0, y + 1.45, 0, 0xd4a017, 8);
+  // Tow ropes coiled at the front.
+  P.add(new THREE.TorusGeometry(0.5, 0.1, 6, 14).rotateX(Math.PI / 2).translate(0, 0.12, bd / 2 + 0.9), 0xc8b08a);
+  return finish(P, [{ x: 0, z: 0, hw: bw / 2 + 0.5, hd: bd / 2 + 0.2 }], []);
+}

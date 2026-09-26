@@ -29,6 +29,8 @@ import {
   gateway,
   gurdwara,
   kabutarKhana,
+  statue,
+  templeCar,
   memorialGarden,
   mosque,
   promenade,
@@ -157,6 +159,10 @@ export function buildLandmark(l: MapLandmark, city: Landmark): Monument {
     }
     case "promenade":
       return promenade(w, Math.max(d, 6));
+    case "statue":
+      return statue(w, d);
+    case "temple_car":
+      return templeCar(w, d);
     default:
       if (process.env.NODE_ENV !== "production") console.warn(`[landmarks] no builder for "${l.model}" (${l.name})`);
       return fit(makeStreetMandir(), w, d);
