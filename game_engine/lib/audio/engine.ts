@@ -37,6 +37,13 @@ export function getAudioContext(): AudioContext {
   return audioContext;
 }
 
+/** Where synthesised SFX connect, so the SFX mute silences them too. */
+export function sfxOutput(): AudioNode {
+  getAudioContext();
+  if (!masterGain) throw new Error("[sfx] no master gain");
+  return masterGain;
+}
+
 /** Mute/unmute every SFX at once, without touching individual play calls. */
 export function setSfxMuted(muted: boolean): void {
   if (typeof window === "undefined") return;

@@ -3,7 +3,8 @@
 /**
  * Where you are, the way an open-world game says it: walk into a new place
  * or onto a new street and its name slides in at the bottom right for a few
- * seconds, the place large and the street (or the district) under it.
+ * seconds, the place large and the street (or the district) under it, with
+ * a chime in the city's raga.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -12,6 +13,7 @@ import type { District } from "@/lib/game/districts";
 import type { MapData } from "@/lib/game/world/mapData";
 import { createLocator } from "@/lib/game/world/mapLabels";
 import { cn } from "@/lib/utils";
+import { playPlaceChime } from "@/lib/audio/music";
 
 /** How long a new whereabouts must hold before it is announced (crossing a
  *  junction should not flash three street names). */
@@ -89,6 +91,8 @@ export function LocationCard({
             : `${district.name}, ${district.city}`;
       setCard({ title: shown, subtitle, key: ++n });
       setShown(true);
+      // A chime in the city's raga as the name slides in.
+      playPlaceChime(district.id);
       hideAt = now + SHOW_MS;
     };
     const id = window.setInterval(tick, 200);
