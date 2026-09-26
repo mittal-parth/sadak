@@ -20,6 +20,8 @@ import { planRoute } from "./world/route";
 import { medians } from "./world/roads";
 import { marketStalls, MAX_STALLS } from "./world/market";
 import { createFlocks, flockCounts, flockSites } from "./world/birds";
+import { beachSpots } from "./world/beach";
+import { buildAreas } from "./world/areas";
 import { OSM_CITIES } from "../../scripts/osm/cities";
 
 const LANDMARKS: Landmark[] = [
@@ -449,6 +451,52 @@ test("pigeons peck at the Kabutar Khana, scatter when walked into, and settle ag
   flocks.update(0.05, t, new THREE.Vector3(kk.x + 400, 0, kk.z));
   assert.deepEqual(flockCounts(flocks), { ground: 0, air: 0 });
   flocks.dispose();
+});
+
+test("Triplicane: Parthasarathy faces the sea, its car stands on Car Street, statues line the Marina", () => {
+  const map = loadMap("marina-nagar");
+  assert.equal(map.half, 420, "Triplicane's box takes in temple and beach");
+  const t = map.landmarks.find((l) => l.model === "gopuram_temple")!;
+  // Entrance (local +z) points east, give or take the street grid.
+  assert.ok(Math.sin(t.rot) > 0.95, `gopuram faces ${((t.rot * 180) / Math.PI).toFixed(0)} deg`);
+  // Temple spot and spawn in front of the gopuram, the spawn looking at it.
+  for (const s of [map.spots.temple, map.spawn]) assert.ok(s.x > t.x + t.d / 2 - 1, "approached from the east");
+  assert.ok(Math.abs(Math.atan2(Math.sin(map.spawn.yaw + Math.PI / 2), Math.cos(map.spawn.yaw + Math.PI / 2))) < 0.3, "spawn looks west at it");
+
+  const car = map.landmarks.find((l) => l.model === "temple_car")!;
+  assert.ok(Math.hypot(car.x - t.x, car.z - t.z) < 160, "the temple car is by its temple");
+  const street = map.roads.filter((r) => r.name === "Car Street");
+  let gap = Infinity;
+  for (const r of street) {
+    for (let i = 0; i < r.pts.length - 1; i++) {
+      const [ax, az] = r.pts[i];
+      const [bx, bz] = r.pts[i + 1];
+      const L2 = (bx - ax) ** 2 + (bz - az) ** 2 || 1e-9;
+      const u = Math.max(0, Math.min(1, ((car.x - ax) * (bx - ax) + (car.z - az) * (bz - az)) / L2));
+      gap = Math.min(gap, Math.hypot(car.x - ax - u * (bx - ax), car.z - az - u * (bz - az)) - r.w / 2 - r.foot);
+    }
+  }
+  assert.ok(gap > car.w / 2 - 0.1 && gap < car.w / 2 + 2, `car ${gap.toFixed(1)}m from Car Street's edge`);
+
+  const statues = map.landmarks.filter((l) => l.model === "statue").map((l) => l.name).sort();
+  assert.deepEqual(statues, ["Kannagi", "Subhas Chandra Bose", "Thiruvalluvar"]);
+  // The skyline stays off the sea.
+  assert.deepEqual(buildAreas(map, SEED_DISTRICTS.find((d) => d.id === "marina-nagar")!.theme).seaEdges, ["east"]);
+});
+
+test("the Marina: boats at the waterline, umbrellas and carts up the sand", () => {
+  const map = loadMap("marina-nagar");
+  const spots = beachSpots(map, () => false);
+  const boats = spots.filter((s) => s.kind === "boat");
+  const stalls = spots.filter((s) => s.kind !== "boat");
+  assert.ok(boats.length > 30 && stalls.length > 60, `${boats.length} boats, ${stalls.length} stalls`);
+  // The sea is east: boats nearer it than any stall, bows pointing at it.
+  const minBoatX = Math.min(...boats.map((b) => b.x));
+  const maxStallX = Math.max(...stalls.map((b) => b.x));
+  assert.ok(minBoatX > maxStallX, "boats lie seaward of the stalls");
+  for (const b of boats) assert.ok(Math.sin(b.rot) > 0.7, "bow to the sea");
+  // No beach, no boats.
+  assert.deepEqual(beachSpots(loadMap("purani-sadak"), () => false), []);
 });
 
 test("footpaths stop short of junctions", () => {
