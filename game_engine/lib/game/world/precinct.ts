@@ -99,7 +99,7 @@ function arcade(len: number, d: number): THREE.BufferGeometry | null {
   P.box(len + 0.05, 0.45, d + 0.2, 0, 0.22, d / 2, SANDSTONE);
   // Chhajja between the storeys, and the gilded band under the parapet.
   P.box(len, 0.14, 0.8, 0, STOREY + 0.1, -0.35, MARBLE);
-  P.box(len, 0.2, d + 0.12, 0, ARCADE_H - 0.1, d / 2, GOLD);
+  for (const z of [-0.06, d + 0.06]) P.box(len, 0.2, 0.12, 0, ARCADE_H - 0.3, z, GOLD);
   P.box(len, 0.7, 0.22, 0, ARCADE_H + 0.35, 0.05, MARBLE);
   P.box(len, 0.7, 0.22, 0, ARCADE_H + 0.35, d - 0.05, MARBLE);
   const bays = Math.max(1, Math.floor(len / 3.3));

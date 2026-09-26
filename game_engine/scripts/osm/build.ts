@@ -1089,6 +1089,7 @@ function compile(city: OsmCity): MapData {
     // On past the island's edge, so the cut is clean.
     const into: Pt = [b[0] + ((b[0] - a[0]) / L) * 4, b[1] + ((b[1] - a[1]) / L) * 4];
     const CAUSEWAY_W = 6;
+    const shore = water.pts;
     water.pts = round(keyhole(water.pts, island, a, into, CAUSEWAY_W));
     const rest = (water.holes ?? []).filter((h) => h !== island);
     if (rest.length) water.holes = rest;
@@ -1111,8 +1112,16 @@ function compile(city: OsmCity): MapData {
       gates: precinctGates(inner, roads.map((r) => r.pts), { a, b }),
       causeway: { a: [r1(a[0]), r1(a[1])], b: [r1(into[0]), r1(into[1])], w: CAUSEWAY_W },
     };
-    // Marble underfoot, round the tank and under the arcade.
-    areas.push({ kind: "plaza", pts: ring.pts, holes: [water.pts], name: "Parikrama" });
+    // Marble underfoot, round the tank and under the arcade (the water is
+    // drawn over it), and nothing else built or planted on it.
+    areas.push({ kind: "plaza", pts: ring.pts, holes: [shore], name: "Parikrama" });
+    grid.fill(ring.pts, RESERVED);
+    // The parikrama is open marble: the blocks mapped on it (shrines under
+    // trees, in truth) would stand as flats.
+    for (let i = buildings.length - 1; i >= 0; i--) {
+      const [cx, cz] = centroid(buildings[i].pts);
+      if (pointInRing(cx, cz, inner)) buildings.splice(i, 1);
+    }
   }
 
   // Every monument you walk into gets its door, and a clear way from the
@@ -1498,6 +1507,8 @@ function compile(city: OsmCity): MapData {
         }
       }
       const wet = areas.some((a) => (a.kind === "water" || a.kind === "sea") && pointInRing(x, z, a.pts));
+      // Not in a temple precinct's forecourts either.
+      if (precinct && precinct.outer.some((q, i) => nearestOnPolyline([q, precinct!.outer[(i + 1) % precinct!.outer.length]], [x, z]).dist < 40)) return false;
       return !wet && Math.abs(x) < H - 20 && Math.abs(z) < H - 20 && !clearOf.some((c) => Math.hypot(c.x - x, c.z - z) < 6);
     };
     const greens = areas
@@ -1508,9 +1519,9 @@ function compile(city: OsmCity): MapData {
       .filter(({ d }) => d < 120)
       .sort((p, q) => p.d - q.d);
     if (greens.length) return { x: r1(greens[0].c[0]), z: r1(greens[0].c[1]), yaw: 0 };
-    for (let r = 10; r < 120; r += 2) {
-      for (let k = 0; k < 24; k++) {
-        const a = (k / 24) * Math.PI * 2;
+    for (let r = 10; r < 240; r += 2) {
+      for (let k = 0; k < 48; k++) {
+        const a = (k / 48) * Math.PI * 2;
         const x = spawn.x + Math.cos(a) * r;
         const z = spawn.z + Math.sin(a) * r;
         if (open(x, z)) return { x: r1(x), z: r1(z), yaw: 0 };
