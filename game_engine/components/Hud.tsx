@@ -17,54 +17,14 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
+import { kindColour, kindIcon, kindLabel, renderStreetMap } from "@/components/map/mapKit";
+import { roadLabels, type RoadLabel } from "@/lib/game/world/mapLabels";
+import { LocationCard } from "@/components/map/LocationCard";
 import { LocateFixed, PanelLeftClose, PanelLeftOpen, Volume2, VolumeX } from "lucide-react";
 
 const MAP_PX = 168;
 const MAP_PX_MOBILE = 80;
 const MAP_RANGE = 90;
-
-function kindColour(kind: TaskKind, done: boolean): string {
-  if (done) return "#3ddc84";
-  switch (kind) {
-    case "auto":
-      return "#f5c518";
-    case "shop":
-      return "#e67e22";
-    case "temple":
-      return "#e74c3c";
-    case "bus":
-      return "#3498db";
-    case "counter":
-      return "#9b59b6";
-    case "barber":
-      return "#33406b";
-    default: {
-      const _exhaustive: never = kind;
-      return _exhaustive;
-    }
-  }
-}
-
-function kindIcon(kind: TaskKind): string {
-  switch (kind) {
-    case "auto":
-      return "🛺";
-    case "shop":
-      return "🏪";
-    case "temple":
-      return "🛕";
-    case "bus":
-      return "🚌";
-    case "counter":
-      return "🎫";
-    case "barber":
-      return "💈";
-    default: {
-      const _exhaustive: never = kind;
-      return _exhaustive;
-    }
-  }
-}
 
 /** Duolingo-style circular lesson progress ring. */
 function ProgressRing({
@@ -117,27 +77,6 @@ function ProgressRing({
   );
 }
 
-function kindLabel(kind: TaskKind): string {
-  switch (kind) {
-    case "auto":
-      return "Auto";
-    case "shop":
-      return "Shop";
-    case "temple":
-      return "Temple";
-    case "bus":
-      return "Bus";
-    case "counter":
-      return "Ticket";
-    case "barber":
-      return "Barber";
-    default: {
-      const _exhaustive: never = kind;
-      return _exhaustive;
-    }
-  }
-}
-
 /**
  * Draws from the engine's LiveState on its own rAF rather than from React
  * state, so the map stays smooth at 60fps while the HUD around it only
@@ -148,69 +87,26 @@ function kindLabel(kind: TaskKind): string {
  * store 60 times a second inside the game's own rAF callback. That was the
  * single largest source of frame-time jitter in the whole app.
  */
-/** Pixels per metre in the pre-rendered street map. */
-const MAP_RES = 2;
-
-/**
- * The district's streets, water and parks drawn once at MAP_RES; the minimap
- * then just rotates and crops this every frame.
- */
-function renderStreetMap(map: MapData): HTMLCanvasElement {
-  const px = Math.ceil(map.half * 2 * MAP_RES);
-  const c = document.createElement("canvas");
-  c.width = px;
-  c.height = px;
-  const g = c.getContext("2d")!;
-  const X = (v: number) => (v + map.half) * MAP_RES;
-  g.fillStyle = "#1d2229";
-  g.fillRect(0, 0, px, px);
-  const ring = (pts: [number, number][]) => {
-    pts.forEach(([x, z], i) => (i ? g.lineTo(X(x), X(z)) : g.moveTo(X(x), X(z))));
-    g.closePath();
-  };
-  for (const a of map.areas) {
-    g.beginPath();
-    ring(a.pts);
-    a.holes?.forEach(ring);
-    g.fillStyle = a.kind === "water" || a.kind === "sea" ? "#2d5f86" : a.kind === "park" || a.kind === "pitch" ? "#2e4f33" : "#2a2f36";
-    g.fill("evenodd");
-  }
-  g.lineCap = "round";
-  g.lineJoin = "round";
-  for (const r of map.roads) {
-    g.beginPath();
-    r.pts.forEach(([x, z], i) => (i ? g.lineTo(X(x), X(z)) : g.moveTo(X(x), X(z))));
-    const path = r.cls === "footway" || r.cls === "steps";
-    g.strokeStyle = path ? "#3a414b" : r.w >= 10 ? "#6a7582" : "#4d5763";
-    g.lineWidth = Math.max(1.5, r.w * MAP_RES);
-    g.stroke();
-  }
-  for (const l of map.landmarks) {
-    g.fillStyle = "#c9a23a";
-    g.beginPath();
-    g.arc(X(l.x), X(l.z), 5 * MAP_RES, 0, Math.PI * 2);
-    g.fill();
-  }
-  return c;
-}
-
 function Minimap({
   live,
   tasks,
   barber,
   size,
   map,
+  onOpen,
 }: {
   live: LiveState | null;
   tasks: TaskSnapshot[];
   barber?: { x: number; z: number };
   size: number;
   map: MapData;
+  /** Open the full map. */
+  onOpen: () => void;
 }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
-  const streets = useRef<{ map: MapData; canvas: HTMLCanvasElement } | null>(null);
+  const streets = useRef<{ map: MapData; canvas: HTMLCanvasElement; labels: RoadLabel[] } | null>(null);
   if (typeof document !== "undefined" && streets.current?.map !== map) {
-    streets.current = { map, canvas: renderStreetMap(map) };
+    streets.current = { map, canvas: renderStreetMap(map), labels: roadLabels(map) };
   }
   // Read through a ref so the draw loop never needs to be torn down and
   // rebuilt when the (throttled) task list changes.
@@ -299,7 +195,7 @@ function Minimap({
         ctx.beginPath();
         ctx.arc(sx + 1.2 * ui, sy + 1.2 * ui, dotR + 1.5 * ui, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = "#9b59b6";
+        ctx.fillStyle = kindColour("barber", false);
         ctx.beginPath();
         ctx.arc(sx, sy, dotR, 0, Math.PI * 2);
         ctx.fill();
@@ -311,6 +207,36 @@ function Minimap({
       }
 
       ctx.restore();
+
+      // Street names nearby, upright over the turning map, biggest roads
+      // first and never on top of each other.
+      if (sm && size >= 120) {
+        const th = l.heading + Math.PI;
+        const cs = Math.cos(th);
+        const sn = Math.sin(th);
+        ctx.font = `${(9 * ui).toFixed(1)}px ui-sans-serif, system-ui, sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.lineJoin = "round";
+        const used: [number, number, number][] = [];
+        for (const lb of sm.labels) {
+          const dx = (lb.x - l.x) * scale;
+          const dz = (lb.z - l.z) * scale;
+          const sx = R + dx * cs - dz * sn;
+          const sy = R + dx * sn + dz * cs;
+          if (Math.hypot(sx - R, sy - R) > R * 0.72) continue;
+          const w = ctx.measureText(lb.name).width;
+          if (w > size * 0.85) continue;
+          if (used.some(([ux, uy, uw]) => Math.abs(ux - sx) < (uw + w) / 2 + 4 && Math.abs(uy - sy) < 12 * ui)) continue;
+          ctx.lineWidth = 3 * ui;
+          ctx.strokeStyle = "rgba(10,12,16,0.85)";
+          ctx.strokeText(lb.name, sx, sy);
+          ctx.fillStyle = "#e8edf2";
+          ctx.fillText(lb.name, sx, sy);
+          used.push([sx, sy, w]);
+          if (used.length >= 4) break;
+        }
+      }
 
       ctx.fillStyle = "#5ab0ff";
       ctx.beginPath();
@@ -331,7 +257,16 @@ function Minimap({
     return () => cancelAnimationFrame(raf);
   }, [size]);
 
-  return <canvas ref={ref} style={{ width: size, height: size }} />;
+  return (
+    <canvas
+      ref={ref}
+      style={{ width: size, height: size }}
+      className="cursor-pointer"
+      onClick={onOpen}
+      role="button"
+      aria-label="Open the map (M)"
+    />
+  );
 }
 
 function MinimapPanel({
@@ -341,6 +276,7 @@ function MinimapPanel({
   size,
   map,
   onRecenter,
+  onOpenMap,
 }: {
   live: LiveState | null;
   tasks: TaskSnapshot[];
@@ -348,10 +284,11 @@ function MinimapPanel({
   size: number;
   map: MapData;
   onRecenter: () => void;
+  onOpenMap: () => void;
 }) {
   return (
     <div className="relative inline-block">
-      <Minimap live={live} tasks={tasks} barber={barber} size={size} map={map} />
+      <Minimap live={live} tasks={tasks} barber={barber} size={size} map={map} onOpen={onOpenMap} />
       {/* ODbL requires the attribution wherever the map data is shown. */}
       <span className="pointer-events-none absolute bottom-0.5 left-1 text-[8px] leading-none text-white/70">
         © OpenStreetMap contributors
@@ -474,8 +411,11 @@ export default function Hud({
   onToggleAudio,
   map,
   onSkipRide,
+  onOpenMap,
 }: {
   map: MapData;
+  /** Open the full map (also on M). */
+  onOpenMap: () => void;
   /** Jump to the end of an auto or bus ride. */
   onSkipRide: () => void;
   district: District;
@@ -530,6 +470,7 @@ export default function Hud({
 
   return (
     <>
+      <LocationCard map={map} live={live} district={district} compact={mobilePlay} />
       {mobilePlay ? (
         <>
           <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-2">
@@ -575,6 +516,7 @@ export default function Hud({
                     barber={tel.barber}
                     size={mapSize}
                     onRecenter={onRecenter}
+                    onOpenMap={onOpenMap}
                   />
                 </CardContent>
               </HudCard>
@@ -733,6 +675,7 @@ export default function Hud({
                     barber={tel.barber}
                     size={mapSize}
                     onRecenter={onRecenter}
+                    onOpenMap={onOpenMap}
                   />
                 </CardContent>
               </HudCard>

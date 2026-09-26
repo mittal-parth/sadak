@@ -26,6 +26,7 @@ import { playSfx } from "@/lib/audio/sfx";
 import Title from "./Title";
 import EnterLoading from "./EnterLoading";
 import Hud from "./Hud";
+import { FullMap } from "./map/FullMap";
 import Dialogue from "./Dialogue";
 import BarberShop from "./BarberShop";
 import VirtualJoystick from "./VirtualJoystick";
@@ -78,6 +79,8 @@ export default function GameShell() {
   // happens once when the engine is created; the object itself is mutated in
   // place by the engine and read by the minimap's own rAF, never diffed.
   const [live, setLive] = useState<LiveState | null>(null);
+  const [mapOpen, setMapOpen] = useState(false);
+  const mapOpenRef = useRef(false);
   const [talking, setTalking] = useState<StreetTask | null>(null);
   const [barberOpen, setBarberOpen] = useState(false);
   const [cash, setCash] = useState(0);
@@ -283,6 +286,7 @@ export default function GameShell() {
     talkingRef.current = talking;
     barberOpenRef.current = barberOpen;
     menuRef.current = menuOpen;
+    mapOpenRef.current = mapOpen;
 
     const g = gameRef.current;
     if (!g) return;
@@ -290,11 +294,12 @@ export default function GameShell() {
       talking !== null ||
       barberOpen ||
       menuOpen ||
+      mapOpen ||
       card !== null ||
       (mobilePlay && portrait);
     g.paused = frozen;
     if (frozen) g.releasePointer();
-  }, [talking, barberOpen, menuOpen, card, mobilePlay, portrait]);
+  }, [talking, barberOpen, menuOpen, mapOpen, card, mobilePlay, portrait]);
 
   // Music sits under the dialogue's TTS and the held mic, and stays down
   // for the pause menu and the portrait rotate-gate, so it never fights the
@@ -398,10 +403,17 @@ export default function GameShell() {
       if (e.code === "Escape") {
         if (talkingRef.current) setTalking(null);
         else if (barberOpenRef.current) setBarberOpen(false);
+        else if (mapOpenRef.current) setMapOpen(false);
         else setMenuOpen((m) => !m);
         return;
       }
       if (talkingRef.current || menuRef.current || barberOpenRef.current) return;
+      if (e.code === "KeyM") {
+        e.preventDefault();
+        setMapOpen((o) => !o);
+        return;
+      }
+      if (mapOpenRef.current) return;
 
       if (e.code === "KeyE") {
         e.preventDefault();
@@ -582,6 +594,7 @@ export default function GameShell() {
       <Hud
         map={worldMap}
         onSkipRide={() => gameRef.current?.skipRide()}
+        onOpenMap={() => setMapOpen(true)}
         district={district}
         baseLang={baseLang}
         tasks={tasks}
@@ -612,6 +625,18 @@ export default function GameShell() {
           className="absolute right-4 bottom-10 z-30"
           onMove={onJoystickMove}
           disabled={gameplayFrozen}
+        />
+      )}
+
+      {mapOpen && worldMap && (
+        <FullMap
+          map={worldMap}
+          live={live}
+          tasks={tel?.tasks ?? []}
+          barber={tel?.barber}
+          district={district}
+          titles={Object.fromEntries(tasks.map((t) => [t.id, t.title]))}
+          onClose={() => setMapOpen(false)}
         />
       )}
 
