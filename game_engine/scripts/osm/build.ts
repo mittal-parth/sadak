@@ -588,8 +588,8 @@ function compile(city: OsmCity): MapData {
       t.natural === "scrub"
     )
       return "park";
-    if (t.place === "square" || (t.highway === "pedestrian" && t.area === "yes") || t.amenity === "marketplace")
-      return "plaza";
+    if (t.amenity === "marketplace") return "market";
+    if (t.place === "square" || (t.highway === "pedestrian" && t.area === "yes")) return "plaza";
     return null;
   };
   for (const e of els) {

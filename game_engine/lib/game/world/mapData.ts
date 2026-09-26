@@ -73,7 +73,7 @@ export type MapLandmark = {
   d: number;
 };
 
-export type AreaKind = "water" | "park" | "beach" | "plaza" | "pitch" | "sea";
+export type AreaKind = "water" | "park" | "beach" | "plaza" | "market" | "pitch" | "sea";
 export type MapArea = { kind: AreaKind; pts: Pt[]; holes?: Pt[][]; name?: string };
 
 export type RailKind = "rail" | "subway" | "light_rail" | "tram" | "monorail";
