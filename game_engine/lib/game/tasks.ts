@@ -220,7 +220,7 @@ const marinaNagar: DistrictTaskPack = {
       id: "marina-nagar-bus",
       districtId: "marina-nagar",
       kind: "bus",
-      pos: [-360.1, 87.9],
+      pos: [-318.9, 91.1],
       title: "Beach bus ticket",
       brief: "Get a ticket to Marina Beach on the city bus.",
       reward: 220,

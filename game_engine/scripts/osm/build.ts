@@ -735,6 +735,8 @@ function compile(city: OsmCity): MapData {
       const z = n.pt[1] + nz * side * off;
       const d = Math.hypot(p[0] - x, p[1] - z);
       if (d < minDist) continue;
+      // Well inside the map: a set piece on the edge has nowhere to come from.
+      if (Math.abs(x) > H - 25 || Math.abs(z) > H - 25) continue;
       // Never inside a building: some service roads run straight through
       // real footprints (Majestic's bus stand).
       if (grid.get(x, z) === BUILT) continue;
@@ -793,7 +795,16 @@ function compile(city: OsmCity): MapData {
   };
   const busPoi = near("bus_stop", 260);
   const taken = [templeSpot, shopSpot];
-  const busSpot = busPoi ? roadside([busPoi.x, busPoi.z], 0, taken) : roadside([spawn.x - 60, spawn.z + 30], 50, taken);
+  /** A stop on a street a bus can use, if one is within reach. */
+  const busStop = (p: Pt, minDist: number) => {
+    const wide = (r: MapRoad) => r.w >= 7.5 && r.cls !== "pedestrian" && r.cls !== "footway" && r.cls !== "steps";
+    if (roads.some(wide)) {
+      const s = kerbSpot(p, wide, minDist, taken);
+      if (Math.hypot(s.x - spawn.x, s.z - spawn.z) < 180) return s;
+    }
+    return roadside(p, minDist, taken);
+  };
+  const busSpot = busPoi ? busStop([busPoi.x, busPoi.z], 0) : busStop([spawn.x - 60, spawn.z + 30], 50);
   const taxiPoi = near("taxi", 220);
   const autoSpot = taxiPoi
     ? kerbSpot([taxiPoi.x, taxiPoi.z], walkable, 0, [...taken, busSpot])

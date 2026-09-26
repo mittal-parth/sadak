@@ -37,7 +37,7 @@ set
           when 'marina-nagar-auto' then jsonb_set(elem, '{pos}', '[-265.9,141.8]'::jsonb)
           when 'marina-nagar-shop' then jsonb_set(elem, '{pos}', '[-219.9,131.5]'::jsonb)
           when 'marina-nagar-temple' then jsonb_set(elem, '{pos}', '[-306.2,92.5]'::jsonb)
-          when 'marina-nagar-bus' then jsonb_set(elem, '{pos}', '[-360.1,87.9]'::jsonb)
+          when 'marina-nagar-bus' then jsonb_set(elem, '{pos}', '[-318.9,91.1]'::jsonb)
           else elem
         end
         order by ord
