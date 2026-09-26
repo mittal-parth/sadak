@@ -1462,11 +1462,12 @@ function compile(city: OsmCity): MapData {
   // front if nothing is in the way, else the nearest kerb round it.
   function spawnSpot(): Spot {
     const at: Pt = [spawnMark!.x, spawnMark!.z];
-    const minDist = Math.max(spawnMark!.w, spawnMark!.d) / 2 + 8;
+    // Far enough back to take the whole of it in.
+    const minDist = Math.max(spawnMark!.w, spawnMark!.d) / 2 + 22;
     const reach = Math.hypot(spawnMark!.w, spawnMark!.d) / 2 + 1.5;
     // Facing its entrance when the rule says where that is.
     const rule = city.landmarks.find((r) => r.match.test(spawnMark!.name));
-    if (rule?.faces !== undefined) {
+    if ((rule?.faces ?? MODEL_FACES[spawnMark!.model]) !== undefined) {
       const front = kerbSpotOrNull(frontOf(spawnMark!, 14), () => true, 0, [...Object.values(spots), ...Object.values(errandSpots)], 0, {
         avoidR: 8,
         sight: reach,
@@ -1484,6 +1485,16 @@ function compile(city: OsmCity): MapData {
     // Footways count: the approach to a temple complex is often all paths.
     spawnSpot()
   );
+  // Keep the view from the spawn to its landmark open: nothing is built
+  // across it later.
+  {
+    const L = Math.hypot(spawnMark.x - spawn.x, spawnMark.z - spawn.z);
+    const reach = Math.hypot(spawnMark.w, spawnMark.d) / 2;
+    if (L > reach) {
+      const end: Pt = [spawn.x + ((spawnMark.x - spawn.x) * (L - reach)) / L, spawn.z + ((spawnMark.z - spawn.z) * (L - reach)) / L];
+      grid.stroke([[spawn.x, spawn.z], end], 2, RESERVED);
+    }
+  }
   for (const s of [spawn, ...Object.values(spots), ...Object.values(errandSpots)]) grid.disc(s.x, s.z, 5, RESERVED);
 
   // The barber's lock-up: a gap in a street frontage near the spawn (the
