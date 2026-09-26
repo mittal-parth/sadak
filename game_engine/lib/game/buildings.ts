@@ -32,6 +32,7 @@ import {
 } from "./arch-details";
 import type { ArchStyle } from "./districts";
 import type { UvRect } from "./signage";
+import type { Wares } from "./world/mapData";
 
 export const FLOOR_H = 3.2;
 export const GROUND_H = 4.2; // shopfronts are taller than flats
@@ -66,6 +67,8 @@ export type BuildingOptions = {
   signs?: { cells: number; rect(i: number): UvRect };
   /** A real shop's own board, over the middle bay of the street face. */
   named?: UvRect;
+  /** What the shops sell, on a street known for it. */
+  wares?: Wares;
   /**
    * Only the street face (+z) gets shops, windows and balconies; the back and
    * sides are plain party walls. Terraced plots press against their
@@ -217,6 +220,37 @@ function shopGoods(decor: THREE.BufferGeometry[], cx: number, z: number, w: numb
       decor.push(cyl(s * 0.42, s * 0.5, s * 0.8, x, 0.26 + s * 0.4, zz, 0xcdb88a, 8));
     }
   }
+}
+
+/** Glass bangle colours: lac red, emerald, gold, rani pink, blue, violet. */
+const BANGLES = [0xd7263d, 0x1b9e5a, 0xe8b923, 0xe0457b, 0x2a6fdb, 0x8e44ad, 0xf2f2f2];
+
+function bangleShop(
+  decor: THREE.BufferGeometry[],
+  cx: number,
+  zBack: number,
+  faceZ: number,
+  facing: 1 | -1,
+  w: number,
+  h: number,
+  rand: () => number
+) {
+  decor.push(box(w, h, 0.04, cx, h / 2, zBack + facing * 0.02, INTERIOR));
+  // Shelves of bangle stacks, dense and bright.
+  for (let i = 0; i < 4; i++) {
+    const y = 0.55 + i * 0.5;
+    decor.push(box(w - 0.1, 0.04, 0.28, cx, y, zBack + facing * 0.16, SHELF));
+    for (let x = cx - w / 2 + 0.12; x < cx + w / 2 - 0.1; x += 0.11) {
+      decor.push(cyl(0.045, 0.045, 0.3, x, y + 0.17, zBack + facing * 0.16, pick(BANGLES, rand), 6));
+    }
+  }
+  // The front rack: bangles strung on rods, and a glass counter.
+  decor.push(box(w - 0.2, 0.05, 0.05, cx, h - 0.25, faceZ - facing * 0.25, 0x8a6a4a));
+  for (let x = cx - w / 2 + 0.25; x < cx + w / 2 - 0.2; x += 0.2) {
+    decor.push(cyl(0.05, 0.05, 0.9, x, h - 0.75, faceZ - facing * 0.25, pick(BANGLES, rand), 6));
+  }
+  decor.push(box(w - 0.4, 0.8, 0.45, cx, 0.4, faceZ - facing * 0.75, 0x6f5238));
+  decor.push(box(w - 0.45, 0.05, 0.4, cx, 0.82, faceZ - facing * 0.75, 0xcfe0ea));
 }
 
 const INTERIOR = 0x2c211c;
@@ -380,7 +414,8 @@ function shopfront(
   bayW: number,
   rand: () => number,
   atlas: BuildingOptions["signs"],
-  named?: UvRect
+  named?: UvRect,
+  wares?: Wares
 ) {
   const bayH = SHOP_BAY_H;
   const inset = SHOP_INSET;
@@ -395,7 +430,11 @@ function shopfront(
   L.shell.push(slab(w, 0.3, inset, cx, bayH, zMid));
 
   const open = rand() > 0.45;
-  if (open) {
+  if (wares === "bangles") {
+    // Bangle shop: always open, glass bangles stacked on the shelves and
+    // strung on a rack across the front.
+    bangleShop(L.decor, cx, zBack, faceZ, facing, w - 0.3, bayH - 0.15, rand);
+  } else if (open) {
     // Open shop: a dark interior with lit shelves of stock, which is what an
     // open Indian shopfront actually looks like from the street — not glass.
     shopInterior(L.decor, cx, zBack, facing, w - 0.3, bayH - 0.15, rand);
@@ -583,7 +622,7 @@ export function buildBuildingParts(
       for (let b = 0; b < bays; b++) {
         const cx = -face.span / 2 + bayW * (b + 0.5);
         const named = b === Math.floor(bays / 2) && !face.rotate ? opts.named : undefined;
-        shopfront(L, signage, signs, cx, face.faceZ, face.facing, bayW * 0.82, bayW, rand, opts.signs, named);
+        shopfront(L, signage, signs, cx, face.faceZ, face.facing, bayW * 0.82, bayW, rand, opts.signs, named, opts.wares);
       }
     }
 

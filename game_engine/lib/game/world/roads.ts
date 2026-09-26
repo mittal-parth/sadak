@@ -210,9 +210,10 @@ function pavingTexture(base: number): THREE.CanvasTexture | null {
   return tex;
 }
 
-/** Red sandstone slabs in running bond, joints a shade darker, each slab a
- *  touch lighter or darker than the next (Chandni Chowk). */
-function sandstoneTexture(): THREE.CanvasTexture | null {
+/** Stone slabs in running bond, joints a shade darker, each slab a touch
+ *  lighter or darker than the next: red sandstone (Chandni Chowk) by
+ *  default, grey granite round Charminar. */
+function sandstoneTexture(base = 0xb0624a): THREE.CanvasTexture | null {
   if (typeof document === "undefined") return null;
   const px = 256;
   const canvas = document.createElement("canvas");
@@ -220,8 +221,8 @@ function sandstoneTexture(): THREE.CanvasTexture | null {
   canvas.height = px;
   const ctx = canvas.getContext("2d")!;
   const rand = mulberry32(4411);
-  const base = new THREE.Color(0xb0624a);
-  ctx.fillStyle = `#${base.clone().multiplyScalar(0.72).getHexString()}`;
+  const tone = new THREE.Color(base);
+  ctx.fillStyle = `#${tone.clone().multiplyScalar(0.72).getHexString()}`;
   ctx.fillRect(0, 0, px, px);
   // 2 slabs along, 4 across; every other row offset by half a slab.
   const along = px / 2;
@@ -229,7 +230,7 @@ function sandstoneTexture(): THREE.CanvasTexture | null {
   for (let row = 0; row < 4; row++) {
     for (let k = -1; k < 2; k++) {
       const x = k * along + (row % 2 ? along / 2 : 0);
-      const c = base.clone().multiplyScalar(0.9 + rand() * 0.2);
+      const c = tone.clone().multiplyScalar(0.9 + rand() * 0.2);
       ctx.fillStyle = `#${c.getHexString()}`;
       ctx.fillRect(x + 2, row * across + 2, along - 4, across - 4);
     }
@@ -383,6 +384,7 @@ export function buildRoads(map: MapData, theme: Theme, mats?: MaterialLibrary): 
   const tarmac: THREE.BufferGeometry[] = [];
   const paving: THREE.BufferGeometry[] = [];
   const sandstone: THREE.BufferGeometry[] = [];
+  const granite: THREE.BufferGeometry[] = [];
   const buff: THREE.BufferGeometry[] = [];
   const footTop: THREE.BufferGeometry[] = [];
   const kerb: THREE.BufferGeometry[] = [];
@@ -390,6 +392,11 @@ export function buildRoads(map: MapData, theme: Theme, mats?: MaterialLibrary): 
   const yellow: THREE.BufferGeometry[] = [];
 
   for (const r of map.roads) {
+    if (r.surface === "granite") {
+      granite.push(ribbon(r.pts, -r.w / 2, r.w / 2, Y.paving, 2.6));
+      for (const side of [1, -1]) buff.push(ribbon(r.pts, side * (r.w / 2 - 0.55), side * (r.w / 2 - 0.1), Y.paint, 2.6));
+      continue;
+    }
     if (r.surface === "sandstone") {
       sandstone.push(ribbon(r.pts, -r.w / 2, r.w / 2, Y.paving, 2.6));
       // Buff stone borders down both edges.
@@ -480,6 +487,9 @@ export function buildRoads(map: MapData, theme: Theme, mats?: MaterialLibrary): 
   const stoneTex = sandstoneTexture();
   if (stoneTex) textures.push(stoneTex);
   add(sandstone, new THREE.MeshLambertMaterial({ color: stoneTex ? 0xffffff : 0xb0624a, map: stoneTex }));
+  const graniteTex = granite.length ? sandstoneTexture(0xb3ada4) : null;
+  if (graniteTex) textures.push(graniteTex);
+  add(granite, new THREE.MeshLambertMaterial({ color: graniteTex ? 0xffffff : 0xb3ada4, map: graniteTex }));
   add(buff, new THREE.MeshLambertMaterial({ color: 0xd9c3a0 }));
 
   const footTex = pavingTexture(theme.pavement);

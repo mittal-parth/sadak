@@ -403,6 +403,7 @@ export function buildBuildings(
       signs: kit.atlas ?? undefined,
       frontOnly: true,
       named: named ?? undefined,
+      wares: p.wares,
     });
     const wall = theme.buildings[p.seed % theme.buildings.length];
     const baked = bakeBuilding(parts, {
