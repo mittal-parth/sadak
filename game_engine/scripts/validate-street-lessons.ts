@@ -3,6 +3,7 @@
  * Run from game_engine: npx tsx scripts/validate-street-lessons.ts
  */
 import { STREET_TASK_LESSONS } from "../lib/game/street-task-lessons";
+import { wordCountMismatches } from "../lib/game/street-task-lessons/word-count";
 import type { LessonTier } from "../lib/game/levels";
 
 const EXPECTED: Record<LessonTier, number> = { easy: 3, medium: 5, hard: 7 };
@@ -61,6 +62,13 @@ for (const [taskId, tiers] of Object.entries(STREET_TASK_LESSONS)) {
       }
     }
   }
+}
+
+for (const m of wordCountMismatches(STREET_TASK_LESSONS)) {
+  console.error(
+    `${m.taskId} ${m.tier} step ${m.step} ${m.side}: native/roman word counts differ (${m.native} | ${m.roman})`
+  );
+  failed = true;
 }
 
 if (failed) {
