@@ -12,9 +12,9 @@ import { Crosshair, Maximize2, Minus, Plus, X } from "lucide-react";
 import type { LiveState, TaskSnapshot } from "@/lib/game/engine";
 import type { District } from "@/lib/game/districts";
 import type { MapData, Pt } from "@/lib/game/world/mapData";
-import type { TaskKind } from "@/lib/game/tasks";
 import { placeLabels, roadLabels } from "@/lib/game/world/mapLabels";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { kindColour, kindIcon, kindLabel } from "./mapKit";
 
 /** Pixels per metre, limits. */
@@ -241,9 +241,10 @@ export function FullMap({
     }
 
     // Errands and the barber, with their icons.
-    const blip = (x: number, z: number, colour: string, icon: string, ring: boolean) => {
+    const blip = (x: number, z: number, colour: string, icon: string, ring: boolean, dim = false) => {
       const px = X(x);
       const py = Z(z);
+      ctx.globalAlpha = dim ? 0.5 : 1;
       ctx.fillStyle = "rgba(0,0,0,0.4)";
       ctx.beginPath();
       ctx.arc(px + 1.5, py + 2, 13, 0, Math.PI * 2);
@@ -257,8 +258,9 @@ export function FullMap({
       ctx.stroke();
       ctx.font = "13px system-ui, sans-serif";
       ctx.fillText(icon, px, py + 1);
+      ctx.globalAlpha = 1;
     };
-    for (const t of tasks) blip(t.x, t.z, kindColour(t.kind, t.done), t.done ? "✓" : kindIcon(t.kind), hover?.id === t.id);
+    for (const t of tasks) blip(t.x, t.z, t.colour, t.done ? "✓" : kindIcon(t.kind), hover?.id === t.id, t.done);
     if (barber) blip(barber.x, barber.z, kindColour("barber", false), kindIcon("barber"), false);
 
     // You: an arrow the way you face.
@@ -353,8 +355,6 @@ export function FullMap({
     if (drag.current.length < 2) pinch.current = null;
   };
 
-  const kinds = [...new Set(tasks.map((t) => t.kind))] as TaskKind[];
-
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[#15191f] text-white" role="dialog" aria-label="Map">
       <div className="flex items-center justify-between gap-3 px-4 py-3">
@@ -411,10 +411,10 @@ export function FullMap({
           </div>
         )}
         <div className="pointer-events-none absolute bottom-3 left-3 flex flex-col gap-1 rounded-md bg-black/60 px-3 py-2 text-xs">
-          {kinds.map((k) => (
-            <span key={k} className="flex items-center gap-2">
-              <span className="inline-block size-3 rounded-full" style={{ background: kindColour(k, false) }} />
-              {kindIcon(k)} {kindLabel(k)}
+          {tasks.map((t) => (
+            <span key={t.id} className={cn("flex items-center gap-2", t.done && "opacity-50 line-through")}>
+              <span className="inline-block size-3 rounded-full" style={{ background: t.colour }} />
+              {kindIcon(t.kind)} {titles[t.id] ?? kindLabel(t.kind)}
             </span>
           ))}
           {barber && (
@@ -423,9 +423,6 @@ export function FullMap({
               {kindIcon("barber")} {kindLabel("barber")}
             </span>
           )}
-          <span className="flex items-center gap-2">
-            <span className="inline-block size-3 rounded-full" style={{ background: kindColour("auto", true) }} /> Done
-          </span>
           <span className="flex items-center gap-2">
             <span className="inline-block size-3 rounded-full bg-[#5ab0ff]" /> You
           </span>

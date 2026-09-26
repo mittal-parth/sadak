@@ -6,6 +6,9 @@
 import type { MapData } from "@/lib/game/world/mapData";
 import type { TaskKind } from "@/lib/game/tasks";
 
+/** A 0xRRGGBB colour as CSS. */
+export const css = (hex: number) => `#${hex.toString(16).padStart(6, "0")}`;
+
 export function kindColour(kind: TaskKind, done: boolean): string {
   if (done) return "#3ddc84";
   switch (kind) {

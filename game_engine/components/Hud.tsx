@@ -17,7 +17,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
-import { kindColour, kindIcon, kindLabel, renderStreetMap } from "@/components/map/mapKit";
+import { css, kindColour, kindIcon, kindLabel, renderStreetMap } from "@/components/map/mapKit";
 import { roadLabels, type RoadLabel } from "@/lib/game/world/mapLabels";
 import { LocationCard } from "@/components/map/LocationCard";
 import { LocateFixed, PanelLeftClose, PanelLeftOpen, Volume2, VolumeX } from "lucide-react";
@@ -163,7 +163,8 @@ function Minimap({
       }
 
       for (const t of tasksRef.current) {
-        const col = kindColour(t.kind, t.done);
+        const col = t.colour;
+        ctx.globalAlpha = t.done ? 0.45 : 1;
         const dotR = 4.5 * ui;
         const sx = t.x * scale;
         const sy = t.z * scale;
@@ -184,6 +185,7 @@ function Minimap({
         ctx.beginPath();
         ctx.arc(sx, sy, dotR + 0.5 * ui, 0, Math.PI * 2);
         ctx.stroke();
+        ctx.globalAlpha = 1;
       }
 
       const b = barberRef.current;
@@ -342,7 +344,8 @@ function ErrandsList({
                 done ? "bg-chart-4/20" : "bg-main/10",
                 compact && "size-5 text-[0.65rem]"
               )}
-              style={{ borderColor: done ? undefined : kindColour(t.kind, false) }}
+              // The errand's own colour, as on its marker and its map dot.
+              style={{ borderColor: css(t.colour), borderWidth: 2, background: `${css(t.colour)}33` }}
               aria-hidden
             >
               {kindIcon(t.kind)}
