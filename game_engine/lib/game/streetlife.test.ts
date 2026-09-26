@@ -17,6 +17,8 @@ import { offsetPolyline, trimPolyline, polylineLength, footpathStrips, isDrivabl
 import { createTraffic } from "./world/traffic";
 import { buildLandmark } from "./world/landmarks";
 import { planRoute } from "./world/route";
+import { medians } from "./world/roads";
+import { OSM_CITIES } from "../../scripts/osm/cities";
 
 const LANDMARKS: Landmark[] = [
   "delhi", "chennai", "bengaluru", "kolkata", "hyderabad",
@@ -312,6 +314,72 @@ test("districts carry the real place names, and migration 013 matches the seeds"
   for (const d of SEED_DISTRICTS) assert.equal(live.get(d.id), d.name, `${d.id} name in migration 013`);
   const invented = ["Purani Sadak", "Marina Nagar", "Majestic Cross", "Park Gully", "Charminar Lane", "Dadar Chowk", "Hall Bazaar", "Lingaraj Lane"];
   for (const d of SEED_DISTRICTS) assert.ok(!invented.includes(d.name), `${d.id} still has an invented name`);
+});
+
+test("the player starts with the district's landmark in view", () => {
+  for (const city of OSM_CITIES) {
+    const map = loadMap(city.id);
+    const mark = map.landmarks.find((l) => city.spawnNear.test(l.name))!;
+    const world = new CollisionWorld();
+    for (const p of map.plots) world.box(p.x, p.z, p.w / 2, p.d / 2, p.rot);
+    for (const b of map.buildings) world.add({ kind: "poly", outer: b.pts, holes: b.holes ?? [] });
+    const { x, z, yaw } = map.spawn;
+    const L = Math.hypot(mark.x - x, mark.z - z);
+    const reach = Math.hypot(mark.w, mark.d) / 2 + 1.5;
+    for (let t = 1; t < L - reach; t += 0.5) {
+      const px = x + ((mark.x - x) * t) / L;
+      const pz = z + ((mark.z - z) * t) / L;
+      assert.equal(world.blocked(px, pz, 0.1), false, `${city.id}: a building hides ${mark.name} from the spawn`);
+    }
+    // Facing it.
+    const toward = Math.atan2(mark.x - x, mark.z - z);
+    assert.ok(Math.abs(Math.atan2(Math.sin(toward - yaw), Math.cos(toward - yaw))) < 0.05, `${city.id}: spawn faces away`);
+  }
+});
+
+test("Chandni Chowk is a red sandstone pedestrian street with a planted median", () => {
+  const map = loadMap("purani-sadak");
+  const cc = map.roads.filter((r) => r.name === "Chandni Chowk");
+  assert.ok(cc.length > 10);
+  for (const r of cc) {
+    assert.equal(r.cls, "pedestrian");
+    assert.equal(r.surface, "sandstone");
+    assert.equal(isDrivable(r), false, "no cars on Chandni Chowk");
+  }
+  const strips = medians(map);
+  assert.ok(strips.length >= 5, `${strips.length} median runs`);
+  for (const m of strips) assert.ok(m.w > 1.5 && m.w < 6, `median ${m.w.toFixed(1)}m wide`);
+  // Found once per pair of halves, never twice over the same ground.
+  for (let i = 0; i < strips.length; i++) {
+    for (let j = i + 1; j < strips.length; j++) {
+      const a = strips[i].pts[Math.floor(strips[i].pts.length / 2)];
+      const near = strips[j].pts.some((p) => Math.hypot(p[0] - a[0], p[1] - a[1]) < 1);
+      assert.equal(near, false, "median laid twice");
+    }
+  }
+  // Other cities keep their streets as OSM has them.
+  for (const id of ["dadar-chowk", "park-gully"]) assert.equal(loadMap(id).roads.some((r) => r.surface), false);
+});
+
+test("a temple mapped as a point stands on its street, not mid-block", () => {
+  const map = loadMap("purani-sadak");
+  const t = map.landmarks.find((l) => /Gauri Shankar/.test(l.name))!;
+  // Its front (local +z, half its depth out) meets Chandni Chowk's edge.
+  const fx = t.x + Math.sin(t.rot) * (t.d / 2);
+  const fz = t.z + Math.cos(t.rot) * (t.d / 2);
+  let edge = Infinity;
+  for (const r of map.roads.filter((r) => r.name === "Chandni Chowk")) {
+    for (let i = 0; i < r.pts.length - 1; i++) {
+      const [ax, az] = r.pts[i];
+      const [bx, bz] = r.pts[i + 1];
+      const L2 = (bx - ax) ** 2 + (bz - az) ** 2;
+      const u = Math.max(0, Math.min(1, ((fx - ax) * (bx - ax) + (fz - az) * (bz - az)) / L2));
+      edge = Math.min(edge, Math.hypot(fx - ax - u * (bx - ax), fz - az - u * (bz - az)) - r.w / 2 - r.foot);
+    }
+  }
+  assert.ok(edge > 0 && edge < 1.5, `front is ${edge.toFixed(1)}m from the street`);
+  // One Central Baptist Church, not a second one for its school.
+  assert.equal(map.landmarks.filter((l) => /Central Baptist/.test(l.name)).length, 1);
 });
 
 test("footpaths stop short of junctions", () => {
