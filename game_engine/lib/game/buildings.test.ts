@@ -103,3 +103,28 @@ test("a ray from the street into a shop opening travels into the recess", () => 
   const upper = ray.intersectObject(shell)[0];
   assert.ok(upper && Math.abs(upper.distance - 1) < 1e-3, `upper wall hit at ${upper?.distance}`);
 });
+
+test("a named shop gets its own board over the middle bay, and nothing else changes", () => {
+  const named: UvRect = [0.9, 0.9, 1, 1];
+  const plain = buildBuildingParts(W, D, FLOORS, 23, { style: "colonial", signs: atlas, frontOnly: true });
+  const withName = buildBuildingParts(W, D, FLOORS, 23, { style: "colonial", signs: atlas, frontOnly: true, named });
+  const faces = (g: THREE.BufferGeometry) => {
+    const uv = g.attributes.uv;
+    const out: { u: number; v: number; x: number }[] = [];
+    for (let q = 0; q < uv.count; q += 4) out.push({ u: uv.getX(q), v: uv.getY(q), x: g.attributes.position.getX(q) });
+    return out;
+  };
+  const a = faces(plain.signs);
+  const b = faces(withName.signs);
+  assert.equal(a.length, b.length, "same number of boards");
+  const changed = b.filter((f, i) => f.u !== a[i].u || f.v !== a[i].v);
+  assert.equal(changed.length, 1, "exactly one board relettered");
+  assert.ok(changed[0].u >= 0.9 - 1e-6 && changed[0].v >= 0.9 - 1e-6, "with the named cell");
+  // Everything else is the same building.
+  for (const k of ["body", "glass", "decor"] as const) {
+    const pa = (plain as unknown as Record<string, THREE.BufferGeometry>)[k];
+    const pb = (withName as unknown as Record<string, THREE.BufferGeometry>)[k];
+    if (!pa?.attributes?.position) continue;
+    assert.deepEqual(Array.from(pb.attributes.position.array), Array.from(pa.attributes.position.array), `${k} moved`);
+  }
+});

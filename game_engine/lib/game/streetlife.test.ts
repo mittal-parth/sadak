@@ -68,6 +68,7 @@ function tinyMap(): MapData {
     rails: [],
     pois: [],
     errandSpots: {},
+    boards: [],
     spawn: { x: 10, z: 10, yaw: 0 },
     spots: {
       auto: { x: 20, z: 8, yaw: 0 },
@@ -542,6 +543,35 @@ test("cinemas and colonial fronts turn to their street", () => {
       assert.ok(off <= Math.PI / 4 + 0.01, `${id}: ${l.name} faces ${((off * 180) / Math.PI).toFixed(0)} deg off its street`);
     }
   }
+});
+
+test("real shops carry their own names: Park Street's Mocambo, Trincas, Peter Cat", () => {
+  let total = 0;
+  for (const d of SEED_DISTRICTS) {
+    const map = loadMap(d.id);
+    const names = [...map.plots.flatMap((p) => (p.sign ? [p.sign] : [])), ...map.boards.map((b) => b.name)];
+    assert.ok(names.length <= 40, `${d.id}: ${names.length} names overflow the sign atlas`);
+    total += names.length;
+    for (const p of map.plots) if (p.sign) assert.ok(p.front, `${d.id}: "${p.sign}" on a back-lot block`);
+    // Every board hangs on its building's street wall, facing out.
+    for (const b of map.boards) {
+      const home = map.buildings.find((x) => {
+        let inside = false;
+        const px = b.x - Math.sin(b.rot) * 0.6;
+        const pz = b.z - Math.cos(b.rot) * 0.6;
+        for (let i = 0, j = x.pts.length - 1; i < x.pts.length; j = i++) {
+          const [xi, zi] = x.pts[i];
+          const [xj, zj] = x.pts[j];
+          if (zi > pz !== zj > pz && px < ((xj - xi) * (pz - zi)) / (zj - zi) + xi) inside = !inside;
+        }
+        return inside;
+      });
+      assert.ok(home, `${d.id}: board "${b.name}" hangs on no building`);
+    }
+  }
+  assert.ok(total > 150, `${total} real names across the cities`);
+  const park = loadMap("park-gully").boards.map((b) => b.name);
+  for (const n of ["Mocambo", "Trincas", "Peter Cat"]) assert.ok(park.includes(n), `no ${n} on Park Street`);
 });
 
 test("footpaths stop short of junctions", () => {
