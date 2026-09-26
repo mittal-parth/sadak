@@ -22,6 +22,7 @@ import { createTraffic, type Traffic } from "./traffic";
 import { buildRails } from "./rails";
 import { createFlocks, flockSites } from "./birds";
 import { buildMarkets, marketStalls } from "./market";
+import { buildBeach } from "./beach";
 import { CollisionWorld } from "./collide";
 import { HeightField } from "./height";
 import { KERB_H, type MapData } from "./mapData";
@@ -171,9 +172,17 @@ export function buildWorld(map: MapData, district: District, deps: WorldDeps): W
   }
   group.add(markets.group);
 
+  // Boats at the waterline, umbrellas and carts up the beach.
+  const beach = buildBeach(map, collide, groundAt);
+  group.add(beach.group);
+
   // People gather at the task spots, the bus stops and the shops nearby,
-  // and in front of every third market stall.
+  // in front of every third market stall, and round the beach carts and
+  // umbrellas.
   const gatherings = [
+    ...beach.spots
+      .filter((s) => s.kind !== "boat")
+      .map((s) => ({ x: s.x + Math.sin(s.rot) * 2.2, z: s.z + Math.cos(s.rot) * 2.2, size: 3 })),
     ...stallRows.flatMap(({ stalls }) =>
       stalls
         .filter((_, i) => i % 3 === 0)
@@ -237,6 +246,7 @@ export function buildWorld(map: MapData, district: District, deps: WorldDeps): W
       rails.dispose();
       flocks.dispose();
       markets.dispose();
+      beach.dispose();
       clutter.dispose();
       areas.dispose();
       roads.textures.forEach((t) => t.dispose());
