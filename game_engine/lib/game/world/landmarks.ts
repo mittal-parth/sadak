@@ -15,7 +15,6 @@ import {
   makeArtDecoCinema,
   makeCharminar,
   makeChineseFishingNet,
-  makeGopuram,
   makeStreetMandir,
 } from "../assets";
 import type { MapLandmark } from "./mapData";
@@ -24,6 +23,7 @@ import type { HeightField } from "./height";
 import { modelExtent } from "./extent";
 import { congregationalMosque, hajira } from "./mosque";
 import { deul, jalamandira, lingaraj } from "./odisha";
+import { dravidianTemple } from "./south";
 import {
   busStation,
   church,
@@ -145,14 +145,8 @@ export function buildLandmark(l: MapLandmark, city: Landmark, clear?: ClearTest)
       return lingaraj(w, d);
     case "jalamandira":
       return jalamandira(w, d);
-    case "gopuram_temple": {
-      // Walled Dravidian temple: the gopuram over the gate, a vimana inside.
-      const m = temple(w, d, { stone: 0xe9dcc0, accent: 0xc84b31, plinth: 0.8, kind: "nagara", tower: 1.0, compound: true });
-      const gop = fit(makeGopuram(), Math.min(w * 0.3, 18), 10, 4);
-      gop.group.position.z = d / 2 - 2;
-      m.group.add(gop.group);
-      return m;
-    }
+    case "gopuram_temple":
+      return dravidianTemple(w, d);
     case "church_small":
       return church(...modelExtent(l.model, w, d), { wall: 0xf4efe4, trim: 0xd9c9a8, roof: 0x9b3b2f, towers: 1 });
     case "church":
