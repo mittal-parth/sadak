@@ -14,7 +14,7 @@ import * as THREE from "three";
 import type { CollisionWorld } from "./collide";
 import type { HeightField } from "./height";
 import type { Precinct, Pt } from "./mapData";
-import { Parts } from "./vc";
+import { Parts, archedSlab } from "./vc";
 
 type Hit = { edge: number; t: number; s: number; pt: Pt };
 
@@ -65,20 +65,6 @@ const DEPTH = 9;
 /** Piers either side of a gate's opening. */
 const PIER = 2;
 
-/** A semicircular-arched opening `w` wide, springing at `spring`, cut
- *  through a slab `d` thick from y=0 to `top`: the slab above and beside the
- *  arch, as one extruded shape (local x across, z through). */
-function archedSlab(w: number, spring: number, top: number, d: number): THREE.BufferGeometry {
-  const s = new THREE.Shape();
-  s.moveTo(-w / 2, spring);
-  s.absarc(0, spring, w / 2, Math.PI, 0, true);
-  s.lineTo(w / 2, spring);
-  s.lineTo(w / 2, top);
-  s.lineTo(-w / 2, top);
-  s.closePath();
-  return new THREE.ExtrudeGeometry(s, { depth: d, bevelEnabled: false, curveSegments: 10 }).translate(0, 0, -d / 2);
-}
-
 /** A small open kiosk with a dome, sitting on y. */
 function kiosk(P: Parts, x: number, y: number, z: number, s: number, dome: number) {
   for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) P.box(0.18 * s, 1.3 * s, 0.18 * s, x + a * 0.55 * s, y + 0.65 * s, z + b * 0.55 * s, MARBLE);
@@ -111,7 +97,7 @@ function arcade(len: number, d: number): THREE.BufferGeometry | null {
       // The arch: a deep opening with a round head, framed in inlay.
       P.box(aw + 0.3, 3.3, 0.06, cx, 0.45 + 1.65, -0.03, INLAY);
       P.box(aw, 2.3, 0.08, cx, 0.45 + 1.15, -0.05, DEEP);
-      P.add(new THREE.CylinderGeometry(aw / 2, aw / 2, 0.08, 12, 1, false, -Math.PI / 2, Math.PI).rotateX(Math.PI / 2).translate(cx, 0.45 + 2.3, -0.05), DEEP);
+      P.add(new THREE.CylinderGeometry(aw / 2, aw / 2, 0.08, 12, 1, false, Math.PI / 2, Math.PI).rotateX(Math.PI / 2).translate(cx, 0.45 + 2.3, -0.05), DEEP);
       // Upstairs: a jharokha on alternate bays, a window between.
       if (k % 2 === 0) {
         P.box(aw * 0.8, 0.14, 0.7, cx, STOREY + 0.9, -0.35, MARBLE);
@@ -188,7 +174,7 @@ function gatehouse(w: number, d: number, kind: "main" | "clock" | "plain"): THRE
     const x = -span / 2 + ((k + 0.5) * span) / n;
     for (const z of [-0.04, d + 0.04]) {
       P.box(span / n - 0.9, upH * 0.5, 0.06, x, archTop + upH * 0.5, z, kind === "main" ? DEEP : SHADE);
-      P.add(new THREE.CylinderGeometry((span / n - 0.9) / 2, (span / n - 0.9) / 2, 0.06, 10, 1, false, -Math.PI / 2, Math.PI).rotateX(Math.PI / 2).translate(x, archTop + upH * 0.75, z), kind === "main" ? DEEP : SHADE);
+      P.add(new THREE.CylinderGeometry((span / n - 0.9) / 2, (span / n - 0.9) / 2, 0.06, 10, 1, false, Math.PI / 2, Math.PI).rotateX(Math.PI / 2).translate(x, archTop + upH * 0.75, z), kind === "main" ? DEEP : SHADE);
     }
   }
   P.box(span + 0.5, 0.18, d + 0.5, 0, H, d / 2, kind === "main" ? GOLD_DARK : GOLD);

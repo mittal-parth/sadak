@@ -22,6 +22,7 @@ import type { MapLandmark } from "./mapData";
 import type { CollisionWorld } from "./collide";
 import type { HeightField } from "./height";
 import { modelExtent } from "./extent";
+import { congregationalMosque } from "./mosque";
 import {
   busStation,
   church,
@@ -35,7 +36,6 @@ import {
   statue,
   templeCar,
   memorialGarden,
-  mosque,
   promenade,
   smallMosque,
   temple,
@@ -51,11 +51,11 @@ import { CITY_TRAFFIC } from "../transit";
 const MOSQUE: Partial<Record<Landmark, MosqueStyle>> & { default: MosqueStyle } = {
   default: { stone: 0xe9e1d0, accent: 0xc9b28a, dome: 0xf4f0e8, plinth: 1.2 },
   // Jama Masjid: red sandstone with white marble bands and domes.
-  delhi: { stone: 0xb5563a, accent: 0xf1ece2, dome: 0xf4f0e8, plinth: 3.2 },
+  delhi: { stone: 0xb5563a, accent: 0xf1ece2, dome: 0xf4f0e8, plinth: 5, domes: "three", stripe: 0x2a2320, sideGates: true },
   // Mecca Masjid: grey granite.
-  hyderabad: { stone: 0xa89f8e, accent: 0xd8cfbd, dome: 0xc9c1b0, plinth: 1.6 },
+  hyderabad: { stone: 0xa89f8e, accent: 0xd8cfbd, dome: 0xc9c1b0, plinth: 1.6, domes: "none" },
   // Ahmedabad's Jama Masjid: yellow sandstone.
-  ahmedabad: { stone: 0xd4b483, accent: 0xb89660, dome: 0xd9bf8f, plinth: 1.4 },
+  ahmedabad: { stone: 0xd4b483, accent: 0xb89660, dome: 0xd9bf8f, plinth: 1.4, domes: "many" },
   mumbai: { stone: 0xf0ede4, accent: 0x2e8b57, dome: 0x2e8b57, plinth: 0.8 },
   bengaluru: { stone: 0xf0ede4, accent: 0x2e8b57, dome: 0x2e8b57, plinth: 0.8 },
   kolkata: { stone: 0xf0ede4, accent: 0x2e8b57, dome: 0x2e8b57, plinth: 0.8 },
@@ -126,7 +126,7 @@ export function buildLandmark(l: MapLandmark, city: Landmark, clear?: ClearTest)
   const { w, d } = l;
   switch (l.model) {
     case "jama_masjid":
-      return mosque(w, d, ms);
+      return congregationalMosque(...modelExtent(l.model, w, d), ms);
     case "mosque_small":
       return smallMosque(...modelExtent(l.model, w, d), ms);
     case "dargah":
@@ -245,7 +245,7 @@ export function placeLandmarks(
     }
     for (const h of m.heights) {
       const [x, z] = world(h.x, h.z);
-      height.rect(x, z, h.hw, h.hd, l.rot, h.y0, h.y1);
+      height.rect(x, z, h.hw, h.hd, l.rot + (h.rot ?? 0), h.y0, h.y1);
     }
     if (m.inner) {
       const [x, z] = world(m.inner.x, m.inner.z);

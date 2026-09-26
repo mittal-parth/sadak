@@ -15,7 +15,9 @@ import { Parts } from "./vc";
 
 export type LocalBox = { x: number; z: number; hw: number; hd: number; rot?: number };
 /** Height from y0 at the local -z edge to y1 at +z (flat when equal). */
-export type LocalRect = { x: number; z: number; hw: number; hd: number; y0: number; y1: number };
+/** Height from y0 at the local -z edge to y1 at +z (flat when equal), turned
+ *  by `rot` within the monument's frame. */
+export type LocalRect = { x: number; z: number; hw: number; hd: number; y0: number; y1: number; rot?: number };
 
 export type Monument = {
   group: THREE.Group;
@@ -37,7 +39,7 @@ function material() {
   return new THREE.MeshLambertMaterial({ vertexColors: true });
 }
 
-function finish(
+export function finish(
   parts: Parts,
   colliders: LocalBox[],
   heights: LocalRect[],
@@ -91,7 +93,7 @@ function platform(
 }
 
 /** Small open pavilion: four pillars and a dome. */
-function chhatri(P: Parts, x: number, y: number, z: number, s: number, stone: number, domeCol: number) {
+export function chhatri(P: Parts, x: number, y: number, z: number, s: number, stone: number, domeCol: number) {
   for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) P.box(0.25 * s, 1.6 * s, 0.25 * s, x + a * 0.7 * s, y + 0.8 * s, z + b * 0.7 * s, stone);
   P.box(2 * s, 0.2 * s, 2 * s, x, y + 1.7 * s, z, stone);
   P.dome(0.9 * s, x, y + 1.8 * s, z, domeCol);
@@ -122,90 +124,14 @@ export type MosqueStyle = {
   accent: number;
   dome: number;
   plinth: number;
+  /** Over the prayer hall: Delhi's three onions, Ahmedabad's field of small
+   *  domes, or none (the Mecca Masjid's flat roof between its minarets). */
+  domes?: "three" | "many" | "none";
+  /** Black inlay striping the domes and the minarets' marble. */
+  stripe?: number;
+  /** Stairs and gates on the two sides as well as the front. */
+  sideGates?: boolean;
 };
-
-/** Congregational mosque: plinth, stair, cloister, courtyard, prayer hall. */
-export function mosque(w: number, d: number, st: MosqueStyle): Monument {
-  const P = new Parts();
-  const C: LocalBox[] = [];
-  const Hs: LocalRect[] = [];
-  const pf = platform(P, C, Hs, w, d, st.plinth, st.stone, 0.3, false);
-  const y = st.plinth;
-
-  // Cloister: arcaded walls on three sides and the front, with a tall gate
-  // over the stair head.
-  const wallH = 5;
-  const t = 1.4;
-  const gateW = pf.stairW + 2;
-  const side = (w - gateW) / 2;
-  const walls: [number, number, number, number][] = [
-    [0, pf.top + t / 2, w, t],
-    [-(w - t) / 2, pf.zc, t, pf.depth],
-    [(w - t) / 2, pf.zc, t, pf.depth],
-    [-(gateW / 2 + side / 2), pf.front - t / 2, side, t],
-    [gateW / 2 + side / 2, pf.front - t / 2, side, t],
-  ];
-  for (const [x, z, ww, dd] of walls) {
-    P.box(ww, wallH, dd, x, y + wallH / 2, z, st.stone);
-    P.box(ww + 0.2, 0.4, dd + 0.2, x, y + wallH + 0.2, z, st.accent);
-    C.push({ x, z, hw: ww / 2, hd: dd / 2 });
-  }
-  // Arch recesses along the inner face of the front walls.
-  for (const s of [-1, 1]) {
-    for (let k = 0; k < Math.floor(side / 4); k++) {
-      const x = s * (gateW / 2 + 2 + k * 4);
-      P.box(2.4, 3.2, 0.1, x, y + 1.8, pf.front - t - 0.05, DARK);
-    }
-  }
-  // Gate: tall portal with an arched opening and chhatris.
-  const gateH = 11;
-  for (const s of [-1, 1]) P.box(2, gateH, 3, s * (gateW / 2 + 1), y + gateH / 2, pf.front - 1.5, st.stone);
-  P.box(gateW + 4, 3, 3, 0, y + gateH - 1.5, pf.front - 1.5, st.stone);
-  P.box(gateW + 4.4, 0.5, 3.4, 0, y + gateH + 0.25, pf.front - 1.5, st.accent);
-  for (const s of [-1, 1]) chhatri(P, s * (gateW / 2 + 1), y + gateH + 0.5, pf.front - 1.5, 1.1, st.stone, st.dome);
-  for (const s of [-1, 1]) C.push({ x: s * (gateW / 2 + 1), z: pf.front - 1.5, hw: 1, hd: 1.5 });
-
-  // Prayer hall across the back.
-  const hallW = w * 0.8;
-  const hallD = Math.min(pf.depth * 0.28, 22);
-  const hallH = 10;
-  const hz = pf.top + t + hallD / 2;
-  P.box(hallW, hallH, hallD, 0, y + hallH / 2, hz, st.stone);
-  P.box(hallW + 0.4, 0.6, hallD + 0.4, 0, y + hallH + 0.3, hz, st.accent);
-  C.push({ x: 0, z: hz, hw: hallW / 2, hd: hallD / 2 });
-  // Façade: arched bays and a tall central iwan.
-  const bays = 9;
-  for (let k = 0; k < bays; k++) {
-    if (k === (bays - 1) / 2) continue;
-    const x = -hallW / 2 + (hallW * (k + 0.5)) / bays;
-    P.box((hallW / bays) * 0.62, 4.2, 0.1, x, y + 2.6, hz + hallD / 2 + 0.05, DARK);
-    P.box((hallW / bays) * 0.8, 0.3, 0.2, x, y + 4.9, hz + hallD / 2 + 0.1, st.accent);
-  }
-  const iwanW = Math.min(9, hallW * 0.18);
-  P.box(iwanW + 2, hallH + 4, 2, 0, y + (hallH + 4) / 2, hz + hallD / 2 + 0.9, st.stone);
-  P.box(iwanW, hallH - 1, 0.12, 0, y + (hallH - 1) / 2, hz + hallD / 2 + 1.95, DARK);
-  P.box(iwanW + 2.4, 0.5, 2.3, 0, y + hallH + 4.2, hz + hallD / 2 + 0.9, st.accent);
-  // Domes on drums: big centre, two flanking.
-  const r = Math.min(hallW * 0.11, hallD * 0.42);
-  for (const [x, s] of [[0, 1], [-hallW * 0.3, 0.72], [hallW * 0.3, 0.72]] as const) {
-    P.cyl(r * s * 0.95, r * s * 0.95, 2, x, y + hallH + 1, hz, st.stone, 14);
-    P.dome(r * s, x, y + hallH + 2, hz, st.dome, 1.18);
-    P.cyl(0.08, 0.08, 1.6, x, y + hallH + 2 + r * s * 1.5 + 0.8, hz, GOLD, 5);
-  }
-  // Minarets at the hall's front corners.
-  const mh = Math.min(40, Math.max(14, w * 0.3));
-  for (const s of [-1, 1]) minaret(P, C, s * (hallW / 2 + 1.6), hz + hallD / 2 + 1.6, y, mh, st.stone, st.accent, st.dome);
-
-  // Ablution tank in the courtyard.
-  const cz = (hz + hallD / 2 + pf.front - t) / 2;
-  const tr = Math.min(6, w * 0.08);
-  P.box(tr * 2 + 1, 0.5, tr * 2 + 1, 0, y + 0.25, cz, st.accent);
-  P.box(tr * 2, 0.52, tr * 2, 0, y + 0.27, cz, WATER);
-  C.push({ x: 0, z: cz, hw: tr + 0.5, hd: tr + 0.5 });
-
-  // Inside: in the courtyard, just clear of the tank toward the gate.
-  return finish(P, C, Hs, { x: 0, z: Math.min(pf.front - t - 2, cz + tr + 2.5) });
-}
 
 /** Neighbourhood masjid or dargah: low plinth, hall, one dome, two minarets. */
 export function smallMosque(w: number, d: number, st: MosqueStyle): Monument {
@@ -532,9 +458,9 @@ export function gurdwara(w: number, d: number, st: GurdwaraStyle): Monument {
 }
 
 /** An arched window: a dark opening with a round head, on a face at z. */
-function archWindow(P: Parts, x: number, y: number, z: number, w: number, h: number, col: number, rotY = 0) {
+export function archWindow(P: Parts, x: number, y: number, z: number, w: number, h: number, col: number, rotY = 0) {
   const g = new THREE.BoxGeometry(w, h - w / 2, 0.08).translate(0, (h - w / 2) / 2, 0);
-  const head = new THREE.CylinderGeometry(w / 2, w / 2, 0.08, 10, 1, false, -Math.PI / 2, Math.PI).rotateX(Math.PI / 2).translate(0, h - w / 2, 0);
+  const head = new THREE.CylinderGeometry(w / 2, w / 2, 0.08, 10, 1, false, Math.PI / 2, Math.PI).rotateX(Math.PI / 2).translate(0, h - w / 2, 0);
   for (const geo of [g, head]) P.add(geo.rotateY(rotY).translate(x, y, z), col);
 }
 

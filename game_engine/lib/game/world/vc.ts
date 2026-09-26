@@ -44,18 +44,28 @@ export class Parts {
     return this.add(new THREE.ConeGeometry(r, h, seg).translate(x, y, z), hex);
   }
 
-  /** An onion or hemispherical dome sitting on y. `bulge` > 1 is Mughal. */
+  /** A dome sitting on y: an onion (`bulge` > 1, Mughal: swelling past its
+   *  drum, drawn in to a point) or a raised hemisphere. About 1.25–1.55 r
+   *  tall either way. */
   dome(r: number, x: number, y: number, z: number, hex: number, bulge = 1.15): this {
     const pts: THREE.Vector2[] = [];
-    const n = 10;
+    const n = 12;
     for (let i = 0; i <= n; i++) {
       const t = i / n;
-      // Swell past the drum, then draw in to a point.
-      const rr = r * Math.sin(Math.PI * Math.min(1, t * 1.05)) * (t < 0.5 ? 1 + (bulge - 1) * Math.sin(t * Math.PI) : 1);
-      pts.push(new THREE.Vector2(Math.max(0.001, rr), r * 1.25 * t * (bulge > 1 ? 1.2 : 1)));
+      let f: number;
+      let h: number;
+      if (bulge > 1.02) {
+        const swell = 0.8 + 0.2 * Math.min(1, (bulge - 1) / 0.15);
+        f = t < 0.38 ? swell + (1 - swell) * Math.sin((t / 0.38) * (Math.PI / 2)) : Math.pow(Math.cos(((t - 0.38) / 0.62) * (Math.PI / 2)), 1.25);
+        h = 1.5;
+      } else {
+        // A hemisphere lifted to a soft point.
+        f = Math.pow(Math.cos(t * (Math.PI / 2)), 0.9);
+        h = 1.25;
+      }
+      pts.push(new THREE.Vector2(Math.max(0.001, r * f), t * r * h));
     }
-    const g = new THREE.LatheGeometry(pts, 12);
-    return this.add(g.translate(x, y, z), hex);
+    return this.add(new THREE.LatheGeometry(pts, 14).translate(x, y, z), hex);
   }
 
   /** A flight of steps rising toward local -z from y=0 to `rise`, centred
@@ -89,5 +99,50 @@ export class Parts {
     m.castShadow = true;
     m.receiveShadow = true;
     return m;
+  }
+}
+
+/** A semicircular-arched opening `w` wide, springing at `spring`, cut
+ *  through a slab `d` thick from y=0 to `top`: the slab above and beside the
+ *  arch, as one extruded shape (local x across, z through). */
+export function archedSlab(w: number, spring: number, top: number, d: number): THREE.BufferGeometry {
+  const s = new THREE.Shape();
+  s.moveTo(-w / 2, spring);
+  s.absarc(0, spring, w / 2, Math.PI, 0, true);
+  s.lineTo(w / 2, spring);
+  s.lineTo(w / 2, top);
+  s.lineTo(-w / 2, top);
+  s.closePath();
+  return new THREE.ExtrudeGeometry(s, { depth: d, bevelEnabled: false, curveSegments: 10 }).translate(0, 0, -d / 2);
+}
+
+/**
+ * A Mughal onion dome of radius `r` sitting on y: swelling past its drum,
+ * drawn in to a point. Several colours stripe it in wedges round the axis
+ * (the Jama Masjid's white marble with black bands).
+ */
+export function onion(P: Parts, r: number, x: number, y: number, z: number, colours: number[], wedges = 32): void {
+  const pts: THREE.Vector2[] = [];
+  const n = 14;
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const f = t < 0.38 ? 0.8 + 0.2 * Math.sin((t / 0.38) * (Math.PI / 2)) : Math.pow(Math.cos(((t - 0.38) / 0.62) * (Math.PI / 2)), 1.25);
+    pts.push(new THREE.Vector2(Math.max(0.001, r * f), t * r * 1.55));
+  }
+  if (colours.length === 1) {
+    P.add(new THREE.LatheGeometry(pts, 16).translate(x, y, z), colours[0]);
+    return;
+  }
+  for (let i = 0; i < wedges; i++) {
+    const g = new THREE.LatheGeometry(pts, 1, (i / wedges) * Math.PI * 2, (Math.PI * 2) / wedges);
+    P.add(g.translate(x, y, z), colours[i % colours.length]);
+  }
+}
+
+/** A tapering shaft striped in vertical wedges of `a` and `b`. */
+export function stripedShaft(P: Parts, rTop: number, rBot: number, h: number, x: number, y: number, z: number, a: number, b: number, n = 16): void {
+  for (let i = 0; i < n; i++) {
+    const g = new THREE.CylinderGeometry(rTop, rBot, h, 1, 1, false, (i / n) * Math.PI * 2, (Math.PI * 2) / n);
+    P.add(g.translate(x, y + h / 2, z), i % 2 ? b : a);
   }
 }

@@ -792,7 +792,7 @@ test("every landmark on every map has a builder with colliders", () => {
 test("walkable monuments: a mosque's stair climbs onto its plinth", () => {
   const m = buildLandmark({ model: "jama_masjid", name: "Jama Masjid", x: 0, z: 0, rot: 0, w: 90, d: 90 }, "delhi");
   const h = new HeightField(100);
-  for (const r of m.heights) h.rect(r.x, r.z, r.hw, r.hd, 0, r.y0, r.y1);
+  for (const r of m.heights) h.rect(r.x, r.z, r.hw, r.hd, r.rot ?? 0, r.y0, r.y1);
   // Foot of the stair at the front edge, top on the plinth.
   assert.ok(h.at(0, 44.8) < 0.5, "stair starts near the ground");
   assert.ok(h.at(0, 0) > 3, "courtyard is up on the plinth");
@@ -800,5 +800,13 @@ test("walkable monuments: a mosque's stair climbs onto its plinth", () => {
   const w = new CollisionWorld();
   for (const c of m.colliders) w.box(c.x, c.z, c.hw, c.hd, c.rot ?? 0);
   assert.equal(w.blocked(0, 30, 0.4), false, "the way in through the gate is clear");
-  assert.equal(w.blocked(-44, 0, 0.4), true, "the side cloister blocks");
+  // Delhi's north gate: its stair climbs from the ground to the plinth, and
+  // the gate at its head is open while the cloister either side is shut.
+  const run = Math.round(5 / 0.17) * 0.32;
+  const wall = 45 - run - 0.6;
+  const zc = (-45 + 45 - run) / 2;
+  assert.ok(h.at(-44.8, zc) < 0.6, "the north stair starts near the ground");
+  assert.ok(h.at(-wall - 1, zc) > 4, "and climbs to the plinth");
+  assert.equal(w.blocked(-wall, zc, 0.4), false, "the north gate is open");
+  assert.equal(w.blocked(-wall, zc - 25, 0.4), true, "the side cloister blocks");
 });
