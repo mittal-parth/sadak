@@ -20,6 +20,7 @@ import type { Theme } from "../districts";
 import { bakeBuilding, buildBuildingParts, GROUND_H, FLOOR_H } from "../buildings";
 import type { SignAtlas } from "../signage";
 import type { MapBuilding, MapData, Plot, Pt } from "./mapData";
+import { Parts, paint } from "./vc";
 import { flatPolygon } from "./areas";
 import type { CollisionWorld } from "./collide";
 
@@ -213,6 +214,58 @@ function farOsm(b: Buf, bld: MapBuilding, colour: number, roof: THREE.BufferGeom
   if (lid) roof.push(lid);
 }
 
+/**
+ * A canopy: a 0.35m slab at the building's height, underside and edges
+ * included, on posts every ~8m round the outer ring. Returns the posts.
+ */
+function canopy(bld: MapBuilding, out: THREE.BufferGeometry[]): Pt[] {
+  const top = bld.h;
+  const slab = 0.35;
+  const P = new Parts();
+  const lid = flatPolygon(bld.pts, bld.holes ?? [], top, 1);
+  if (lid) out.push(paint(lid.toNonIndexed(), 0xe6e3dc));
+  const under = flatPolygon(bld.pts, bld.holes ?? [], top - slab, 1);
+  if (under) {
+    // Face down: flip the winding and the normals.
+    const g = under.toNonIndexed();
+    const pos = g.getAttribute("position");
+    for (let i = 0; i < pos.count; i += 3) {
+      for (const k of [0, 1, 2]) {
+        const a = pos.getComponent(i + 1, k);
+        pos.setComponent(i + 1, k, pos.getComponent(i + 2, k));
+        pos.setComponent(i + 2, k, a);
+      }
+    }
+    g.computeVertexNormals();
+    out.push(paint(g, 0xb8b4aa));
+  }
+  // Fascia round the edge, and the posts.
+  const posts: Pt[] = [];
+  const ring = bld.pts;
+  let carry = 0;
+  for (let i = 0; i < ring.length; i++) {
+    const [ax, az] = ring[i];
+    const [bx, bz] = ring[(i + 1) % ring.length];
+    const L = Math.hypot(bx - ax, bz - az);
+    if (L < 0.05) continue;
+    const rot = Math.atan2(bx - ax, bz - az);
+    P.box(0.12, slab, L, (ax + bx) / 2, top - slab / 2, (az + bz) / 2, 0xd35400, rot);
+    // Posts a little in from the edge.
+    const nx = (bz - az) / L;
+    const nz = -(bx - ax) / L;
+    for (let s = 8 - carry; s < L; s += 8) {
+      const x = ax + ((bx - ax) * s) / L - nx * 0.6 * Math.sign(signedArea(ring));
+      const z = az + ((bz - az) * s) / L - nz * 0.6 * Math.sign(signedArea(ring));
+      P.box(0.25, top - slab, 0.25, x, (top - slab) / 2, z, 0x6d7076);
+      posts.push([x, z]);
+    }
+    carry = (carry + L) % 8;
+  }
+  const g = P.geometry();
+  if (g) out.push(g);
+  return posts;
+}
+
 function bufGeometry(b: Buf): THREE.BufferGeometry | null {
   if (!b.pos.length) return null;
   const g = new THREE.BufferGeometry();
@@ -304,13 +357,26 @@ export function buildBuildings(
   // detail), merged into one mesh per tile.
   const osmBufs = new Map<Tile, Buf>();
   const roofs: THREE.BufferGeometry[] = [];
+  const canopies: THREE.BufferGeometry[] = [];
   map.buildings.forEach((bld, i) => {
+    if (bld.canopy) {
+      // A roof slab on posts round its edge; only the posts block.
+      for (const [x, z] of canopy(bld, canopies)) collide.box(x, z, 0.2, 0.2);
+      return;
+    }
     const [cx, cz] = bld.pts[0];
     const t = tileOf(cx, cz);
     if (!osmBufs.has(t)) osmBufs.set(t, newBuf());
     farOsm(osmBufs.get(t)!, bld, theme.buildings[i % theme.buildings.length], roofs);
     collide.add({ kind: "poly", outer: bld.pts, holes: bld.holes ?? [] });
   });
+  if (canopies.length) {
+    const m = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(canopies, false)!, kit.toon(new THREE.MeshLambertMaterial({ vertexColors: true })));
+    canopies.forEach((g) => g.dispose());
+    m.castShadow = true;
+    m.receiveShadow = true;
+    group.add(m);
+  }
   for (const b of osmBufs.values()) {
     const g = bufGeometry(b);
     if (!g) continue;
