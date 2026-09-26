@@ -26,6 +26,7 @@ import { buildBeach } from "./beach";
 import { buildBusYards, STAND_LIVERIES } from "./busyard";
 import { buildBoards } from "./boards";
 import { createBoundary } from "./boundary";
+import { buildPrecinct } from "./precinct";
 import { CITY_TRAFFIC } from "../transit";
 import { makeCityFlag } from "../assets";
 import { CollisionWorld } from "./collide";
@@ -69,7 +70,7 @@ export function buildWorld(map: MapData, district: District, deps: WorldDeps): W
   const areas = buildAreas(map, theme);
   group.add(areas.group);
   for (const a of map.areas) {
-    if (a.kind === "water" || a.kind === "sea") collide.add({ kind: "poly", outer: a.pts, holes: a.holes ?? [] });
+    if (a.kind === "water" || a.kind === "sea") collide.add({ kind: "poly", outer: a.pts, holes: a.holes ?? [], open: a.bridges });
   }
 
   // Streets, and the kerbs you step up onto.
@@ -101,6 +102,9 @@ export function buildWorld(map: MapData, district: District, deps: WorldDeps): W
 
   const landmarks = placeLandmarks(map.landmarks, theme.landmark, collide, height);
   group.add(landmarks.group);
+  // The Golden Temple's arcade, gates and causeway.
+  const precinct = map.precinct ? buildPrecinct(map.precinct, map.half, collide, height) : null;
+  if (precinct) group.add(precinct.group);
 
   // A film hoarding on every cinema's roof, over its street front, in the
   // district's own script.
@@ -325,6 +329,7 @@ export function buildWorld(map: MapData, district: District, deps: WorldDeps): W
       beach.dispose();
       yards.dispose();
       boundary.dispose();
+      precinct?.dispose();
       posters?.dispose();
       boards?.dispose();
       clutter.dispose();

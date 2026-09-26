@@ -95,8 +95,27 @@ export type MapLandmark = {
   door?: Pt;
 };
 
-export type AreaKind = "water" | "park" | "beach" | "plaza" | "market" | "pitch" | "sea";
-export type MapArea = { kind: AreaKind; pts: Pt[]; holes?: Pt[][]; name?: string };
+/**
+ * A walled temple precinct round a tank (the Golden Temple's parikrama): the
+ * ring of buildings as an arcade with gates, built at runtime, and the
+ * causeway out to the sanctum on its island.
+ */
+export type Precinct = {
+  /** The ring's outer edge and its courtyard edge. */
+  outer: Pt[];
+  inner: Pt[];
+  /** Openings in the arcade; local +z (sin rot, cos rot) points out of the
+   *  courtyard. The main one is on the causeway's axis. */
+  gates: { x: number; z: number; rot: number; w: number; main?: true }[];
+  /** From the parikrama (a) to the island (b), and its width. */
+  causeway: { a: Pt; b: Pt; w: number };
+};
+
+export type AreaKind ="water" | "park" | "beach" | "plaza" | "market" | "pitch" | "sea";
+/** A road's corridor where it crosses water: a bridge (local +z along the
+ *  road, rotated like a box collider). */
+export type Bridge = { x: number; z: number; hw: number; hd: number; rot: number };
+export type MapArea = { kind: AreaKind; pts: Pt[]; holes?: Pt[][]; name?: string; bridges?: Bridge[] };
 
 export type RailKind = "rail" | "subway" | "light_rail" | "tram" | "monorail";
 export type MapRail = { kind: RailKind; elevated: boolean; underground: boolean; pts: Pt[] };
@@ -142,6 +161,7 @@ export type MapData = {
   /** The tricolour's flagpole: in a park or plaza near the spawn, or on
    *  open ground beside it. */
   flag: Spot;
+  precinct?: Precinct;
 };
 
 /** Surface height of raised footpaths. */

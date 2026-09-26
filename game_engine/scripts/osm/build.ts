@@ -28,7 +28,10 @@ import { planRoute, reachShare } from "../../lib/game/world/route";
 import { BARBER_PLOT } from "../../lib/game/barber";
 import { modelExtent } from "../../lib/game/world/extent";
 import { polylineLength } from "../../lib/game/world/roads";
+import { keyhole, precinctGates } from "./precinct";
+import { crossings } from "../../lib/game/world/precinct";
 import type {
+  Bridge,
   MapArea,
   MapBuilding,
   MapData,
@@ -40,6 +43,7 @@ import type {
   MapRoad,
   Plot,
   PoiKind,
+  Precinct,
   Pt,
   RailKind,
   RoadClass,
@@ -420,8 +424,9 @@ const FACE_STREET = new Set([
 ]);
 
 /** Where the great gates really are: India's congregational mosques pray
- *  west and open east; Lingaraj's Lion Gate and the Akal Takht face east. */
-const MODEL_FACES: Record<string, number> = { jama_masjid: 90, lingaraj: 90, akal_takht: 90 };
+ *  west and open east; Lingaraj's Lion Gate faces east. (The Akal Takht
+ *  faces the Harmandir Sahib: see the precinct.) */
+const MODEL_FACES: Record<string, number> = { jama_masjid: 90, lingaraj: 90 };
 
 /** Monuments with a stair or gate at local +z that you walk into. */
 const HAS_DOOR = new Set([
@@ -785,6 +790,39 @@ function compile(city: OsmCity): MapData {
     areas.push({ kind: "sea", pts: [[s * H, -H], [s * (H + 400), -H], [s * (H + 400), H], [s * H, H]] });
   }
 
+  // Bridges: wherever a road crosses water, its corridor over the water
+  // stays walkable (the Buckingham Canal's crossings on the way to the
+  // Marina). The road itself is drawn over the water.
+  for (const a of areas) {
+    if (a.kind !== "water") continue;
+    const inWater = (x: number, z: number) => pointInRing(x, z, a.pts) && !(a.holes ?? []).some((h) => pointInRing(x, z, h));
+    const bridges: Bridge[] = [];
+    for (const r of roads) {
+      if (r.cls === "steps") continue;
+      for (let i = 0; i < r.pts.length - 1; i++) {
+        const [p, q] = [r.pts[i], r.pts[i + 1]];
+        const L = Math.hypot(q[0] - p[0], q[1] - p[1]);
+        if (L < 0.1) continue;
+        const cuts = [0, ...[a.pts, ...(a.holes ?? [])].flatMap((ring) => crossings(ring, p, q).map((h) => h.s)), 1].sort((x, y) => x - y);
+        for (let k = 0; k < cuts.length - 1; k++) {
+          const [s0, s1] = [cuts[k], cuts[k + 1]];
+          const sm = (s0 + s1) / 2;
+          if (s1 - s0 < 1e-6 || !inWater(p[0] + (q[0] - p[0]) * sm, p[1] + (q[1] - p[1]) * sm)) continue;
+          // Over the water, and a metre and a half onto each bank.
+          const half = ((s1 - s0) * L) / 2 + 1.5;
+          bridges.push({
+            x: r1(p[0] + (q[0] - p[0]) * sm),
+            z: r1(p[1] + (q[1] - p[1]) * sm),
+            hw: r1(Math.max(1.5, r.w / 2 + r.foot)),
+            hd: r1(half),
+            rot: +Math.atan2(q[0] - p[0], q[1] - p[1]).toFixed(3),
+          });
+        }
+      }
+    }
+    if (bridges.length) a.bridges = bridges;
+  }
+
   for (const a of areas) {
     if (a.kind === "sea") continue;
     grid.fill(a.pts, AREA, a.holes);
@@ -963,6 +1001,35 @@ function compile(city: OsmCity): MapData {
     grid.markBox(x, z, rot, w + 2, d + 2, BUILT);
   }
 
+  // A model smaller than its footprint that would stand in water (Gurdwara
+  // Santokhsar's footprint is its whole compound, sarovar and all) moves to
+  // the dry ground nearest the middle, and its footprint shrinks to the model.
+  {
+    const water = areas.filter((a) => a.kind === "water" || a.kind === "sea");
+    const wet = (x: number, z: number) => water.some((a) => pointInRing(x, z, a.pts) && !(a.holes ?? []).some((h) => pointInRing(x, z, h)));
+    for (const l of landmarks) {
+      const [mw, md] = modelExtent(l.model, l.w, l.d);
+      if (mw >= l.w && md >= l.d) continue;
+      const c = Math.cos(l.rot);
+      const sn = Math.sin(l.rot);
+      const world = (u: number, v: number): Pt => [l.x + u * c + v * sn, l.z - u * sn + v * c];
+      const dry = (u0: number, v0: number) => {
+        for (let u = -mw / 2 - 2; u <= mw / 2 + 2; u += 2) for (let v = -md / 2 - 2; v <= md / 2 + 2; v += 2) if (wet(...world(u0 + u, v0 + v))) return false;
+        return true;
+      };
+      if (dry(0, 0)) continue;
+      let best: [number, number] | null = null;
+      for (let u = -(l.w - mw) / 2; u <= (l.w - mw) / 2; u += 2) {
+        for (let v = -(l.d - md) / 2; v <= (l.d - md) / 2; v += 2) {
+          if ((!best || Math.hypot(u, v) < Math.hypot(...best)) && dry(u, v)) best = [u, v];
+        }
+      }
+      if (!best) throw new Error(`${city.id}: ${l.name} has no dry ground in its footprint`);
+      const [x, z] = world(...best);
+      Object.assign(l, { x: r1(x), z: r1(z), w: mw, d: md });
+    }
+  }
+
   // The models replace the OSM buildings under them (a mosque's own gates
   // and prayer hall, mapped as buildings, would otherwise wall off its
   // courtyard); the rest of a big compound keeps its real buildings.
@@ -982,6 +1049,70 @@ function compile(city: OsmCity): MapData {
   for (let i = buildings.length - 1; i >= 0; i--) {
     const [cx, cz] = centroid(buildings[i].pts);
     if (underModel(cx, cz)) buildings.splice(i, 1);
+  }
+  // Likewise a mosque's hauz: the model has its own ablution tank.
+  for (let i = areas.length - 1; i >= 0; i--) {
+    const a = areas[i];
+    if (a.kind === "water" && a.pts.every(([x, z]) => underModel(x, z))) areas.splice(i, 1);
+  }
+
+  // A temple in a tank inside a ring of buildings (the Golden Temple): the
+  // ring becomes an arcade with gates, and a causeway is cut through the
+  // water to the island, so the parikrama opens on the city and the sanctum
+  // on the parikrama.
+  let precinct: Precinct | undefined;
+  if (city.pool) {
+    const pool = city.pool;
+    const water = areas.find((a) => a.kind === "water" && pool.water.test(a.name ?? ""));
+    if (!water) throw new Error(`${city.id}: pool ${pool.water} not in the extract`);
+    const sanctum = landmarks.find((l) => pool.sanctum.test(l.name));
+    if (!sanctum) throw new Error(`${city.id}: sanctum ${pool.sanctum} not in the extract`);
+    const island = (water.holes ?? []).find((h) => pointInRing(sanctum.x, sanctum.z, h));
+    if (!island) throw new Error(`${city.id}: ${sanctum.name} is not on an island in ${water.name}`);
+    const nearRing = (p: Pt, ring: Pt[]) =>
+      ring.some((q, i) => nearestOnPolyline([q, ring[(i + 1) % ring.length]], p).dist < 2);
+    const onIsland = (p: Pt) => pointInRing(p[0], p[1], island) || nearRing(p, island);
+    // The causeway: the path from dry land out onto the island.
+    let way: { a: Pt; b: Pt } | undefined;
+    for (const r of roads) {
+      for (let i = 0; i < r.pts.length - 1; i++) {
+        for (const [a, b] of [[r.pts[i], r.pts[i + 1]], [r.pts[i + 1], r.pts[i]]] as const) {
+          if (pointInRing(a[0], a[1], water.pts) || !onIsland(b)) continue;
+          const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+          if (!way || L < Math.hypot(way.b[0] - way.a[0], way.b[1] - way.a[1])) way = { a, b };
+        }
+      }
+    }
+    if (!way) throw new Error(`${city.id}: no path runs out to ${sanctum.name}`);
+    const { a, b } = way;
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    // On past the island's edge, so the cut is clean.
+    const into: Pt = [b[0] + ((b[0] - a[0]) / L) * 4, b[1] + ((b[1] - a[1]) / L) * 4];
+    const CAUSEWAY_W = 6;
+    water.pts = round(keyhole(water.pts, island, a, into, CAUSEWAY_W));
+    const rest = (water.holes ?? []).filter((h) => h !== island);
+    if (rest.length) water.holes = rest;
+    else delete water.holes;
+    // The sanctum's doors on the causeway; the throne across it faces it.
+    const turn = (l: MapLandmark, rot: number) => {
+      const box = facing(l, 180 - (rot * 180) / Math.PI);
+      Object.assign(l, { rot: +rot.toFixed(3), w: box.w, d: box.d });
+    };
+    turn(sanctum, Math.atan2(a[0] - sanctum.x, a[1] - sanctum.z));
+    for (const l of landmarks) if (l.model === "akal_takht") turn(l, Math.atan2(sanctum.x - l.x, sanctum.z - l.z));
+    // The ring of buildings round the tank.
+    const ringAt = buildings.findIndex((bd) => (bd.holes ?? []).some((h) => pointInRing(sanctum.x, sanctum.z, h)));
+    if (ringAt < 0) throw new Error(`${city.id}: no ring of buildings round ${water.name}`);
+    const [ring] = buildings.splice(ringAt, 1);
+    const inner = ring.holes!.find((h) => pointInRing(sanctum.x, sanctum.z, h))!;
+    precinct = {
+      outer: ring.pts,
+      inner,
+      gates: precinctGates(inner, roads.map((r) => r.pts), { a, b }),
+      causeway: { a: [r1(a[0]), r1(a[1])], b: [r1(into[0]), r1(into[1])], w: CAUSEWAY_W },
+    };
+    // Marble underfoot, round the tank and under the arcade.
+    areas.push({ kind: "plaza", pts: ring.pts, holes: [water.pts], name: "Parikrama" });
   }
 
   // Every monument you walk into gets its door, and a clear way from the
@@ -1078,8 +1209,14 @@ function compile(city: OsmCity): MapData {
     // (the Golden Temple's parikrama), not a street.
     // With a known entrance, at the kerb in front of it.
     const templeRule = city.landmarks.find((r) => r.match.test(t.name));
-    templeSpot =
-      templeRule?.faces === undefined
+    // A sanctum in a tank: on the causeway, before its door.
+    const onCauseway = (): Spot => {
+      const [x, z] = frontOf(t, 2);
+      return { x: r1(x), z: r1(z), yaw: +(t.rot + Math.PI).toFixed(3) };
+    };
+    templeSpot = precinct
+      ? onCauseway()
+      : templeRule?.faces === undefined
         ? kerbSpot([t.x, t.z], () => true, Math.min(t.w, t.d) / 2)
         : kerbSpot(frontOf(t, 4), () => true, 0);
   } else {
@@ -1503,6 +1640,7 @@ function compile(city: OsmCity): MapData {
     boards,
     barber,
     flag,
+    ...(precinct ? { precinct } : {}),
   };
 }
 

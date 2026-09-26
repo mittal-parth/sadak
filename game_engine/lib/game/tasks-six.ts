@@ -404,7 +404,7 @@ const hallBazaar: DistrictTaskPack = {
       id: "hall-bazaar-temple",
       districtId: "hall-bazaar",
       kind: "temple",
-      pos: [-86.3, 241.5],
+      pos: [-101.1, 241.6],
       title: "Karah prasad",
       brief: "Buy karah prasad before sangat arrives.",
       reward: 200,

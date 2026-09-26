@@ -17,7 +17,8 @@ import { offsetPolyline, trimPolyline, polylineLength, footpathStrips, isDrivabl
 import { createTraffic } from "./world/traffic";
 import { buildLandmark, placeLandmarks } from "./world/landmarks";
 import { planRoute } from "./world/route";
-import { reachesInside } from "./world/reach";
+import { reachesInside, reachableFrom } from "./world/reach";
+import { buildPrecinct } from "./world/precinct";
 import { medians } from "./world/roads";
 import { marketStalls, MAX_STALLS } from "./world/market";
 import { createFlocks, flockCounts, flockSites } from "./world/birds";
@@ -684,16 +685,23 @@ test("you can walk under Charminar's arches and into a cinema's forecourt, not t
   assert.equal(cw.blocked(...at(cinema, 0, 0), 0.1), true, "the hall is not solid");
 });
 
+/** The map's static collision, as buildWorld registers it. */
+function mapCollision(map: MapData, landmark: Landmark) {
+  const world = new CollisionWorld();
+  const height = new HeightField(map.half);
+  for (const a of map.areas) if (a.kind === "water" || a.kind === "sea") world.add({ kind: "poly", outer: a.pts, holes: a.holes ?? [], open: a.bridges });
+  for (const p of map.plots) world.box(p.x, p.z, p.w / 2, p.d / 2, p.rot);
+  for (const b of map.buildings) if (!b.canopy) world.add({ kind: "poly", outer: b.pts, holes: b.holes ?? [] });
+  const { inners } = placeLandmarks(map.landmarks, landmark, world, height);
+  if (map.precinct) buildPrecinct(map.precinct, map.half, world, height);
+  for (const { stalls } of marketStalls(map, (x, z, r) => world.blocked(x, z, r))) for (const s of stalls) world.box(s.x, s.z, 1.17, 0.72, s.rot);
+  return { world, inners };
+}
+
 test("every monument can be walked into from the street, and stands inside its map", () => {
-  // Rebuilt in the Amritsar pass: the Golden Temple's ring of buildings is
-  // one OSM footprint that walls the Akal Takht in.
-  const pending = new Set(["Sri Akal Takht Sahib"]);
   for (const d of SEED_DISTRICTS) {
     const map = loadMap(d.id);
-    const world = new CollisionWorld();
-    for (const p of map.plots) world.box(p.x, p.z, p.w / 2, p.d / 2, p.rot);
-    for (const b of map.buildings) if (!b.canopy) world.add({ kind: "poly", outer: b.pts, holes: b.holes ?? [] });
-    const { inners } = placeLandmarks(map.landmarks, d.theme.landmark, world, new HeightField(map.half));
+    const { world, inners } = mapCollision(map, d.theme.landmark);
     for (const inner of inners) {
       const l = map.landmarks.find((x) => x.name === inner.name)!;
       for (const [u, v] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
@@ -701,9 +709,24 @@ test("every monument can be walked into from the street, and stands inside its m
         const z = l.z - (u * l.w * Math.sin(l.rot)) / 2 + (v * l.d * Math.cos(l.rot)) / 2;
         assert.ok(Math.abs(x) <= map.half && Math.abs(z) <= map.half, `${d.id}: ${l.name} runs off the map`);
       }
-      if (pending.has(l.name)) continue;
       assert.ok(reachesInside(world, l, inner), `${d.id}: ${l.name} cannot be walked into`);
     }
+  }
+});
+
+test("from the spawn you can walk to every errand, every monument's host and the barber", () => {
+  for (const d of SEED_DISTRICTS) {
+    const map = loadMap(d.id);
+    const { world, inners } = mapCollision(map, d.theme.landmark);
+    assert.equal(world.blocked(map.spawn.x, map.spawn.z, 0.55), false, `${d.id}: the spawn is inside something`);
+    const walk = reachableFrom(world, map.spawn.x, map.spawn.z, map.half);
+    const places: [string, { x: number; z: number }][] = [
+      ...Object.entries(map.spots),
+      ...Object.entries(map.errandSpots),
+      ["barber", map.barber],
+      ...inners.map((i): [string, { x: number; z: number }] => [i.name, i]),
+    ];
+    for (const [name, p] of places) assert.ok(walk.reached(p.x, p.z, 2), `${d.id}: ${name} cannot be reached from the spawn`);
   }
 });
 

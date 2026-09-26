@@ -80,6 +80,9 @@ export type OsmCity = {
   /** Things OSM doesn't map that the street is known for, set beside the
    *  named street: the temple car parked on Car Street. */
   setPieces?: { model: string; name: string; on: RegExp; size: [number, number]; near?: RegExp }[];
+  /** A sanctum on an island in a tank (the Harmandir Sahib in the sarovar):
+   *  the compiler cuts its causeway and opens the ring of buildings round it. */
+  pool?: { water: RegExp; sanctum: RegExp };
 };
 
 const SMALL_TEMPLE: [number, number] = [9, 9];
@@ -259,11 +262,13 @@ export const OSM_CITIES: OsmCity[] = [
       { match: /^Shri Harmandir Sahib$/, model: "harmandir_sahib" },
       { match: /Akal Takht/, model: "akal_takht" },
       { match: /Jallianwala Bagh/, model: "memorial_garden" },
-      { match: /Santokh ?Sar/, model: "gurdwara_small" },
+      // The node, not the compound way (which rings its whole sarovar).
+      { match: /^Gurudwara Santokhsar Sahib$/, model: "gurdwara_small", size: [14, 14] },
       { match: /Saragarhi/, model: "gurdwara_small", size: [10, 10] },
     ],
     spawnNear: /^Shri Harmandir Sahib$/,
     temple: /^Shri Harmandir Sahib$/,
+    pool: { water: /^Amritsaras$/, sanctum: /^Shri Harmandir Sahib$/ },
     // The bazaars wrap the complex; any lane off the approach will do.
     shopStreet: /.*/,
     errands: [{ id: "hall-bazaar-langar", at: /Langar Ghar/ }],

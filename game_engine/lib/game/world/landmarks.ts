@@ -27,8 +27,10 @@ import {
   church,
   colonialBlock,
   fountain,
+  akalTakht,
   gateway,
   gurdwara,
+  harmandir,
   kabutarKhana,
   statue,
   templeCar,
@@ -156,9 +158,9 @@ export function buildLandmark(l: MapLandmark, city: Landmark, clear?: ClearTest)
     case "gurdwara_small":
       return gurdwara(...modelExtent(l.model, w, d), { storeys: 2, gold: false, nishan: true });
     case "harmandir_sahib":
-      return gurdwara(w, d, { storeys: 2, gold: true, nishan: false });
+      return harmandir(w, d);
     case "akal_takht":
-      return gurdwara(w, d, { storeys: 4, gold: false, nishan: true });
+      return akalTakht(w, d);
     case "kaman":
       return gateway(Math.max(w, 14), Math.max(4, Math.min(d, 8)), 1, 0xcfc2a3, 0xb09a72);
     case "teen_darwaza":

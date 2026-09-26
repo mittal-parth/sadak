@@ -77,3 +77,50 @@ export function reachesInside(
   }
   return false;
 }
+
+/**
+ * Everywhere a body of radius `r` can walk to from (x, z) on a `step`-metre
+ * grid over the whole map: `reached(x, z, tol)` says whether it got within
+ * `tol` metres of a point.
+ */
+export function reachableFrom(collide: CollisionWorld, x: number, z: number, half: number, step = 1, r = 0.55) {
+  const n = Math.floor((half - 1) / step);
+  const N = 2 * n + 1;
+  const open = new Uint8Array(N * N);
+  const idx = (i: number, j: number) => (j + n) * N + (i + n);
+  const i0 = Math.round(x / step);
+  const j0 = Math.round(z / step);
+  const seen = new Uint8Array(N * N);
+  const stack = [idx(i0, j0)];
+  seen[stack[0]] = 1;
+  open[stack[0]] = 1;
+  while (stack.length) {
+    const k = stack.pop()!;
+    const i = (k % N) - n;
+    const j = Math.floor(k / N) - n;
+    for (const [a, b] of [[i + 1, j], [i - 1, j], [i, j + 1], [i, j - 1]]) {
+      if (Math.abs(a) > n || Math.abs(b) > n) continue;
+      const kk = idx(a, b);
+      if (seen[kk]) continue;
+      seen[kk] = 1;
+      if (collide.blocked(a * step, b * step, r)) continue;
+      open[kk] = 1;
+      stack.push(kk);
+    }
+  }
+  return {
+    reached(px: number, pz: number, tol = 2): boolean {
+      const t = Math.ceil(tol / step);
+      for (let di = -t; di <= t; di++) {
+        for (let dj = -t; dj <= t; dj++) {
+          const i = Math.round(px / step) + di;
+          const j = Math.round(pz / step) + dj;
+          if (Math.abs(i) <= n && Math.abs(j) <= n && open[idx(i, j)]) return true;
+        }
+      }
+      return false;
+    },
+    /** Square metres reached. */
+    area: () => open.reduce((a, v) => a + v, 0) * step * step,
+  };
+}

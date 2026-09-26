@@ -531,6 +531,179 @@ export function gurdwara(w: number, d: number, st: GurdwaraStyle): Monument {
   return finish(P, C, Hs, { x: 0, z: sz + s / 2 + 1.8 });
 }
 
+/** An arched window: a dark opening with a round head, on a face at z. */
+function archWindow(P: Parts, x: number, y: number, z: number, w: number, h: number, col: number, rotY = 0) {
+  const g = new THREE.BoxGeometry(w, h - w / 2, 0.08).translate(0, (h - w / 2) / 2, 0);
+  const head = new THREE.CylinderGeometry(w / 2, w / 2, 0.08, 10, 1, false, -Math.PI / 2, Math.PI).rotateX(Math.PI / 2).translate(0, h - w / 2, 0);
+  for (const geo of [g, head]) P.add(geo.rotateY(rotY).translate(x, y, z), col);
+}
+
+/** Four faces of a square block `s` wide centred on (0, cz): calls `f` with
+ *  each face's offset along it and the face's rotation. */
+function eachFace(s: number, cz: number, f: (px: (u: number) => number, pz: (u: number) => number, rot: number) => void) {
+  for (let k = 0; k < 4; k++) {
+    const rot = (k * Math.PI) / 2;
+    const c = Math.cos(rot);
+    const sn = Math.sin(rot);
+    // Face normal (sin rot, cos rot); along the face (cos rot, -sin rot).
+    f((u) => u * c + (sn * s) / 2, (u) => cz - u * sn + (c * s) / 2, rot);
+  }
+}
+
+/**
+ * The Harmandir Sahib: a marble ground storey with a door on every side, a
+ * gilded upper storey with arched windows and jharokhas, a parapet of
+ * gilded kiosks, and the fluted gold dome on its lotus. It stands on a
+ * marble platform in the sarovar; the causeway arrives at the front.
+ */
+export function harmandir(w: number, d: number): Monument {
+  const P = new Parts();
+  const C: LocalBox[] = [];
+  const Hs: LocalRect[] = [];
+  const rise = 0.3;
+  P.box(w, rise, d, 0, rise / 2, 0, MARBLE);
+  P.box(w + 0.3, 0.12, d + 0.3, 0, 0.06, 0, 0xd8c3a0);
+  Hs.push({ x: 0, z: 0, hw: w / 2, hd: d / 2, y0: rise, y1: rise });
+  // A low marble railing round the back and sides; open at the front.
+  const rail = (x: number, z: number, lw: number, ld: number) => {
+    P.box(lw, 0.7, ld, x, rise + 0.35, z, MARBLE);
+    P.box(lw + 0.1, 0.08, ld + 0.1, x, rise + 0.74, z, GOLD);
+    C.push({ x, z, hw: lw / 2, hd: ld / 2 });
+  };
+  rail(0, -d / 2 + 0.15, w, 0.3);
+  for (const sx of [-1, 1]) rail(sx * (w / 2 - 0.15), -0.5, 0.3, d - 1);
+  const s = Math.min(w, d) * 0.74;
+  const sz = -d * 0.08;
+  const y = rise;
+  // Ground storey: marble, inlaid panels, a door on each side.
+  const g1 = 5;
+  P.box(s, g1, s, 0, y + g1 / 2, sz, MARBLE);
+  eachFace(s, sz, (px, pz, rot) => {
+    for (const u of [-s * 0.33, s * 0.33]) P.box(s * 0.2, g1 * 0.62, 0.06, px(u) + Math.sin(rot) * 0.03, y + g1 * 0.46, pz(u) + Math.cos(rot) * 0.03, 0xe6dccb, rot);
+    P.box(s * 0.26, 3.7, 0.1, px(0) + Math.sin(rot) * 0.03, y + 1.85, pz(0) + Math.cos(rot) * 0.03, GOLD, rot);
+    archWindow(P, px(0) + Math.sin(rot) * 0.06, y, pz(0) + Math.cos(rot) * 0.06, s * 0.18, 3.3, DARK, rot);
+  });
+  P.box(s + 0.5, 0.35, s + 0.5, 0, y + g1 + 0.1, sz, GOLD);
+  // Upper storey, gilded, with arched windows and a jharokha on each face.
+  const g2 = 4.4;
+  const s2 = s * 0.96;
+  const y2 = y + g1 + 0.3;
+  P.box(s2, g2, s2, 0, y2 + g2 / 2, sz, GOLD);
+  eachFace(s2, sz, (px, pz, rot) => {
+    const out = (u: number, o: number): [number, number] => [px(u) + Math.sin(rot) * o, pz(u) + Math.cos(rot) * o];
+    for (const u of [-s2 * 0.34, s2 * 0.34]) {
+      const [x, z] = out(u, 0.05);
+      archWindow(P, x, y2 + 0.9, z, s2 * 0.12, 2.6, 0x6b4a1f, rot);
+    }
+    const [jx, jz] = out(0, 0.55);
+    P.box(s2 * 0.3, 0.2, 1.1, jx, y2 + 0.6, jz, GOLD, rot);
+    P.box(s2 * 0.26, 2.2, 0.9, jx, y2 + 1.8, jz, GOLD, rot);
+    const [wx, wz] = out(0, 1.02);
+    archWindow(P, wx, y2 + 0.9, wz, s2 * 0.16, 2.0, 0x6b4a1f, rot);
+    P.box(s2 * 0.32, 0.18, 1.3, jx, y2 + 3.0, jz, GOLD, rot);
+    P.dome(s2 * 0.1, jx, y2 + 3.1, jz, GOLD, 1.15);
+  });
+  // Parapet with little gilded kiosks along it and chhatris at the corners.
+  const y3 = y2 + g2;
+  P.box(s2 + 0.4, 0.25, s2 + 0.4, 0, y3, sz, 0xc9962c);
+  eachFace(s2, sz, (px, pz, rot) => {
+    P.box(s2, 0.8, 0.2, px(0), y3 + 0.5, pz(0), GOLD, rot);
+    for (const u of [-s2 * 0.25, 0, s2 * 0.25]) chhatri(P, px(u) - Math.sin(rot) * 0.4, y3 + 0.1, pz(u) - Math.cos(rot) * 0.4, 0.32, GOLD, GOLD);
+  });
+  const k = s2 / 2 - 0.9;
+  for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) chhatri(P, a * k, y3 + 0.1, sz + b * k, 0.75, GOLD, GOLD);
+  // The central pavilion, the lotus and the fluted dome.
+  const s3 = s * 0.46;
+  P.box(s3, 2.4, s3, 0, y3 + 1.2, sz, GOLD);
+  eachFace(s3, sz, (px, pz, rot) => archWindow(P, px(0) + Math.sin(rot) * 0.05, y3 + 0.4, pz(0) + Math.cos(rot) * 0.05, s3 * 0.3, 1.8, 0x6b4a1f, rot));
+  const y4 = y3 + 2.4;
+  const r = s3 * 0.62;
+  P.cyl(r * 0.92, r, 0.6, 0, y4 + 0.3, sz, GOLD, 16);
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2;
+    P.add(new THREE.ConeGeometry(0.34, 0.9, 4).rotateX(Math.PI).translate(Math.sin(a) * r * 0.95, y4 + 0.9, sz + Math.cos(a) * r * 0.95), GOLD);
+  }
+  P.dome(r, 0, y4 + 0.6, sz, GOLD, 1.1);
+  // Flutes down the dome.
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    P.box(0.08, r * 0.9, 0.08, Math.sin(a) * r * 0.86, y4 + 0.6 + r * 0.45, sz + Math.cos(a) * r * 0.86, 0xc9962c, a);
+  }
+  const top = y4 + 0.6 + r * 1.5;
+  P.cyl(0.08, 0.1, 1.4, 0, top + 0.7, sz, GOLD, 6);
+  P.cone(0.5, 0.35, 0, top + 1.2, sz, GOLD, 10);
+  P.cyl(0.05, 0.05, 0.8, 0, top + 1.8, sz, GOLD, 5);
+  C.push({ x: 0, z: sz, hw: s / 2, hd: s / 2 });
+  return finish(P, C, Hs, { x: 0, z: sz + s / 2 + 1.3 });
+}
+
+/**
+ * The Akal Takht: five storeys over a raised platform, marble arcades below,
+ * a gilded storey and a gold dome above, facing the Harmandir Sahib, with
+ * the twin Nishan Sahibs (Miri and Piri) before it.
+ */
+export function akalTakht(w: number, d: number): Monument {
+  const P = new Parts();
+  const C: LocalBox[] = [];
+  const Hs: LocalRect[] = [];
+  const rise = 1.2;
+  const pf = platform(P, C, Hs, w, d, rise, MARBLE, 0.5);
+  const bw = Math.min(w * 0.72, 30);
+  const bd = Math.min(pf.depth * 0.55, 12);
+  const bz = pf.top + 0.6 + bd / 2;
+  const front = bz + bd / 2;
+  let y = rise;
+  const storeys: { h: number; col: number; win: number; arches: boolean }[] = [
+    { h: 4.6, col: MARBLE, win: DARK, arches: true },
+    { h: 4.0, col: MARBLE, win: 0x7d6e5c, arches: false },
+    { h: 3.8, col: 0xf6eedc, win: 0x7d6e5c, arches: false },
+    { h: 3.6, col: GOLD, win: 0x6b4a1f, arches: false },
+  ];
+  storeys.forEach((st, i) => {
+    const sw = bw * (1 - i * 0.05);
+    P.box(sw, st.h, bd, 0, y + st.h / 2, bz, st.col);
+    const bays = st.arches ? 5 : 7;
+    for (let b = 0; b < bays; b++) {
+      const x = -sw / 2 + ((b + 0.5) * sw) / bays;
+      const aw = st.arches ? (sw / bays) * 0.66 : (sw / bays) * 0.42;
+      archWindow(P, x, y + (st.arches ? 0 : 0.6), front + 0.05, aw, st.h * (st.arches ? 0.82 : 0.6), st.win);
+    }
+    // A chhajja over each storey; a balcony along the second.
+    P.box(sw + 0.6, 0.18, bd + 1.2, 0, y + st.h, bz + 0.3, i === 2 ? GOLD : MARBLE);
+    if (i === 1) {
+      P.box(sw * 0.9, 0.16, 1.2, 0, y + 0.25, front + 0.6, MARBLE);
+      P.box(sw * 0.9, 0.8, 0.1, 0, y + 0.65, front + 1.15, GOLD);
+    }
+    y += st.h;
+  });
+  // The gilded pavilion on top and its domes.
+  const pw = bw * 0.36;
+  P.box(pw, 3, bd * 0.6, 0, y + 1.5, bz, GOLD);
+  for (let b = 0; b < 3; b++) archWindow(P, -pw / 2 + ((b + 0.5) * pw) / 3, y + 0.4, bz + bd * 0.3 + 0.05, pw * 0.16, 2, 0x6b4a1f);
+  const r = pw * 0.36;
+  P.cyl(r * 0.9, r * 0.95, 0.8, 0, y + 3.4, bz, GOLD, 16);
+  P.dome(r, 0, y + 3.8, bz, GOLD, 1.12);
+  P.cyl(0.08, 0.08, 1.4, 0, y + 3.8 + r * 1.5 + 0.7, bz, GOLD, 6);
+  for (const a of [-1, 1]) {
+    const x = a * bw * 0.34;
+    P.cyl(r * 0.5, r * 0.52, 0.5, x, y + 0.25, bz, GOLD, 12);
+    P.dome(r * 0.5, x, y + 0.5, bz, GOLD, 1.12);
+    chhatri(P, a * (bw * 0.46), y, bz + bd / 2 - 1, 0.7, GOLD, GOLD);
+  }
+  C.push({ x: 0, z: bz, hw: bw / 2, hd: bd / 2 });
+  // Miri and Piri: the twin Nishan Sahibs, before the stair.
+  for (const a of [-1, 1]) {
+    const nx = a * Math.min(w / 2 - 2, bw * 0.3);
+    const nz = pf.front - 2.5;
+    P.box(1.6, 0.8, 1.6, nx, rise + 0.4, nz, MARBLE);
+    P.cyl(0.2, 0.26, 22, nx, rise + 11.8, nz, SAFFRON, 8);
+    P.box(0.05, 2.6, 4, nx, rise + 21, nz + 2, SAFFRON);
+    P.cone(0.5, 1.2, nx, rise + 23.4, nz, GOLD, 6);
+    C.push({ x: nx, z: nz, hw: 0.8, hd: 0.8 });
+  }
+  return finish(P, C, Hs, { x: 0, z: front + 2 });
+}
+
 /* ------------------------------------------------------------------ *
  * Gates, fountains and other civic pieces
  * ------------------------------------------------------------------ */
