@@ -6,6 +6,7 @@ import { Rides } from "./rides";
 import { Parts } from "./world/vc";
 import { taskSpot, type MapData, type Spot } from "./world/mapData";
 import { knockFrom } from "./knock";
+import { BOUNDARY_INSET } from "./world/boundary";
 import { attireFor } from "./attire";
 import { makeHero, HeroAnimator, type HeroRig } from "./hero";
 import { newBody, stepBody, SPRINT_SPEED } from "./movement";
@@ -633,7 +634,7 @@ export class Game {
   /* ---------------- collision ---------------- */
 
   private blocked(x: number, z: number): boolean {
-    const edge = this.map.half - 1;
+    const edge = this.map.half - BOUNDARY_INSET;
     if (Math.abs(x) > edge || Math.abs(z) > edge) return true;
     return this.world.collide.blocked(x, z, PLAYER_RADIUS) || this.world.traffic.hit(x, z, PLAYER_RADIUS) !== null;
   }

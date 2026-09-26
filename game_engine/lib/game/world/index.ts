@@ -25,6 +25,7 @@ import { buildMarkets, marketStalls } from "./market";
 import { buildBeach } from "./beach";
 import { buildBusYards, STAND_LIVERIES } from "./busyard";
 import { buildBoards } from "./boards";
+import { createBoundary } from "./boundary";
 import { CITY_TRAFFIC } from "../transit";
 import { makeCityFlag } from "../assets";
 import { CollisionWorld } from "./collide";
@@ -150,6 +151,10 @@ export function buildWorld(map: MapData, district: District, deps: WorldDeps): W
         group.add(frame);
       });
   }
+
+  // The edge of the district, shown when you come near it.
+  const boundary = createBoundary(map.half);
+  group.add(boundary.group);
 
   // Every district flies the tricolour, near where the player starts.
   const flag = makeCityFlag(deps.mats);
@@ -308,6 +313,7 @@ export function buildWorld(map: MapData, district: District, deps: WorldDeps): W
       rails.update(dt);
       areas.update(t);
       flocks.update(dt, t, focus);
+      boundary.update(t, focus);
     },
     dispose() {
       buildings.dispose();
@@ -318,6 +324,7 @@ export function buildWorld(map: MapData, district: District, deps: WorldDeps): W
       markets.dispose();
       beach.dispose();
       yards.dispose();
+      boundary.dispose();
       posters?.dispose();
       boards?.dispose();
       clutter.dispose();
