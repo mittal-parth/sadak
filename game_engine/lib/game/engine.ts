@@ -6,6 +6,7 @@ import { Rides } from "./rides";
 import { Parts } from "./world/vc";
 import { taskSpot, type MapData, type Spot } from "./world/mapData";
 import { knockFrom } from "./knock";
+import { attireFor } from "./attire";
 import { makeHero, HeroAnimator, type HeroRig } from "./hero";
 import { newBody, stepBody, SPRINT_SPEED } from "./movement";
 import { makeMissionShopStall, makeStreetMandir } from "./assets/index";
@@ -15,7 +16,6 @@ import {
   makePerson,
   makeIdlePose,
   setIdlePhase,
-  type PersonPreset,
 } from "./people";
 import { createVehicleMaterials } from "./vehicles";
 import type { District } from "./districts";
@@ -32,6 +32,8 @@ export type TaskSnapshot = {
   x: number;
   z: number;
   done: boolean;
+  /** The errand's own colour, CSS hex: marker, map dot and list chip. */
+  colour: string;
 };
 
 export type Telemetry = {
@@ -95,133 +97,28 @@ function damp(current: number, target: number, k: number, dt: number): number {
 }
 
 /**
- * Dresses each mission NPC to their job. A constable in a shirt and trousers
- * is just another pedestrian; the uniform is how the player finds them.
+ * The marker over an errand's host: a chunky arrow pointing down at them in
+ * the errand's own colour (the same colour as its dot on the map and its chip
+ * in the errand list), with a dark rim so it reads against sky and wall.
+ * Unlit, so the cel pass leaves the colour exactly as chosen.
  */
-function presetForRole(role: string): PersonPreset {
-  const r = role.toLowerCase();
-  if (r.includes("constable") || r.includes("police") || r.includes("officer")) return "uniform";
-  if (r.includes("delivery") || r.includes("rider")) return "delivery_rider";
-  if (r.includes("seller") || r.includes("amma") || r.includes("akka")) return "sari";
-  if (r.includes("driver") || r.includes("wallah") || r.includes("vendor")) return "lungi";
-  return "kurta_pyjama";
-}
-
-function markerColourForKind(kind: TaskKind): number {
-  switch (kind) {
-    case "auto":
-      return 0xf5c518;
-    case "shop":
-      return 0xe67e22;
-    case "temple":
-      return 0xe74c3c;
-    case "bus":
-      return 0x3498db;
-    case "counter":
-      return 0x9b59b6;
-    case "barber":
-      return 0x33406b;
-    default: {
-      const _exhaustive: never = kind;
-      return _exhaustive;
-    }
-  }
-}
-
-/**
- * Vertical alpha ramp shared by every corona: bright at the ground, fading to
- * nothing at the top, so the light column reads as a glow rather than a tube
- * with a hard lid. One 2x64 canvas, built once.
- */
-let coronaRamp: THREE.CanvasTexture | null = null;
-function getCoronaRamp(): THREE.CanvasTexture {
-  if (coronaRamp) return coronaRamp;
-  const H = 64;
-  const canvas = document.createElement("canvas");
-  canvas.width = 2;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d")!;
-  const grad = ctx.createLinearGradient(0, H, 0, 0);
-  grad.addColorStop(0, "rgba(255,255,255,1)");
-  grad.addColorStop(0.45, "rgba(255,255,255,0.5)");
-  grad.addColorStop(1, "rgba(255,255,255,0)");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 2, H);
-  coronaRamp = new THREE.CanvasTexture(canvas);
-  return coronaRamp;
-}
-
-/**
- * Classic GTA:SA mission corona: a tall additive column of light standing on a
- * glowing ground ring. Additive blending is what sells it — the column
- * brightens whatever is behind it instead of dimming it, so it reads as light,
- * and it stays visible from the far end of the street where a flat ground
- * circle is edge-on to the camera and disappears.
- */
-function makeTaskBlip(color: number): THREE.Group {
+function makeTaskArrow(colour: number): THREE.Group {
+  const shape = new THREE.Shape();
+  shape.moveTo(-0.15, 0.6);
+  shape.lineTo(0.15, 0.6);
+  shape.lineTo(0.15, 0.2);
+  shape.lineTo(0.36, 0.2);
+  shape.lineTo(0, -0.26);
+  shape.lineTo(-0.36, 0.2);
+  shape.lineTo(-0.15, 0.2);
+  shape.closePath();
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.12, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.03, bevelSegments: 2 });
+  geo.center();
+  const body = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: colour }));
+  const rim = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x14161a, side: THREE.BackSide }));
+  rim.scale.setScalar(1.14);
   const g = new THREE.Group();
-  const ramp = getCoronaRamp();
-
-  // Two nested open cylinders (inner brighter, outer wider and fainter) fake
-  // the soft radial falloff of a volumetric beam for two draw calls.
-  const coronaMat = (radius: number, opacity: number) =>
-    new THREE.Mesh(
-      new THREE.CylinderGeometry(radius, radius, 4.2, 20, 1, true),
-      new THREE.MeshBasicMaterial({
-        color,
-        map: ramp,
-        transparent: true,
-        opacity,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-        fog: false,
-      })
-    );
-
-  const coronaInner = coronaMat(0.5, 0.45);
-  coronaInner.position.y = 2.1;
-  g.add(coronaInner);
-
-  const coronaOuter = coronaMat(0.78, 0.18);
-  coronaOuter.position.y = 2.1;
-  g.add(coronaOuter);
-
-  const ring = new THREE.Mesh(
-    new THREE.RingGeometry(0.55, 1.0, 32),
-    new THREE.MeshBasicMaterial({
-      color,
-      transparent: true,
-      opacity: 0.6,
-      blending: THREE.AdditiveBlending,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-      fog: false,
-    })
-  );
-  ring.rotation.x = -Math.PI / 2;
-  ring.position.y = 0.06;
-  g.add(ring);
-
-  const core = new THREE.Mesh(
-    new THREE.CircleGeometry(0.55, 24),
-    new THREE.MeshBasicMaterial({
-      color,
-      transparent: true,
-      opacity: 0.5,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      fog: false,
-    })
-  );
-  core.rotation.x = -Math.PI / 2;
-  core.position.y = 0.05;
-  g.add(core);
-
-  g.userData.coronaInner = coronaInner;
-  g.userData.coronaOuter = coronaOuter;
-  g.userData.blipRing = ring;
-  g.userData.blipCore = core;
+  g.add(rim, body);
   return g;
 }
 
@@ -294,6 +191,7 @@ export class Game {
 
   // Scratch vectors. These run every frame; allocating them fresh was pure GC
   // churn at 60Hz.
+  private tmpMarker = new THREE.Vector3();
   private readonly tmpDir = new THREE.Vector3();
   private readonly tmpCam = new THREE.Vector3();
   private readonly lookTarget = new THREE.Vector3();
@@ -493,11 +391,8 @@ export class Game {
       /** Local offset in the anchor's frame -> world. */
       const at = (u: number, v: number) => [x + u * c + v * sn, z - u * sn + v * c] as const;
 
-      const preset = presetForRole(task.role);
-      const host = makePerson(
-        { preset, seed: hashId(task.id), cloth1: task.colour },
-        this.materials
-      );
+      // Dressed for the job, the city and the voice they speak in.
+      const host = makePerson(attireFor(task, theme.landmark, hashId(task.id)), this.materials);
       makeIdlePose(host);
       host.position.set(0, PLAYER_BASE_Y, 0);
       anchor.add(host);
@@ -560,7 +455,7 @@ export class Game {
       this.scene.add(anchor);
       this.taskAnchors.set(task.id, anchor);
 
-      const marker = makeTaskBlip(markerColourForKind(task.kind));
+      const marker = makeTaskArrow(task.colour);
       marker.position.copy(anchor.position);
       this.scene.add(marker);
       this.markers.set(task.id, marker);
@@ -813,40 +708,20 @@ export class Game {
     }
     this.updateCamera(dt);
 
+    // Arrows float over the hosts' heads (over the stop for a bus that has
+    // not come yet), bobbing and turning, and grow with distance so a far
+    // errand still shows over the rooftops. A finished errand's goes.
     for (const [id, m] of this.markers) {
-      const done = this.done.has(id);
-      const colour = done
-        ? 0x2ecc71
-        : markerColourForKind(this.tasks.find((tk) => tk.id === id)?.kind ?? "auto");
-      const pulse = 0.5 + Math.sin(t * 2.8) * 0.12;
-
-      const ring = m.userData.blipRing as THREE.Mesh | undefined;
-      const core = m.userData.blipCore as THREE.Mesh | undefined;
-      const inner = m.userData.coronaInner as THREE.Mesh | undefined;
-      const outer = m.userData.coronaOuter as THREE.Mesh | undefined;
-
-      // Slow counter-rotation of the two corona shells: the moving seams are
-      // what make the column shimmer like light instead of sitting like glass.
-      if (inner) {
-        inner.rotation.y = t * 0.7;
-        (inner.material as THREE.MeshBasicMaterial).color.setHex(colour);
-        (inner.material as THREE.MeshBasicMaterial).opacity = done ? 0.15 : 0.35 + pulse * 0.15;
-      }
-      if (outer) {
-        outer.rotation.y = -t * 0.45;
-        (outer.material as THREE.MeshBasicMaterial).color.setHex(colour);
-        (outer.material as THREE.MeshBasicMaterial).opacity = done ? 0.08 : 0.14 + pulse * 0.08;
-        outer.scale.set(1 + pulse * 0.08, 1, 1 + pulse * 0.08);
-      }
-      if (ring) {
-        (ring.material as THREE.MeshBasicMaterial).color.setHex(colour);
-        (ring.material as THREE.MeshBasicMaterial).opacity = done ? 0.18 : 0.3 + pulse * 0.15;
-        ring.scale.setScalar(0.95 + pulse * 0.12);
-      }
-      if (core) {
-        (core.material as THREE.MeshBasicMaterial).color.setHex(colour);
-        (core.material as THREE.MeshBasicMaterial).opacity = done ? 0.15 : 0.25 + pulse * 0.12;
-      }
+      m.visible = !this.done.has(id);
+      if (!m.visible) continue;
+      const host = this.hostMeshes.get(id);
+      if (host?.visible) host.getWorldPosition(this.tmpMarker);
+      else this.tmpMarker.copy(this.taskAnchors.get(id)!.position);
+      const d = Math.hypot(this.tmpMarker.x - this.playerPos.x, this.tmpMarker.z - this.playerPos.z);
+      const s = Math.min(3.2, Math.max(1, d / 18));
+      m.position.set(this.tmpMarker.x, this.tmpMarker.y + 2.1 + 0.4 * s + Math.sin(t * 2.4 + id.length) * 0.1 * s, this.tmpMarker.z);
+      m.rotation.y = t * 1.6;
+      m.scale.setScalar(s);
     }
 
     // Errand hosts turn to face the player when they are close enough to talk,
@@ -1175,6 +1050,7 @@ export class Game {
         x: anchor.position.x,
         z: anchor.position.z,
         done: this.done.has(task.id),
+        colour: `#${task.colour.toString(16).padStart(6, "0")}`,
       };
     });
 
