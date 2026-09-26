@@ -47,14 +47,35 @@ function runUntilEnded(step: () => RidePose | RideEvent | null, seconds: number)
   return { ended: null, poses };
 }
 
-test("every district's errands are connected by road for an auto", () => {
-  for (const d of SEED_DISTRICTS) {
-    const map = loadMap(d.id);
-    const s = map.spots;
-    for (const to of [s.bus, s.temple, s.shop]) {
-      const path = planRoute(map, s.auto.x, s.auto.z, to.x, to.z, 4.2, 1.6);
-      assert.ok(path && path.length >= 2, `${d.id}: no auto route from the auto stand`);
+test("an auto from the stand gets close to every errand", () => {
+  for (const pack of SEED_TASK_PACKS) {
+    const map = loadMap(pack.districtId);
+    const s = map.spots.auto;
+    for (const t of pack.tasks) {
+      if (t.kind === "auto") continue;
+      const path = planRoute(map, s.x, s.z, t.pos[0], t.pos[1], 4.2, 1.6, { closest: true });
+      assert.ok(path && path.length >= 2, `${t.id}: no auto route from the auto stand`);
+      // Pedestrian streets (Chandni Chowk, the Golden Temple's approaches)
+      // are walked from where the auto stops.
+      const [ex, ez] = path[path.length - 1];
+      const walk = Math.hypot(ex - t.pos[0], ez - t.pos[1]);
+      assert.ok(walk < 150, `${t.id}: dropped ${Math.round(walk)}m away`);
     }
+  }
+});
+
+test("routes are strict unless asked to get close", () => {
+  // Chandni Chowk's temple sits on a pedestrian street: no auto reaches it,
+  // but one can get to the corner.
+  const map = loadMap("purani-sadak");
+  const { auto, temple } = map.spots;
+  const strict = planRoute(map, auto.x, auto.z, temple.x, temple.z, 4.2, 1.6);
+  const close = planRoute(map, auto.x, auto.z, temple.x, temple.z, 4.2, 1.6, { closest: true })!;
+  const [ex, ez] = close[close.length - 1];
+  assert.ok(Math.hypot(ex - temple.x, ez - temple.z) < 60);
+  if (strict) {
+    const [sx, sz] = strict[strict.length - 1];
+    assert.ok(Math.hypot(sx - temple.x, sz - temple.z) >= Math.hypot(ex - temple.x, ez - temple.z) - 0.5);
   }
 });
 
@@ -83,11 +104,14 @@ test("the auto ride carries the player to their next errand and drops them off",
   assert.ok(ended, "ride never ended");
   assert.ok(poses.length > 20);
   assert.ok(poses.every((p) => p.seat !== null), "auto passengers are seated, visible");
-  // Dropped off near the destination errand.
+  // Dropped off as close to the destination errand as an auto can get.
   const dest = tasks
     .filter((t) => !done.has(t.id) && t.kind !== "auto")
     .sort((a, b) => Math.hypot(a.pos[0] - autoTask.pos[0], a.pos[1] - autoTask.pos[1]) - Math.hypot(b.pos[0] - autoTask.pos[0], b.pos[1] - autoTask.pos[1]))[0];
-  assert.ok(Math.hypot(ended!.x - dest.pos[0], ended!.z - dest.pos[1]) < 25, "dropped off far from the destination");
+  const route = planRoute(loadMap("purani-sadak"), autoTask.pos[0], autoTask.pos[1], dest.pos[0], dest.pos[1], 4.2, 1.6, { closest: true })!;
+  const [rx, rz] = route[route.length - 1];
+  assert.ok(Math.hypot(ended!.x - rx, ended!.z - rz) < 4, "dropped off short of where the route ends");
+  assert.ok(Math.hypot(ended!.x - dest.pos[0], ended!.z - dest.pos[1]) < 60, "dropped off far from the destination");
   assert.equal(rides.riding(), null);
 });
 

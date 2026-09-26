@@ -32,6 +32,39 @@ function nearestOn(net: RoadNet, roads: number[], x: number, z: number): Hit | n
   return best;
 }
 
+/** Share of the roads a vehicle of `minWidth` can use that it can reach
+ *  from the kerb at (x, z), one-way streets obeyed. A stand on a one-way
+ *  stretch that runs off the map reaches almost nothing. */
+export function reachShare(map: MapData, x: number, z: number, minWidth: number): number {
+  const net = new RoadNet(map, (r) => isDrivable(r) && r.w >= minWidth);
+  const roads = net.included();
+  const from = nearestOn(net, roads, x, z);
+  if (!from || !roads.length) return 0;
+  return reachable(net, from.road).length / roads.length;
+}
+
+/** Roads a vehicle on road `start` can get onto, one-way streets obeyed. */
+function reachable(net: RoadNet, start: number): number[] {
+  const r0 = net.roads[start].r;
+  const seen = new Set<number>([r0.b, ...(r0.oneway ? [] : [r0.a])]);
+  const queue = [...seen];
+  const out = new Set<number>([start]);
+  while (queue.length) {
+    const id = queue.pop()!;
+    for (const ri of net.at(id)) {
+      const r = net.roads[ri].r;
+      if (r.oneway && r.a !== id) continue;
+      out.add(ri);
+      const other = r.a === id ? r.b : r.a;
+      if (!seen.has(other)) {
+        seen.add(other);
+        queue.push(other);
+      }
+    }
+  }
+  return [...out];
+}
+
 /** Points of road `ri` between arc lengths s0 and s1, in travel order. */
 function stretch(net: RoadNet, ri: number, s0: number, s1: number): Pt[] {
   const out: Pt[] = [];
@@ -58,13 +91,19 @@ export function planRoute(
   tx: number,
   tz: number,
   minWidth: number,
-  lane: number
+  lane: number,
+  opts: { closest?: boolean } = {}
 ): Pt[] | null {
   const net = new RoadNet(map, (r) => isDrivable(r) && r.w >= minWidth);
   const roads = net.included();
   const from = nearestOn(net, roads, fx, fz);
-  const to = nearestOn(net, roads, tx, tz);
-  if (!from || !to) return null;
+  if (!from) return null;
+  // With `closest`, drive as close as the streets allow: the destination
+  // snaps to the nearest road reachable from the start (a gully that only
+  // opens onto a pedestrian street is walked from the corner). Otherwise
+  // the nearest road to the destination, and null if it can't be reached.
+  const to = nearestOn(net, opts.closest ? reachable(net, from.road) : roads, tx, tz);
+  if (!to) return null;
 
   let centre: Pt[];
   if (from.road === to.road) {

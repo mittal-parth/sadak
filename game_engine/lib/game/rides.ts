@@ -125,7 +125,7 @@ export class Rides {
   startAuto(task: StreetTask, auto: THREE.Object3D, tasks: StreetTask[], done: Set<string>) {
     const pos = auto.getWorldPosition(new THREE.Vector3());
     const dest = this.nextStop(task, tasks, done);
-    const path = planRoute(this.map, pos.x, pos.z, dest.x, dest.z, 4.2, 1.6);
+    const path = planRoute(this.map, pos.x, pos.z, dest.x, dest.z, 4.2, 1.6, { closest: true });
     if (!path) {
       console.warn(`[rides] no route for the auto from ${task.id} to ${dest.label}`);
       return;
@@ -247,13 +247,18 @@ export class Rides {
     return { x: r.vehicle.position.x, z: r.vehicle.position.z, yaw: r.yaw, seat: r.seat ? r.vehicle.localToWorld(r.seat.clone()) : null };
   }
 
-  /** A bus road if there is one; old-city stops get squeezed into. */
-  private busRoute(fx: number, fz: number, tx: number, tz: number): Pt[] | null {
-    return (
-      planRoute(this.map, fx, fz, tx, tz, 7.5, 2.2) ??
-      planRoute(this.map, fx, fz, tx, tz, 6, 1.8) ??
-      planRoute(this.map, fx, fz, tx, tz, 5, 1.3)
-    );
+  /** A bus road if there is one; old-city stops get squeezed into. With
+   *  `within`, the route has to end that close to the target: a stop on a
+   *  narrow street is not "reached" by the nearest wide road round the
+   *  corner. */
+  private busRoute(fx: number, fz: number, tx: number, tz: number, within = Infinity): Pt[] | null {
+    for (const [w, lane] of [[7.5, 2.2], [6, 1.8], [5, 1.3]]) {
+      const path = planRoute(this.map, fx, fz, tx, tz, w, lane);
+      if (!path) continue;
+      const [ex, ez] = path[path.length - 1];
+      if (Math.hypot(ex - tx, ez - tz) <= within) return path;
+    }
+    return null;
   }
 
   /** Brings a bus to the stop while the player is near an open bus errand. */
@@ -272,7 +277,7 @@ export class Rides {
         .sort((a, b) => a.d - b.d);
       for (const { n } of src) {
         // A proper bus road if there is one, else whatever the stop is on.
-        const path = this.busRoute(n.x, n.z, sx, sz);
+        const path = this.busRoute(n.x, n.z, sx, sz, 15);
         if (!path) continue;
         const vehicle = new THREE.Group();
         vehicle.add(makeBus(this.vehicleMats, this.transitMat, CITY_TRAFFIC[this.district.theme.landmark].bus, 77));
