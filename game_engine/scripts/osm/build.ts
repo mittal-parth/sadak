@@ -1006,13 +1006,17 @@ function compile(city: OsmCity): MapData {
   // the dry ground nearest the middle, and its footprint shrinks to the model.
   {
     const water = areas.filter((a) => a.kind === "water" || a.kind === "sea");
-    const wet = (x: number, z: number) => water.some((a) => pointInRing(x, z, a.pts) && !(a.holes ?? []).some((h) => pointInRing(x, z, h)));
     for (const l of landmarks) {
       const [mw, md] = modelExtent(l.model, l.w, l.d);
       if (mw >= l.w && md >= l.d) continue;
       const c = Math.cos(l.rot);
       const sn = Math.sin(l.rot);
       const world = (u: number, v: number): Pt => [l.x + u * c + v * sn, l.z - u * sn + v * c];
+      // (A tank within the model's own footprint is its hauz, and goes.)
+      const own = (a: MapArea) =>
+        a.pts.every(([x, z]) => Math.abs((x - l.x) * c - (z - l.z) * sn) < mw / 2 && Math.abs((x - l.x) * sn + (z - l.z) * c) < md / 2);
+      const wet = (x: number, z: number) =>
+        water.some((a) => !own(a) && pointInRing(x, z, a.pts) && !(a.holes ?? []).some((h) => pointInRing(x, z, h)));
       const dry = (u0: number, v0: number) => {
         for (let u = -mw / 2 - 2; u <= mw / 2 + 2; u += 2) for (let v = -md / 2 - 2; v <= md / 2 + 2; v += 2) if (wet(...world(u0 + u, v0 + v))) return false;
         return true;
@@ -1128,7 +1132,9 @@ function compile(city: OsmCity): MapData {
   // door to the nearest street, so no plot is built across it.
   for (const l of landmarks) {
     if (!HAS_DOOR.has(l.model)) continue;
-    const door = frontOf(l, 1.5);
+    // At the model's own front, which may stand in from the footprint's.
+    const [, md] = modelExtent(l.model, l.w, l.d);
+    const door = frontOf({ ...l, d: md }, 1.5);
     l.door = [r1(door[0]), r1(door[1])];
     let best: ReturnType<typeof nearestOnPolyline> | null = null;
     for (const r of roads) {

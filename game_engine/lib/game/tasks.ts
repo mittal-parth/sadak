@@ -237,7 +237,7 @@ const puraniSadak: DistrictTaskPack = {
       id: "purani-sadak-minaret",
       districtId: "purani-sadak",
       kind: "temple",
-      pos: [97.5, 275.7],
+      pos: [129.9, 273.3],
       title: "Up the Jama Masjid minaret",
       brief: "Buy a ticket from the caretaker to climb the south minaret. Shoes off first.",
       reward: 240,
