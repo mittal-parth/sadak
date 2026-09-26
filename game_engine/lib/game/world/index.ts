@@ -16,7 +16,7 @@ import { buildRoads, footpathStrips, isDrivable, offsetPolyline } from "./roads"
 import { createClutter, type ClutterSites } from "../clutter";
 import { GROUND_H, FLOOR_H } from "../buildings";
 import { buildBuildings } from "./buildings";
-import { placeLandmarks } from "./landmarks";
+import { placeLandmarks, type InnerSpot } from "./landmarks";
 import { buildStreet } from "./street";
 import { createTraffic, type Traffic } from "./traffic";
 import { buildRails } from "./rails";
@@ -33,6 +33,8 @@ export type World = {
   crowd: Crowd;
   /** Map edges the sea runs past; the skyline leaves these open. */
   seaEdges: string[];
+  /** The monument interior nearest (x, z) within `max` metres, if any. */
+  innerNear(x: number, z: number, max: number): InnerSpot | null;
   /** Populate traffic, crowd and nearby detail round `focus`. */
   prime(focus: THREE.Vector3): void;
   update(dt: number, t: number, focus: THREE.Vector3): void;
@@ -83,7 +85,8 @@ export function buildWorld(map: MapData, district: District, deps: WorldDeps): W
   );
   group.add(buildings.group);
 
-  group.add(placeLandmarks(map.landmarks, theme.landmark, collide, height));
+  const landmarks = placeLandmarks(map.landmarks, theme.landmark, collide, height);
+  group.add(landmarks.group);
 
   const rails = buildRails(map, theme.landmark, collide);
   group.add(rails.group);
@@ -181,6 +184,18 @@ export function buildWorld(map: MapData, district: District, deps: WorldDeps): W
     traffic,
     crowd,
     seaEdges: areas.seaEdges,
+    innerNear(x, z, max) {
+      let best: InnerSpot | null = null;
+      let bd = max;
+      for (const s of landmarks.inners) {
+        const d = Math.hypot(s.x - x, s.z - z);
+        if (d < bd) {
+          bd = d;
+          best = s;
+        }
+      }
+      return best;
+    },
     prime(focus) {
       buildings.prime(focus);
       traffic.prime(focus);

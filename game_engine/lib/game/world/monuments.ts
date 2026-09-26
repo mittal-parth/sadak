@@ -21,6 +21,10 @@ export type Monument = {
   group: THREE.Group;
   colliders: LocalBox[];
   heights: LocalRect[];
+  /** Where a priest, a flower seller or a sevadar stands inside: in the
+   *  mandapa, the mosque courtyard, on the gurdwara's platform. Local frame;
+   *  they face +z, toward whoever comes up the steps. */
+  inner?: { x: number; z: number };
 };
 
 const MARBLE = 0xf1ece2;
@@ -33,12 +37,16 @@ function material() {
   return new THREE.MeshLambertMaterial({ vertexColors: true });
 }
 
-function finish(parts: Parts, colliders: LocalBox[], heights: LocalRect[], extra: THREE.Object3D[] = []): Monument {
+function finish(
+  parts: Parts,
+  colliders: LocalBox[],
+  heights: LocalRect[],
+  inner?: { x: number; z: number }
+): Monument {
   const group = new THREE.Group();
   const m = parts.mesh(material());
   if (m) group.add(m);
-  extra.forEach((o) => group.add(o));
-  return { group, colliders, heights };
+  return { group, colliders, heights, inner };
 }
 
 /**
@@ -195,7 +203,8 @@ export function mosque(w: number, d: number, st: MosqueStyle): Monument {
   P.box(tr * 2, 0.52, tr * 2, 0, y + 0.27, cz, WATER);
   C.push({ x: 0, z: cz, hw: tr + 0.5, hd: tr + 0.5 });
 
-  return finish(P, C, Hs);
+  // Inside: in the courtyard, just clear of the tank toward the gate.
+  return finish(P, C, Hs, { x: 0, z: Math.min(pf.front - t - 2, cz + tr + 2.5) });
 }
 
 /** Neighbourhood masjid or dargah: low plinth, hall, one dome, two minarets. */
@@ -220,7 +229,7 @@ export function smallMosque(w: number, d: number, st: MosqueStyle): Monument {
   P.dome(r, 0, y + hallH + 1, hz, st.dome, 1.2);
   const mh = hallH * 2.1;
   for (const s of [-1, 1]) minaret(P, C, s * (hallW / 2 + 0.4), hz + hallD / 2, y, mh, st.stone, st.accent, st.dome);
-  return finish(P, C, Hs);
+  return finish(P, C, Hs, { x: 0, z: Math.min(pf.front - 1, hz + hallD / 2 + 2) });
 }
 
 /** Tomb: a domed chamber with corner chhatris on a stepped plinth. */
@@ -242,7 +251,7 @@ export function tomb(w: number, d: number, st: MosqueStyle): Monument {
   P.dome(s * 0.34, 0, y + h + 1.9, pf.zc, st.dome, 1.15);
   for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) chhatri(P, a * s * 0.38, y + h + 0.5, pf.zc + b * s * 0.38, s * 0.07, st.stone, st.dome);
   C.push({ x: 0, z: pf.zc, hw: s / 2, hd: s / 2 });
-  return finish(P, C, Hs);
+  return finish(P, C, Hs, { x: 0, z: Math.min(pf.front - 1, pf.zc + s / 2 + 1.5) });
 }
 
 /* ------------------------------------------------------------------ *
@@ -349,7 +358,8 @@ export function temple(w: number, d: number, st: TempleStyle): Monument {
   // Bell at the door.
   P.cyl(0.02, 0.02, 0.6, 0, y + ph - 0.3, sz + s / 2 + 0.8, 0x3a3a3a, 4);
   P.cone(0.18, 0.3, 0, y + ph - 0.7, sz + s / 2 + 0.8, GOLD, 8);
-  return finish(P, C, Hs);
+  // Inside the mandapa, by the sanctum door.
+  return finish(P, C, Hs, { x: 0, z: sz + s / 2 + 1.6 });
 }
 
 /* ------------------------------------------------------------------ *
@@ -403,7 +413,7 @@ export function church(w: number, d: number, st: ChurchStyle): Monument {
     P.box(0.6, 0.12, 0.12, tx, y + th + tw * 1.6 + 0.75, tz, st.trim);
     C.push({ x: tx, z: tz, hw: tw / 2, hd: tw / 2 });
   }
-  return finish(P, C, Hs);
+  return finish(P, C, Hs, { x: st.towers === 1 ? nw * 0.3 : 0, z: fz + (st.towers === 1 ? tw + 1.5 : 1.8) });
 }
 
 /* ------------------------------------------------------------------ *
@@ -451,7 +461,7 @@ export function gurdwara(w: number, d: number, st: GurdwaraStyle): Monument {
     P.cone(0.35, 0.8, nx, y + 16.4, nz, GOLD, 6);
     C.push({ x: nx, z: nz, hw: 0.3, hd: 0.3 });
   }
-  return finish(P, C, Hs);
+  return finish(P, C, Hs, { x: 0, z: sz + s / 2 + 1.8 });
 }
 
 /* ------------------------------------------------------------------ *

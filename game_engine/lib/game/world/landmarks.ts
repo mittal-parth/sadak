@@ -163,15 +163,19 @@ export function buildLandmark(l: MapLandmark, city: Landmark): Monument {
   }
 }
 
+/** A spot inside a monument where someone stands, in world space. */
+export type InnerSpot = { x: number; z: number; yaw: number; name: string };
+
 /** Build, place and register every landmark on the map. */
 export function placeLandmarks(
   landmarks: MapLandmark[],
   city: Landmark,
   collide: CollisionWorld,
   height: HeightField
-): THREE.Group {
+): { group: THREE.Group; inners: InnerSpot[] } {
   const group = new THREE.Group();
   group.name = "landmarks";
+  const inners: InnerSpot[] = [];
   for (const l of landmarks) {
     const m = buildLandmark(l, city);
     m.group.position.set(l.x, 0, l.z);
@@ -190,6 +194,10 @@ export function placeLandmarks(
       const [x, z] = world(h.x, h.z);
       height.rect(x, z, h.hw, h.hd, l.rot, h.y0, h.y1);
     }
+    if (m.inner) {
+      const [x, z] = world(m.inner.x, m.inner.z);
+      inners.push({ x, z, yaw: l.rot, name: l.name });
+    }
   }
-  return group;
+  return { group, inners };
 }
