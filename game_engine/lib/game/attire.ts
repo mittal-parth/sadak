@@ -40,7 +40,7 @@ const WRAP: Partial<Record<Landmark, number>> = {
   kolkata: 0x2f5f8f,
 };
 
-type Role = "auto" | "conductor" | "clerk" | "flowers" | "temple" | "sevadar" | "waiter" | "cook";
+type Role = "auto" | "conductor" | "clerk" | "flowers" | "temple" | "caretaker" | "sevadar" | "waiter" | "cook";
 
 function roleOf(role: string, kind: string): Role {
   const r = role.toLowerCase();
@@ -48,6 +48,7 @@ function roleOf(role: string, kind: string): Role {
   if (r.includes("conductor") || (kind === "bus" && r.includes("ticket"))) return "conductor";
   if (kind === "counter" || r.includes("clerk")) return "clerk";
   if (r.includes("sevadar")) return "sevadar";
+  if (r.includes("caretaker") || r.includes("masjid")) return "caretaker";
   if (r.includes("flower")) return "flowers";
   if (kind === "temple" || r.includes("prasad") || r.includes("temple")) return "temple";
   if (r.includes("waiter")) return "waiter";
@@ -117,6 +118,10 @@ export function attireFor(
         kitColour: city === "amritsar" ? 0x1f3a5f : 0xe8872a,
         ...turban(0xff9933),
       };
+    case "caretaker":
+      // A mosque's khadim: white kurta-pyjama and a crocheted cap.
+      if (female) return woman([], "dupatta", 0xf2efe6);
+      return { ...base, preset: "kurta_pyjama", cloth1: 0xf4f4f0, cloth2: 0xf4f4f0, headwear: "skullcap", headColour: 0xf4f4f0 };
     case "waiter":
       // An Irani cafe's waiter: white shirt, dark trousers, a crocheted cap.
       if (female) return woman(["apron"]);

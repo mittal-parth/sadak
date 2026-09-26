@@ -131,4 +131,27 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("ശരി, കുറച്ച് കാത്തിരിക്കണം", "Shari, kurachu kaathirikkanam", "Okay, you'll have to wait a little", "എത്ര സമയം എടുക്കും?", "Ethra samayam edukkum?", "How long will it take?"),
     ],
   },
+  "fort-kochi-catch": {
+    easy: [
+      s("നല്ല മീൻ ഉണ്ട്, വേണോ?", "Nalla meen undu, veno?", "Good fish here, want some?", "ഒരു കിലോ കരിമീൻ", "Oru kilo karimeen", "One kilo of karimeen"),
+      s("ഇപ്പോൾ വലയിൽ നിന്ന്", "Ippol valayil ninnu", "Straight out of the net", "എത്ര ആയി?", "Ethra aayi?", "How much?"),
+      s("നാനൂറ് രൂപ", "Naanooru roopa", "Four hundred rupees", "ഇതാ, നന്ദി", "Ithaa, nandi", "Here you go, thank you"),
+    ],
+    medium: [
+      s("നല്ല മീൻ ഉണ്ട്, വേണോ?", "Nalla meen undu, veno?", "Good fish here, want some?", "ഒരു കിലോ കരിമീൻ", "Oru kilo karimeen", "One kilo of karimeen"),
+      s("ഇപ്പോൾ വലയിൽ നിന്ന്", "Ippol valayil ninnu", "Straight out of the net", "ശരി, വൃത്തിയാക്കി തരുമോ?", "Shari, vruthiyaakki tharumo?", "Okay, will you clean it?"),
+      s("തരാം, കുറച്ച് നിൽക്കൂ", "Tharaam, kurachu nilkkoo", "I will, wait a little", "ശരി, എത്ര ആയി?", "Shari, ethra aayi?", "Okay, how much?"),
+      s("നാനൂറ് രൂപ", "Naanooru roopa", "Four hundred rupees", "മുന്നൂറ്റമ്പത് തരാം", "Munnoottampathu tharaam", "I'll give three hundred and fifty"),
+      s("ശരി, എടുത്തോ", "Shari, eduttho", "Fine, take it", "ഇതാ, നന്ദി", "Ithaa, nandi", "Here you go, thank you"),
+    ],
+    hard: [
+      s("നല്ല മീൻ ഉണ്ട്, വേണോ?", "Nalla meen undu, veno?", "Good fish here, want some?", "ഒരു കിലോ കരിമീൻ", "Oru kilo karimeen", "One kilo of karimeen"),
+      s("ഇപ്പോൾ വലയിൽ നിന്ന്", "Ippol valayil ninnu", "Straight out of the net", "ശരി, വൃത്തിയാക്കി തരുമോ?", "Shari, vruthiyaakki tharumo?", "Okay, will you clean it?"),
+      s("തരാം, കുറച്ച് നിൽക്കൂ", "Tharaam, kurachu nilkkoo", "I will, wait a little", "ശരി, എത്ര ആയി?", "Shari, ethra aayi?", "Okay, how much?"),
+      s("നാനൂറ് രൂപ", "Naanooru roopa", "Four hundred rupees", "മുന്നൂറ്റമ്പത് തരാം", "Munnoottampathu tharaam", "I'll give three hundred and fifty"),
+      s("ശരി, എടുത്തോ", "Shari, eduttho", "Fine, take it", "ഇതാ, അഞ്ഞൂറ്", "Ithaa, anjooru", "Here, five hundred"),
+      s("ചില്ലറ ഉണ്ടോ?", "Chillara undo?", "Do you have change?", "ഇല്ല, ക്ഷമിക്കണം", "Illa, kshamikkanam", "No, sorry"),
+      s("ശരി, ബാക്കി ഇതാ", "Shari, baakki ithaa", "Okay, here's your change", "നന്ദി", "Nandi", "Thank you"),
+    ],
+  },
 };

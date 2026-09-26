@@ -50,19 +50,19 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
   },
   "dadar-chowk-temple": {
     easy: [
-      s("सिद्धिविनायकासाठी फूल?", "Siddhivinayakaasaathi phool?", "Flowers for Siddhivinayak?", "हो, दोन झेंडूच्या माळा", "Ho, don jhenduuchya maalaa", "Yes, two marigold garlands"),
+      s("हनुमानासाठी फूल?", "Hanumaanaasaathi phool?", "Flowers for Hanuman?", "हो, दोन झेंडूच्या माळा", "Ho, don jhenduuchya maalaa", "Yes, two marigold garlands"),
       s("चाळीस मध्ये घ्या", "Chaalis madhye ghya", "Take it for forty", "धन्यवाद, घ्या", "Dhanyavaad, ghya", "Thank you, here you go"),
       s("जा, दर्शन घ्या", "Jaa, darshan ghya", "Go, take darshan", "धन्यवाद", "Dhanyavaad", "Thank you"),
     ],
     medium: [
-      s("सिद्धिविनायकासाठी फूल?", "Siddhivinayakaasaathi phool?", "Flowers for Siddhivinayak?", "हो, दोन झेंडूच्या माळा", "Ho, don jhenduuchya maalaa", "Yes, two marigold garlands"),
+      s("हनुमानासाठी फूल?", "Hanumaanaasaathi phool?", "Flowers for Hanuman?", "हो, दोन झेंडूच्या माळा", "Ho, don jhenduuchya maalaa", "Yes, two marigold garlands"),
       s("घंटा वाजत आहे, लवकर!", "Ghanta vajat aahe, lavkar!", "The bell is ringing, hurry!", "हो, लवकर", "Ho, lavkar", "Yes, quickly"),
       s("सांग", "Saang", "Tell me", "किती?", "Kiti?", "How much?"),
       s("पन्नास रुपये", "Pannaas rupaye", "Fifty rupees", "चाळीस मध्ये दे", "Chaalis madhye de", "Give it for forty"),
       s("चाळीस मध्ये घ्या", "Chaalis madhye ghya", "Take it for forty", "धन्यवाद, घ्या", "Dhanyavaad, ghya", "Thank you, here you go"),
     ],
     hard: [
-      s("सिद्धिविनायकासाठी फूल?", "Siddhivinayakaasaathi phool?", "Flowers for Siddhivinayak?", "हो, दोन झेंडूच्या माळा", "Ho, don jhenduuchya maalaa", "Yes, two marigold garlands"),
+      s("हनुमानासाठी फूल?", "Hanumaanaasaathi phool?", "Flowers for Hanuman?", "हो, दोन झेंडूच्या माळा", "Ho, don jhenduuchya maalaa", "Yes, two marigold garlands"),
       s("घंटा वाजत आहे, लवकर!", "Ghanta vajat aahe, lavkar!", "The bell is ringing, hurry!", "हो, लवकर", "Ho, lavkar", "Yes, quickly"),
       s("सांग", "Saang", "Tell me", "किती?", "Kiti?", "How much?"),
       s("पन्नास रुपये", "Pannaas rupaye", "Fifty rupees", "चाळीस मध्ये दे", "Chaalis madhye de", "Give it for forty"),

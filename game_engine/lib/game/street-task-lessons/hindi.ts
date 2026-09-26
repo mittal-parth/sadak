@@ -131,4 +131,27 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("ठीक है, थोड़ा इंतज़ार करना होगा", "Theek hai, thoda intezaar karna hoga", "Alright, you'll have to wait a bit", "कितनी देर लगेगी?", "Kitni der lagegi?", "How long will it take?"),
     ],
   },
+  "purani-sadak-minaret": {
+    easy: [
+      s("मीनार पर चढ़ना है?", "Meenaar par chadhna hai?", "Want to climb the minaret?", "हाँ, एक टिकट दीजिए", "Haan, ek ticket dijiye", "Yes, one ticket please"),
+      s("पहले जूते उतारिए", "Pehle joote utaariye", "Take your shoes off first", "ठीक है, कितने का?", "Theek hai, kitne ka?", "Okay, how much?"),
+      s("पचास रुपये", "Pachaas rupaye", "Fifty rupees", "ये लीजिए, शुक्रिया", "Ye lijiye, shukriya", "Here you go, thank you"),
+    ],
+    medium: [
+      s("मीनार पर चढ़ना है?", "Meenaar par chadhna hai?", "Want to climb the minaret?", "हाँ, एक टिकट दीजिए", "Haan, ek ticket dijiye", "Yes, one ticket please"),
+      s("पहले जूते उतारिए", "Pehle joote utaariye", "Take your shoes off first", "ठीक है, उतार दिए", "Theek hai, utaar diye", "Okay, they're off"),
+      s("सीढ़ियाँ तंग हैं, संभलकर", "Seedhiyaan tang hain, sambhalkar", "The stairs are narrow, careful", "जी, ध्यान रखूँगा", "Ji, dhyaan rakhunga", "Yes, I'll be careful"),
+      s("जी, बताइए", "Ji, bataiye", "Yes, tell me", "कितने का है?", "Kitne ka hai?", "How much is it?"),
+      s("पचास रुपये", "Pachaas rupaye", "Fifty rupees", "ये लीजिए, शुक्रिया", "Ye lijiye, shukriya", "Here you go, thank you"),
+    ],
+    hard: [
+      s("मीनार पर चढ़ना है?", "Meenaar par chadhna hai?", "Want to climb the minaret?", "हाँ, एक टिकट दीजिए", "Haan, ek ticket dijiye", "Yes, one ticket please"),
+      s("पहले जूते उतारिए", "Pehle joote utaariye", "Take your shoes off first", "ठीक है, उतार दिए", "Theek hai, utaar diye", "Okay, they're off"),
+      s("अकेले हैं या साथ में कोई?", "Akele hain ya saath mein koi?", "Alone, or is someone with you?", "अकेला हूँ", "Akela hoon", "I'm alone"),
+      s("सीढ़ियाँ तंग हैं, संभलकर", "Seedhiyaan tang hain, sambhalkar", "The stairs are narrow, careful", "जी, ध्यान रखूँगा", "Ji, dhyaan rakhunga", "Yes, I'll be careful"),
+      s("ऊपर से पूरी दिल्ली दिखती है", "Upar se poori Dilli dikhti hai", "You can see all of Delhi from the top", "वाह, ज़रूर देखूँगा", "Waah, zaroor dekhunga", "Wow, I'll be sure to look"),
+      s("जी, बताइए", "Ji, bataiye", "Yes, tell me", "कितने का है?", "Kitne ka hai?", "How much is it?"),
+      s("पचास रुपये", "Pachaas rupaye", "Fifty rupees", "ये लीजिए, शुक्रिया", "Ye lijiye, shukriya", "Here you go, thank you"),
+    ],
+  },
 };

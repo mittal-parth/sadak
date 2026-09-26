@@ -131,4 +131,27 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("ઠીક છે, થોડી રાહ જોવી પડશે", "Thik chhe, thodi raah jovi padshe", "Alright, you'll have to wait a bit", "કેટલો સમય લાગશે?", "Ketlo samay laagshe?", "How long will it take?"),
     ],
   },
+  "manek-chowk-masjid": {
+    easy: [
+      s("આવો, શું જોઈએ?", "Aavo, shu joie?", "Come, what do you need?", "મસ્જિદ જોઈ શકું?", "Masjid joi shaku?", "May I see the mosque?"),
+      s("હા, માથું ઢાંકો", "Haa, maathu dhaanko", "Yes, cover your head", "ઠીક છે, રૂમાલ છે", "Theek che, rumaal che", "Okay, I have a handkerchief"),
+      s("નમાજ વખતે અંદર ન જતા", "Namaaj vakhate andar na jataa", "Don't go in during prayers", "સમજી ગયો, આભાર", "Samji gayo, aabhaar", "Understood, thank you"),
+    ],
+    medium: [
+      s("આવો, શું જોઈએ?", "Aavo, shu joie?", "Come, what do you need?", "મસ્જિદ જોઈ શકું?", "Masjid joi shaku?", "May I see the mosque?"),
+      s("હા, માથું ઢાંકો", "Haa, maathu dhaanko", "Yes, cover your head", "ઠીક છે, રૂમાલ છે", "Theek che, rumaal che", "Okay, I have a handkerchief"),
+      s("જૂતા અહીં ઉતારો", "Joota ahin utaaro", "Leave your shoes here", "ક્યાં રાખું?", "Kyaan raakhu?", "Where do I keep them?"),
+      s("બાજુમાં ખાનામાં", "Baajumaan khaanaamaan", "In the rack alongside", "નમાજ કેટલા વાગે છે?", "Namaaj ketlaa vaage che?", "What time is the prayer?"),
+      s("એક વાગે જોહર", "Ek vaage johar", "Zuhr at one o'clock", "સમજી ગયો, આભાર", "Samji gayo, aabhaar", "Understood, thank you"),
+    ],
+    hard: [
+      s("આવો, શું જોઈએ?", "Aavo, shu joie?", "Come, what do you need?", "મસ્જિદ જોઈ શકું?", "Masjid joi shaku?", "May I see the mosque?"),
+      s("હા, માથું ઢાંકો", "Haa, maathu dhaanko", "Yes, cover your head", "ઠીક છે, રૂમાલ છે", "Theek che, rumaal che", "Okay, I have a handkerchief"),
+      s("જૂતા અહીં ઉતારો", "Joota ahin utaaro", "Leave your shoes here", "ક્યાં રાખું?", "Kyaan raakhu?", "Where do I keep them?"),
+      s("બાજુમાં ખાનામાં", "Baajumaan khaanaamaan", "In the rack alongside", "નમાજ કેટલા વાગે છે?", "Namaaj ketlaa vaage che?", "What time is the prayer?"),
+      s("એક વાગે જોહર", "Ek vaage johar", "Zuhr at one o'clock", "ત્યાં સુધી ફરી શકું?", "Tyaan sudhi fari shaku?", "May I walk round till then?"),
+      s("હા, હોજ સુધી જાઓ", "Haa, hoj sudhi jaao", "Yes, go as far as the tank", "ઠીક છે", "Theek che", "Okay"),
+      s("નમાજ વખતે અંદર ન જતા", "Namaaj vakhate andar na jataa", "Don't go in during prayers", "સમજી ગયો, આભાર", "Samji gayo, aabhaar", "Understood, thank you"),
+    ],
+  },
 };

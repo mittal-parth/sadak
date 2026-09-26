@@ -30,6 +30,10 @@ test("every errand host is dressed for their voice and their job", () => {
   // The Golden Temple's sevadar has a covered head, whoever they are.
   const langar = SEED_TASK_PACKS.find((p) => p.districtId === "hall-bazaar")!.tasks.find((t) => t.id === "hall-bazaar-langar")!;
   assert.ok(["turban", "dupatta"].includes(attireFor(langar, "amritsar", 1).headwear!));
+  // A mosque's caretaker in white with a cap, not a priest's angavastram.
+  const khadim = attireFor({ role: "Masjid Caretaker", kind: "temple", speaker: "shubh" }, "delhi", 1);
+  assert.equal(khadim.headwear, "skullcap");
+  assert.ok(!(khadim.kit ?? []).includes("angavastram"));
   // Delhi's autos are grey, Mumbai's khaki.
   const auto = { role: "Auto Driver", kind: "auto", speaker: "vijay" };
   assert.notEqual(attireFor(auto, "delhi", 1).cloth1, attireFor(auto, "mumbai", 1).cloth1);
