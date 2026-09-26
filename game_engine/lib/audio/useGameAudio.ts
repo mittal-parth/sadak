@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { setSfxMuted } from "@/lib/audio/engine";
-import { DISTRICT_THEMES, MusicEngine } from "@/lib/audio/music";
+import { DISTRICT_MUSIC, MusicEngine } from "@/lib/audio/music";
 
 const SFX_KEY = "sadak-sfx";
 const MUSIC_KEY = "sadak-music";
@@ -24,19 +24,19 @@ export function useGameAudio(districtId: string | undefined) {
   const [musicOn, setMusicOn] = useState(() => readPref(MUSIC_KEY));
   const engineRef = useRef<MusicEngine | null>(null);
 
-  // Start/switch the theme as the district changes. `MusicEngine.start()`
-  // is idempotent per theme id, so a re-render with the same district
+  // Start/switch the music as the district changes. `MusicEngine.start()`
+  // is idempotent per composition, so a re-render with the same district
   // (e.g. a comfort-level change) is a no-op rather than a restart. Leaving
   // the district (back to Title) must explicitly `stop()` — the engine has
   // no other way to know the player walked away.
   useEffect(() => {
-    const theme = districtId ? DISTRICT_THEMES[districtId] : undefined;
-    if (!theme) {
+    const music = districtId ? DISTRICT_MUSIC[districtId] : undefined;
+    if (!music) {
       engineRef.current?.stop();
       return;
     }
     const engine = (engineRef.current ??= new MusicEngine());
-    engine.start(theme);
+    engine.start(music);
     engine.setMuted(!musicOn);
   }, [districtId, musicOn]);
 

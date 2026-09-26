@@ -76,7 +76,7 @@ async function translateBatch(
         role: "system",
         content: `You translate UI and lesson gloss text from English into ${langName}.
 Write each translation in ${langName} using its native script only (never Latin transliteration unless the source is already Latin).
-Return ONLY valid JSON: an object whose keys are the exact English source strings and values are the ${langName} translations.
+Return ONLY valid JSON: an object whose keys are the item numbers as strings ("1", "2", …) and values are the ${langName} translations.
 Preserve punctuation, emoji, and placeholders like "→". Keep translations concise and natural for learners.`,
       },
       {
@@ -98,7 +98,9 @@ Preserve punctuation, emoji, and placeholders like "→". Keep translations conc
 
   const parsed = JSON.parse(content) as Record<string, string>;
 
-  // Model may return numbered keys; remap by index if needed.
+  // Keyed by item number: an English key comes back re-punctuated often
+  // enough (a curly apostrophe, a dropped full stop) to miss. The exact
+  // string is still accepted.
   const out: Record<string, string> = {};
   for (let i = 0; i < strings.length; i++) {
     const src = strings[i];

@@ -17,6 +17,7 @@ export async function GET(_req: Request, { params }: Params) {
       district: loaded.district,
       taskPack: loaded.taskPack,
       tasks: loaded.tasks,
+      barber: loaded.barber,
     });
   } catch (err) {
     console.error("GET /api/districts/[id]", id, err);

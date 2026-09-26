@@ -238,10 +238,14 @@ export function bakedTorus(
   x = 0,
   y = 0,
   z = 0,
-  rx = 0
+  rx = 0,
+  ry = 0
 ): THREE.BufferGeometry {
+  // A torus lies in the XY plane (axis along z); ry = PI/2 stands it up as
+  // a wheel on an axle along x.
   const g = new THREE.TorusGeometry(r, tube, 6, 14);
   if (rx) g.rotateX(rx);
+  if (ry) g.rotateY(ry);
   g.translate(x, y, z);
   return g;
 }

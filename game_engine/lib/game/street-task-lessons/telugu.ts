@@ -5,14 +5,14 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
   "charminar-lane-auto": {
     easy: [
       s("ఎక్కడికి వెళ్ళాలి?", "Ekkadiki vellali?", "Where do you want to go?", "సికింద్రాబాద్ రైల్వే స్టేషన్", "Secunderabad railway station", "Secunderabad railway station"),
-      s("సరే, ఎంత ఇస్తారు?", "Sare, enta istaru?", "Fine, what will you pay?", "ఒకటినూటలు పోతారా?", "Okati nootlu potara?", "Will you go for 150?"),
+      s("సరే, ఎంత ఇస్తారు?", "Sare, enta istaru?", "Fine, what will you pay?", "నూట యాభైకి పోతారా?", "Noota yabhaiki potara?", "Will you go for 150?"),
       s("రా, ఎక్కు", "Raa, ekku", "Come on, get in", "ధన్యవాదాలు, వెళ్దాం", "Dhanyavaadalu, veldaam", "Thank you, let's go"),
     ],
     medium: [
       s("ఎక్కడికి వెళ్ళాలి?", "Ekkadiki vellali?", "Where do you want to go?", "సికింద్రాబాద్ రైల్వే స్టేషన్", "Secunderabad railway station", "Secunderabad railway station"),
       s("మూడు వందలు! petrol ఖరీదు అన్న", "Moodu vandlu! petrol khareedu anna", "Three hundred! Petrol is costly, brother", "అర్థమైంది, కొంచెం తగ్గించండి", "Arthamaindi, konchem taggincandi", "I understand, please reduce it a bit"),
       s("సరే, చెప్పు", "Sare, cheppu", "Fine, tell me", "ఎంత?", "Enta?", "How much?"),
-      s("సరే, ఎంత ఇస్తారు?", "Sare, enta istaru?", "Fine, what will you pay?", "ఒకటినూటలు పోతారా?", "Okati nootlu potara?", "Will you go for 150?"),
+      s("సరే, ఎంత ఇస్తారు?", "Sare, enta istaru?", "Fine, what will you pay?", "నూట యాభైకి పోతారా?", "Noota yabhaiki potara?", "Will you go for 150?"),
       s("రా, ఎక్కు", "Raa, ekku", "Come on, get in", "ధన్యవాదాలు, వెళ్దాం", "Dhanyavaadalu, veldaam", "Thank you, let's go"),
     ],
     hard: [
@@ -20,7 +20,7 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("ఈ రోజు crowd ఎక్కువ", "Ee roju crowd ekkuva", "Crowd is heavy today", "అవును, తొందరగా", "Avunu, tondaraga", "Yes, I'm in a hurry"),
       s("మూడు వందలు! petrol ఖరీదు అన్న", "Moodu vandlu! petrol khareedu anna", "Three hundred! Petrol is costly, brother", "అర్థమైంది, కొంచెం తగ్గించండి", "Arthamaindi, konchem taggincandi", "I understand, please reduce it a bit"),
       s("సరే, చెప్పు", "Sare, cheppu", "Fine, tell me", "ఎంత?", "Enta?", "How much?"),
-      s("సరే, ఎంత ఇస్తారు?", "Sare, enta istaru?", "Fine, what will you pay?", "ఒకటినూటలు పోతారా?", "Okati nootlu potara?", "Will you go for 150?"),
+      s("సరే, ఎంత ఇస్తారు?", "Sare, enta istaru?", "Fine, what will you pay?", "నూట యాభైకి పోతారా?", "Noota yabhaiki potara?", "Will you go for 150?"),
       s("meter తోనా?", "Meter thona?", "By meter?", "లేదు, fix fare", "Ledu, fix fare", "No, fixed fare"),
       s("రా, ఎక్కు", "Raa, ekku", "Come on, get in", "ధన్యవాదాలు, వెళ్దాం", "Dhanyavaadalu, veldaam", "Thank you, let's go"),
     ],
@@ -94,18 +94,50 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("ఇదigo, ticket", "Idigo, ticket", "Here, your ticket", "ధన్యవాదాలు", "Dhanyavaadalu", "Thank you"),
     ],
   },
+  "charminar-lane-chai": {
+    easy: [
+      s("ఏమి కావాలి?", "Emi kaavali?", "What do you want?", "ఒక ఇరానీ చాయ్", "Oka Irani chai", "One Irani chai"),
+      s("కూర్చోండి, తెస్తాను", "Koorchondi, testaanu", "Sit down, I'll bring it", "సరే, ధన్యవాదాలు", "Sare, dhanyavaadalu", "Okay, thank you"),
+      s("ఇరవై రూపాయలు", "Iravai roopaayalu", "Twenty rupees", "ఇదిగో, ధన్యవాదాలు", "Idigo, dhanyavaadalu", "Here you go, thank you"),
+    ],
+    medium: [
+      s("ఏమి కావాలి?", "Emi kaavali?", "What do you want?", "ఒక ఇరానీ చాయ్", "Oka Irani chai", "One Irani chai"),
+      s("బిస్కెట్ కూడా?", "Biscuit koodaa?", "Biscuits as well?", "అవును, ఉస్మానియా బిస్కెట్", "Avunu, Osmania biscuit", "Yes, Osmania biscuits"),
+      s("కూర్చోండి, తెస్తాను", "Koorchondi, testaanu", "Sit down, I'll bring it", "సరే, ధన్యవాదాలు", "Sare, dhanyavaadalu", "Okay, thank you"),
+      s("సరే", "Sare", "Okay", "ఎంత అయింది?", "Enta ayindi?", "What do I owe you?"),
+      s("నలభై రూపాయలు", "Nalabhai roopaayalu", "Forty rupees", "ఇదిగో, ధన్యవాదాలు", "Idigo, dhanyavaadalu", "Here you go, thank you"),
+    ],
+    hard: [
+      s("ఏమి కావాలి?", "Emi kaavali?", "What do you want?", "ఒక ఇరానీ చాయ్", "Oka Irani chai", "One Irani chai"),
+      s("బిస్కెట్ కూడా?", "Biscuit koodaa?", "Biscuits as well?", "అవును, ఉస్మానియా బిస్కెట్", "Avunu, Osmania biscuit", "Yes, Osmania biscuits"),
+      s("చాయ్ వేడిగా ఉంది, జాగ్రత్త", "Chai vedigaa undi, jaagratta", "The chai is hot, careful", "సరే, నెమ్మదిగా తాగుతాను", "Sare, nemmadigaa taagutaanu", "Okay, I'll drink slowly"),
+      s("కూర్చోండి, తెస్తాను", "Koorchondi, testaanu", "Sit down, I'll bring it", "సరే, ధన్యవాదాలు", "Sare, dhanyavaadalu", "Okay, thank you"),
+      s("ఇంకేమైనా?", "Inkenainaa?", "Anything else?", "లేదు, అంతే", "Ledu, anthe", "No, that's all"),
+      s("సరే", "Sare", "Okay", "ఎంత అయింది?", "Enta ayindi?", "What do I owe you?"),
+      s("నలభై రూపాయలు", "Nalabhai roopaayalu", "Forty rupees", "ఇదిగో, ధన్యవాదాలు", "Idigo, dhanyavaadalu", "Here you go, thank you"),
+    ],
+  },
   "charminar-lane-barber": {
     easy: [
       s("రండి, కూర్చోండి. ఏం చేయాలి?", "Randi, koorchondi. Em cheyaali?", "Come, sit. What should I do?", "జుట్టు కత్తిరించండి", "Juttu kattirinchandi", "Please cut my hair"),
       s("సరే, కొంచెం ఆగాలి", "Sare, konchem aagaali", "Okay, you'll have to wait a bit", "ఎంత సమయం పడుతుంది?", "Enta samayam padutundi?", "How long will it take?"),
+      s("పది నిమిషాలు", "Padi nimishaalu", "Ten minutes", "సరే, ఆగుతాను", "Sare, aagutaanu", "Okay, I'll wait"),
     ],
     medium: [
       s("రండి, కూర్చోండి. ఏం చేయాలి?", "Randi, koorchondi. Em cheyaali?", "Come, sit. What should I do?", "జుట్టు కత్తిరించండి", "Juttu kattirinchandi", "Please cut my hair"),
       s("సరే, కొంచెం ఆగాలి", "Sare, konchem aagaali", "Okay, you'll have to wait a bit", "ఎంత సమయం పడుతుంది?", "Enta samayam padutundi?", "How long will it take?"),
+      s("పది నిమిషాలు", "Padi nimishaalu", "Ten minutes", "సరే, ఆగుతాను", "Sare, aagutaanu", "Okay, I'll wait"),
+      s("అయిపోయింది. ఎలా ఉంది?", "Ayipoyindi. Elaa undi?", "Done. How does it look?", "చాలా బాగుంది! ఎంత?", "Chaalaa baagundi! Enta?", "Very nice! How much?"),
+      s("ఎనభై రూపాయలు", "Enabhai roopaayalu", "Eighty rupees", "ఇదిగో, ధన్యవాదాలు", "Idigo, dhanyavaadaalu", "Here you go, thank you"),
     ],
     hard: [
       s("రండి, కూర్చోండి. ఏం చేయాలి?", "Randi, koorchondi. Em cheyaali?", "Come, sit. What should I do?", "జుట్టు కత్తిరించండి", "Juttu kattirinchandi", "Please cut my hair"),
       s("సరే, కొంచెం ఆగాలి", "Sare, konchem aagaali", "Okay, you'll have to wait a bit", "ఎంత సమయం పడుతుంది?", "Enta samayam padutundi?", "How long will it take?"),
+      s("పది నిమిషాలు", "Padi nimishaalu", "Ten minutes", "సరే, ఆగుతాను", "Sare, aagutaanu", "Okay, I'll wait"),
+      s("పొట్టిగానా, కొంచెం సరిచేయాలా?", "Pottigaanaa, konchem saricheyaalaa?", "Short, or just a trim?", "కొంచెం సరిచేయండి", "Konchem saricheyandi", "Just a trim"),
+      s("షేవింగ్ కూడా చేయాలా?", "Shaving kooda cheyaalaa?", "Shave as well?", "వద్దు, జుట్టు మాత్రమే", "Vaddu, juttu maatrame", "No, just the haircut"),
+      s("అయిపోయింది. ఎలా ఉంది?", "Ayipoyindi. Elaa undi?", "Done. How does it look?", "చాలా బాగుంది! ఎంత?", "Chaalaa baagundi! Enta?", "Very nice! How much?"),
+      s("ఎనభై రూపాయలు", "Enabhai roopaayalu", "Eighty rupees", "ఇదిగో, ధన్యవాదాలు", "Idigo, dhanyavaadaalu", "Here you go, thank you"),
     ],
   },
 };

@@ -1,28 +1,33 @@
 import * as THREE from "three";
-import {
-  buildCity, roadLines, CHOWK, WORLD_LIMIT, ROAD_W,
-  type Box, type SignalMast,
-} from "./city";
-import type { Clutter } from "./clutter";
-import { makeAuto, setSignalPhase, mulberry32 } from "./props";
+import { CITY_TRAFFIC, createTransitMaterial } from "./transit";
+import { autoBodyFor, makeAuto } from "./props";
+import { buildWorld, type World } from "./world";
+import { Rides } from "./rides";
+import { Parts } from "./world/vc";
+import { taskSpot, type MapData, type Spot } from "./world/mapData";
+import { knockFrom } from "./knock";
+import { BOUNDARY_INSET } from "./world/boundary";
+import { attireFor } from "./attire";
+import { makeHero, HeroAnimator, type HeroRig } from "./hero";
+import { newBody, stepBody, SPRINT_SPEED } from "./movement";
 import { makeMissionShopStall, makeStreetMandir } from "./assets/index";
 import { makeBarberShop } from "./assets/barber";
-import { BARBER_ENTER_RADIUS, BARBER_FACING, BARBER_POS, barberSignFor } from "./barber";
+import { BARBER_ENTER_RADIUS, BARBER_FACING, barberSignFor } from "./barber";
 import {
   makePerson,
   makeIdlePose,
   setIdlePhase,
-  setWalkPhase,
-  type PersonPreset,
 } from "./people";
-import {
-  createVehicleMaterials, makeCar, TRAFFIC_KINDS,
-  type CarKind, type VehicleMaterials,
-} from "./vehicles";
+import { createVehicleMaterials, makeCar } from "./vehicles";
+import { makeAmbassadorTaxi } from "./assets/kolkata";
+import type { Landmark } from "./assets";
 import type { District } from "./districts";
 import { type StreetTask, type TaskKind } from "./tasks";
 import { createMaterialLibrary, type MaterialLibrary } from "./materials";
 import { createRenderPipeline, type RenderPipeline } from "./render";
+import { presetFor } from "./fx/presets";
+import { createCelifier } from "./fx/toon";
+import { createSky, type SkyRig } from "./fx/sky";
 
 export type TaskSnapshot = {
   id: string;
@@ -30,6 +35,8 @@ export type TaskSnapshot = {
   x: number;
   z: number;
   done: boolean;
+  /** The errand's own colour, CSS hex: marker, map dot and list chip. */
+  colour: string;
 };
 
 export type Telemetry = {
@@ -45,6 +52,8 @@ export type Telemetry = {
   heading: number;
   tasks: TaskSnapshot[];
   speed: number;
+  /** Where the player is being driven, while on an auto or bus. */
+  ride: string | null;
 };
 
 /**
@@ -72,28 +81,11 @@ const TALK_RADIUS = 4.5;
 const PLAYER_RADIUS = 0.55;
 const TURN_SPEED = 2.1; // radians/sec for keyboard camera turn
 
-/**
- * Movement feel. Walk was 5.2 m/s, which at a 9m camera distance is a sprint
- * that reads as twitchy — a real walk is nearer 1.4 m/s and a game walk that
- * still feels responsive sits around 3.5.
- */
-const WALK_SPEED = 4.6;
-const SPRINT_SPEED = 9.5;
 /** Height on the player the camera aims at. */
 const PLAYER_LOOK_H = 2.3;
-/** Feet height when standing. */
-const PLAYER_BASE_Y = 0.26;
+/** Feet sit this far above the walkable surface. */
+const PLAYER_BASE_Y = 0.03;
 
-/** Player spawn south of the chowk, facing north. */
-const SPAWN = { x: CHOWK.x, z: CHOWK.z - 16 };
-
-// Jump. Tuned as a hop rather than a leap — this is a street, not a platformer,
-// and a big arc fights the shallow chase camera.
-const JUMP_SPEED = 5.4;
-const GRAVITY = 16;
-
-/** Cell size of the static-collider lookup grid, in world units. */
-const COLLIDER_CELL = 8;
 
 /** Shortest-arc angular damp. Without the wrap, turning past ±π spins the
  *  long way round — the classic "character pirouettes on a heading flip". */
@@ -108,162 +100,46 @@ function damp(current: number, target: number, k: number, dt: number): number {
 }
 
 /**
- * GTA-style sky: a vertical gradient painted onto an inward-facing sphere.
- *
- * Resolution matters more than it looks: this strip is stretched over a
- * kilometre-wide dome, so every texel is metres tall on screen and a 256-step
- * ramp shows its steps. The grade pass dithers the final frame (see
- * fx/gradeShader.ts) which removes the rest of the banding.
+ * The marker over an errand's host: a chunky arrow pointing down at them in
+ * the errand's own colour (the same colour as its dot on the map and its chip
+ * in the errand list), with a dark rim so it reads against sky and wall.
+ * Unlit, so the cel pass leaves the colour exactly as chosen.
  */
-function makeSky(stops: readonly string[]): THREE.Mesh {
-  const H = 1024;
-  const canvas = document.createElement("canvas");
-  canvas.width = 4;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d")!;
-
-  const grad = ctx.createLinearGradient(0, 0, 0, H);
-  stops.forEach((c, i) => grad.addColorStop(i / (stops.length - 1), c));
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 4, H);
-
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.minFilter = THREE.LinearFilter;
-  tex.generateMipmaps = false;
-
-  return new THREE.Mesh(
-    new THREE.SphereGeometry(WORLD_LIMIT * 2.2, 32, 24),
-    new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, depthWrite: false, fog: false })
-  );
-}
-
-/**
- * Dresses each mission NPC to their job. A constable in a shirt and trousers
- * is just another pedestrian; the uniform is how the player finds them.
- */
-function presetForRole(role: string): PersonPreset {
-  const r = role.toLowerCase();
-  if (r.includes("constable") || r.includes("police") || r.includes("officer")) return "uniform";
-  if (r.includes("delivery") || r.includes("rider")) return "delivery_rider";
-  if (r.includes("seller") || r.includes("amma") || r.includes("akka")) return "sari";
-  if (r.includes("driver") || r.includes("wallah") || r.includes("vendor")) return "lungi";
-  return "kurta_pyjama";
-}
-
-function markerColourForKind(kind: TaskKind): number {
-  switch (kind) {
-    case "auto":
-      return 0xf5c518;
-    case "shop":
-      return 0xe67e22;
-    case "temple":
-      return 0xe74c3c;
-    case "bus":
-      return 0x3498db;
-    case "barber":
-      return 0x33406b;
-    default: {
-      const _exhaustive: never = kind;
-      return _exhaustive;
-    }
-  }
-}
-
-/**
- * Vertical alpha ramp shared by every corona: bright at the ground, fading to
- * nothing at the top, so the light column reads as a glow rather than a tube
- * with a hard lid. One 2x64 canvas, built once.
- */
-let coronaRamp: THREE.CanvasTexture | null = null;
-function getCoronaRamp(): THREE.CanvasTexture {
-  if (coronaRamp) return coronaRamp;
-  const H = 64;
-  const canvas = document.createElement("canvas");
-  canvas.width = 2;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d")!;
-  const grad = ctx.createLinearGradient(0, H, 0, 0);
-  grad.addColorStop(0, "rgba(255,255,255,1)");
-  grad.addColorStop(0.45, "rgba(255,255,255,0.5)");
-  grad.addColorStop(1, "rgba(255,255,255,0)");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 2, H);
-  coronaRamp = new THREE.CanvasTexture(canvas);
-  return coronaRamp;
-}
-
-/**
- * Classic GTA:SA mission corona: a tall additive column of light standing on a
- * glowing ground ring. Additive blending is what sells it — the column
- * brightens whatever is behind it instead of dimming it, so it reads as light,
- * and it stays visible from the far end of the street where a flat ground
- * circle is edge-on to the camera and disappears.
- */
-function makeTaskBlip(color: number): THREE.Group {
+function makeTaskArrow(colour: number): THREE.Group {
+  const shape = new THREE.Shape();
+  shape.moveTo(-0.15, 0.6);
+  shape.lineTo(0.15, 0.6);
+  shape.lineTo(0.15, 0.2);
+  shape.lineTo(0.36, 0.2);
+  shape.lineTo(0, -0.26);
+  shape.lineTo(-0.36, 0.2);
+  shape.lineTo(-0.15, 0.2);
+  shape.closePath();
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.12, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.03, bevelSegments: 2 });
+  geo.center();
+  const body = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: colour }));
+  const rim = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x14161a, side: THREE.BackSide }));
+  rim.scale.setScalar(1.14);
   const g = new THREE.Group();
-  const ramp = getCoronaRamp();
+  g.add(rim, body);
+  return g;
+}
 
-  // Two nested open cylinders (inner brighter, outer wider and fainter) fake
-  // the soft radial falloff of a volumetric beam for two draw calls.
-  const coronaMat = (radius: number, opacity: number) =>
-    new THREE.Mesh(
-      new THREE.CylinderGeometry(radius, radius, 4.2, 20, 1, true),
-      new THREE.MeshBasicMaterial({
-        color,
-        map: ramp,
-        transparent: true,
-        opacity,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-        fog: false,
-      })
-    );
-
-  const coronaInner = coronaMat(0.5, 0.45);
-  coronaInner.position.y = 2.1;
-  g.add(coronaInner);
-
-  const coronaOuter = coronaMat(0.78, 0.18);
-  coronaOuter.position.y = 2.1;
-  g.add(coronaOuter);
-
-  const ring = new THREE.Mesh(
-    new THREE.RingGeometry(0.55, 1.0, 32),
-    new THREE.MeshBasicMaterial({
-      color,
-      transparent: true,
-      opacity: 0.6,
-      blending: THREE.AdditiveBlending,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-      fog: false,
-    })
-  );
-  ring.rotation.x = -Math.PI / 2;
-  ring.position.y = 0.06;
-  g.add(ring);
-
-  const core = new THREE.Mesh(
-    new THREE.CircleGeometry(0.55, 24),
-    new THREE.MeshBasicMaterial({
-      color,
-      transparent: true,
-      opacity: 0.5,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      fog: false,
-    })
-  );
-  core.rotation.x = -Math.PI / 2;
-  core.position.y = 0.05;
-  g.add(core);
-
-  g.userData.coronaInner = coronaInner;
-  g.userData.coronaOuter = coronaOuter;
-  g.userData.blipRing = ring;
-  g.userData.blipCore = core;
+/** A ticket window: a kiosk with a counter, an open window (the clerk shows
+ *  through it), a roof and a sign band. */
+function makeTicketBooth(colour: number): THREE.Group {
+  const P = new Parts();
+  P.box(3.2, 1.1, 1.8, 0, 0.55, 0, 0xd9d2c3);
+  P.box(3.4, 0.08, 0.5, 0, 1.12, 0.85, 0x8a6a4a);
+  for (const x of [-1.55, -0.52, 0.52, 1.55]) P.box(0.1, 1.4, 0.1, x, 1.8, 0.62, 0x5d6168);
+  P.box(3.2, 0.1, 0.1, 0, 2.45, 0.62, 0x5d6168);
+  for (const x of [-1.55, 1.55]) P.box(0.08, 1.4, 1.5, x, 1.8, -0.1, 0xd9d2c3);
+  P.box(3.2, 1.4, 0.08, 0, 1.8, -0.9, 0xd9d2c3);
+  P.box(3.6, 0.15, 2.3, 0, 2.6, 0, 0x5d6168);
+  P.box(3.2, 0.45, 0.08, 0, 2.9, 0.9, colour);
+  const g = new THREE.Group();
+  const m = P.mesh(new THREE.MeshLambertMaterial({ vertexColors: true }));
+  if (m) g.add(m);
   return g;
 }
 
@@ -277,35 +153,6 @@ function hashId(id: string): number {
   return h >>> 0;
 }
 
-/**
- * Traffic lane offset from the road centreline. Sits inboard of the parking
- * strip (city.ts parks at ROAD_W/2 - 1.1) with a couple of metres of clearance,
- * so moving traffic never clips a parked car.
- */
-const LANE_OFF = ROAD_W * 0.22;
-
-/** Minimum bumper-to-bumper gap traffic will close to before it slows. */
-const FOLLOW_GAP = 7;
-
-/** Signal cycle, in seconds: z green, z amber, x green, x amber. */
-const SIGNAL_CYCLE = [13, 2, 13, 2];
-
-type Vehicle = {
-  mesh: THREE.Group;
-  line: number;
-  axis: "x" | "z";
-  dir: 1 | -1;
-  /** Lane identity, so following logic only compares vehicles sharing tarmac. */
-  laneKey: string;
-  /** Free-flow speed, m/s. */
-  cruise: number;
-  /** Current speed, eased toward whatever the road ahead allows. */
-  speed: number;
-  halfLength: number;
-  wheels: THREE.Object3D[];
-  wheelRadius: number;
-};
-
 export class Game {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
@@ -314,7 +161,10 @@ export class Game {
   private district: District;
 
   private player = new THREE.Group();
-  private playerPos = new THREE.Vector3(SPAWN.x, 0, SPAWN.z);
+  private playerPos = new THREE.Vector3();
+  /** Walkable surface under the player, damped so steps are climbed, not
+   *  teleported up. */
+  private groundY = 0;
   private velocity = new THREE.Vector3();
   private yaw = 0;
   // Lower than it was (0.28). Camera height is 2.8 + pitch * 5 while the aim
@@ -322,24 +172,21 @@ export class Game {
   // bottom half of the frame with empty road — and crops the tops off the
   // landmarks the player is meant to be looking at.
   private pitch = 0.16;
-  private walkPhase = 0;
-  /** Facing, damped toward the direction of travel rather than snapped. */
+  /** Facing of the body, from the movement model (movement.ts). */
   private facing = 0;
-  /**
-   * 0 = standing, 1 = walking, 2 = running. Damped, and used to crossfade the
-   * gait in people.ts so stopping is a blend rather than a pop.
-   */
-  private gait = 0;
-  /** Forward lean, driven by acceleration so the body reads as having mass. */
-  private lean = 0;
+  /** The player's body: speed, heading, jump (movement.ts). */
+  private body = newBody();
+  /** Drives the hero's rig (hero.ts). */
+  private heroAnim!: HeroAnimator;
+  /** 0..1 stumble blend while knocked aside. */
+  private stumble = 0;
   /** Mouse deltas accumulated between frames — see onMouseMove. */
   private pendingYaw = 0;
   private pendingPitch = 0;
   /** Damped keyboard/virtual turn rate, so arrow-turns ease in and out. */
   private turnRate = 0;
-  /** Height above PLAYER_BASE_Y, and its velocity. 0 means grounded. */
+  /** Height of the feet above the ground (mirrors body.y for the camera). */
   private jumpY = 0;
-  private jumpVel = 0;
   /** Set by the Space keydown, consumed on the next tick. */
   private jumpQueued = false;
   /** 0 grounded, 1 fully airborne — blends the tucked-legs pose. */
@@ -347,18 +194,20 @@ export class Game {
 
   // Scratch vectors. These run every frame; allocating them fresh was pure GC
   // churn at 60Hz.
+  private tmpMarker = new THREE.Vector3();
   private readonly tmpDir = new THREE.Vector3();
   private readonly tmpCam = new THREE.Vector3();
-  private readonly lookTarget = new THREE.Vector3(SPAWN.x, PLAYER_LOOK_H, SPAWN.z);
+  private readonly lookTarget = new THREE.Vector3();
   private camFov = 55;
+  /** Fraction of the full chase distance the camera may use (see updateCamera). */
+  private camReach = 1;
 
-  private colliders: Box[] = [];
-  /** Static colliders bucketed by cell — see buildColliderGrid(). */
-  private colliderGrid = new Map<number, Box[]>();
-  private vehicles: Vehicle[] = [];
-  private lanes = new Map<string, Vehicle[]>();
-  private signals: SignalMast[] = [];
-  private clutter: Clutter | null = null;
+  private map: MapData;
+  private world!: World;
+  private rides!: Rides;
+  /** Each auto errand's auto, which the player rides once it is done. */
+  private taskAutos = new Map<string, THREE.Object3D>();
+  private spawn: Spot;
   private taskAnchors = new Map<string, THREE.Group>();
   private hostMeshes = new Map<string, THREE.Group>();
   private markers = new Map<string, THREE.Group>();
@@ -387,47 +236,76 @@ export class Game {
   private telemetryAccum = 0;
   private lastNearby: string | null = null;
   private lastNearBarber = false;
+  /** Shove from a vehicle, m/s, decaying; and how long the stumble lasts. */
+  private knock = new THREE.Vector3();
+  private stagger = 0;
+  private knockCooldown = 0;
   private barberWorld = { x: 0, z: 0 };
   private materials!: MaterialLibrary;
   private vehicleMats = createVehicleMaterials();
+  /** Vertex-colour material shared by every bus body and two-wheeler. */
+  private transitMat = createTransitMaterial();
   private pipeline: RenderPipeline | null = null;
   private sun!: THREE.DirectionalLight;
+  private skyRig: SkyRig;
 
   constructor(
     canvas: HTMLCanvasElement,
     district: District,
     tasks: StreetTask[],
-    onTelemetry: (t: Telemetry) => void
+    onTelemetry: (t: Telemetry) => void,
+    map: MapData
   ) {
     this.canvas = canvas;
+    this.map = map;
+    this.spawn = map.spawn;
+    this.playerPos.set(map.spawn.x, 0, map.spawn.z);
+    this.yaw = map.spawn.yaw;
+    this.facing = map.spawn.yaw;
+    this.body = newBody(map.spawn.yaw);
+    this.lookTarget.set(map.spawn.x, PLAYER_LOOK_H, map.spawn.z);
     this.district = district;
     this.onTelemetry = onTelemetry;
-    this.tasks = tasks;
+    // Tasks stand where the district map puts them. Task packs in the
+    // database may still carry the old grid's chowk offsets.
+    this.tasks = tasks.map((t) => {
+      const s = taskSpot(map, t);
+      return { ...t, pos: [s.x, s.z] as [number, number] };
+    });
 
     const theme = district.theme;
 
-    // No MSAA: once the EffectComposer is active it renders into its own
-    // targets and the canvas-level antialias flag does nothing. AA comes from
-    // the SMAA pass in render.ts.
+    // No MSAA: the pipeline renders into its own targets, where the canvas
+    // antialias flag does nothing. AA is supersampling plus FXAA, and the
+    // pipeline owns pixel ratio and tone mapping (see render.ts).
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = theme.exposure;
 
-    this.camera = new THREE.PerspectiveCamera(55, 1, 0.1, WORLD_LIMIT * 5);
+    this.camera = new THREE.PerspectiveCamera(55, 1, 0.1, map.half * 5);
 
-    this.scene.add(makeSky(theme.sky));
+    this.skyRig = createSky(theme.sky, theme.buildings, {
+      radius: map.half * 2.2,
+      skylineInner: map.half + 25,
+    });
+    this.scene.add(this.skyRig.sky);
+    this.scene.add(this.skyRig.skyline);
     // Atmosphere is owned by the render pipeline's depth haze. Leaving
     // scene.fog on as well double-fogs and drowns the whole frame in beige.
     this.scene.fog = null;
 
     this.materials = createMaterialLibrary(this.renderer);
+    // Everything is built with ordinary lit materials and converted to cel
+    // shading in one pass at the end. Building detail streams in later, so
+    // the world gets the converter to use on the materials it will need.
+    const celifier = createCelifier({
+      shadowTint: new THREE.Color(presetFor(district.id).celShadowTint),
+    });
     this.buildLights();
-    this.buildWorld();
+    this.buildWorld(celifier.convert);
     this.buildPlayer();
+    celifier.apply(this.scene);
+
     this.bindInput();
   }
 
@@ -436,104 +314,112 @@ export class Game {
   private buildLights() {
     const t = this.district.theme;
 
-    // Small flat fill, strong directional key. The reverse — a big ambient
-    // term propping up a weak sun — is what made every district read flat and
-    // washed no matter what the colour grade did afterwards.
-    this.scene.add(new THREE.AmbientLight(0xffffff, t.ambient));
-    this.scene.add(new THREE.HemisphereLight(t.hemiSky, t.hemiGround, t.hemiIntensity));
+    // Cel lighting: one strong warm key that casts the only shadows, and a
+    // cool fill from the opposite quarter that carries most of what the
+    // shadow side looks like. Shadows are *coloured* by that fill and the
+    // violet hemisphere ground, never just darker. A big flat ambient term
+    // instead is what made every district read washed out.
+    this.scene.add(new THREE.AmbientLight(0xffffff, t.ambient * 0.3));
 
-    const sun = new THREE.DirectionalLight(t.sunColour, t.sunIntensity);
+    const hemiGround = new THREE.Color(t.hemiGround).lerp(new THREE.Color(0x8a80b8), 0.55);
+    this.scene.add(new THREE.HemisphereLight(t.hemiSky, hemiGround, t.hemiIntensity));
+
+    const sun = new THREE.DirectionalLight(t.sunColour, t.sunIntensity * 1.1);
     this.sun = sun;
-    sun.position.set(60, 90, 30);
+    sun.position.set(this.spawn.x + 60, 90, this.spawn.z + 30);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
-
-    // Without these the ground, one huge flat quad, self-shadows across its
-    // whole surface and renders solid black.
-    sun.shadow.normalBias = 0.06;
-    sun.shadow.bias = -0.0004;
-
-    const c = sun.shadow.camera as THREE.OrthographicCamera;
-    c.left = -90; c.right = 90; c.top = 90; c.bottom = -90;
-    // Tight near/far around the lit region keeps depth precision high.
-    c.near = 20; c.far = 320;
-
-    // Follow the player so shadows stay resolved wherever they walk.
-    sun.target.position.set(CHOWK.x, 0, CHOWK.z);
+    sun.target.position.set(this.spawn.x, 0, this.spawn.z);
     this.scene.add(sun);
     this.scene.add(sun.target);
 
-    // Cool rim from behind and opposite the sun. This is what separates a
-    // silhouette from the building behind it in a stylized look — raising
-    // flat ambient to get the same visibility instead is what kills form.
-    const rim = new THREE.DirectionalLight(t.hemiSky, 0.25);
-    rim.position.set(-70, 45, -55);
-    rim.castShadow = false;
-    this.scene.add(rim);
+    const fillColour = new THREE.Color(t.hemiSky).lerp(new THREE.Color(0xa99ce0), 0.4);
+    const fill = new THREE.DirectionalLight(fillColour, t.sunIntensity * 0.42);
+    fill.position.set(-70, 40, -55);
+    this.scene.add(fill);
+
+    // Low warm bounce off the street, so undersides (awnings, balconies,
+    // chhajjas) are not the flattest thing in the frame.
+    const bounce = new THREE.DirectionalLight(t.hemiGround, t.sunIntensity * 0.12);
+    bounce.position.set(-30, -20, 60);
+    this.scene.add(bounce);
   }
 
-  private buildWorld() {
-    const theme = this.district.theme;
-
-    const city = buildCity(theme, this.materials, this.vehicleMats);
-    this.scene.add(city.group);
-    this.colliders = city.colliders;
-    this.signals = city.signals;
-    this.clutter = city.clutter;
-
-    const rand = mulberry32(77);
-    this.buildTraffic(rand);
-
-    // Story NPCs stay out of the world; errands are the interactables.
+  private buildWorld(toon: (m: THREE.Material) => THREE.Material) {
+    this.world = buildWorld(this.map, this.district, {
+      mats: this.materials,
+      vehicleMats: this.vehicleMats,
+      transitMat: this.transitMat,
+      toon,
+    });
+    this.scene.add(this.world.group);
+    this.rides = new Rides(this.scene, this.world, this.map, this.district, this.vehicleMats, this.transitMat);
     this.buildTaskSites();
     this.buildBarberSite();
+    this.world.prime(this.playerPos);
   }
 
-  /** Vibes-only barber shop — no errand, placed away from task sites. */
+  /** Vibes-only barber shop, in the gap the map compiler left for it in a
+   *  street frontage near the spawn, facing the street. */
   private buildBarberSite() {
-    const x = CHOWK.x + BARBER_POS[0];
-    const z = CHOWK.z + BARBER_POS[1];
+    const { x, z, yaw } = this.map.barber;
     this.barberWorld = { x, z };
 
     const anchor = new THREE.Group();
-    // Sits on the pavement slab, at the same height the terrace buildings do.
-    anchor.position.set(x, 0.22, z);
+    anchor.position.set(x, this.world.height.at(x, z), z);
+    anchor.rotation.y = yaw;
 
     const shop = makeBarberShop(barberSignFor(this.district.language));
     shop.rotation.y = BARBER_FACING;
     anchor.add(shop);
     this.scene.add(anchor);
 
-    this.colliders.push({ x, z, hw: 2.15, hd: 1.75 });
-    this.buildColliderGrid();
+    this.world.collide.box(x, z, 2.15, 1.75, yaw);
   }
 
   /** Parked autos, stalls, temple sellers, and bus stops — each is a mission. */
   private buildTaskSites() {
     const theme = this.district.theme;
 
+    const collide = this.world.collide;
     for (const task of this.tasks) {
-      const x = CHOWK.x + task.pos[0];
-      const z = CHOWK.z + task.pos[1];
+      const x = task.pos[0];
+      const z = task.pos[1];
       const anchor = new THREE.Group();
-      anchor.position.set(x, 0, z);
+      anchor.position.set(x, this.world.height.at(x, z), z);
+      // Turn the set piece the way its spot faces (toward its temple, its road).
+      const yaw = taskSpot(this.map, task).yaw;
+      anchor.rotation.y = yaw;
+      const c = Math.cos(yaw);
+      const sn = Math.sin(yaw);
+      /** Local offset in the anchor's frame -> world. */
+      const at = (u: number, v: number) => [x + u * c + v * sn, z - u * sn + v * c] as const;
 
-      const preset = presetForRole(task.role);
-      const host = makePerson(
-        { preset, seed: hashId(task.id), cloth1: task.colour },
-        this.materials
-      );
+      // Dressed for the job, the city and the voice they speak in.
+      const host = makePerson(attireFor(task, theme.landmark, hashId(task.id)), this.materials);
       makeIdlePose(host);
-      host.position.set(0, 0.26, 0);
+      host.position.set(0, PLAYER_BASE_Y, 0);
       anchor.add(host);
       this.hostMeshes.set(task.id, host);
 
+      // Temple errands happen inside the real temple, mosque, church or
+      // gurdwara: the host stands in the mandapa or courtyard, up the steps.
+      const inner = task.kind === "temple" ? this.world.innerNear(x, z, 120) : null;
+      if (inner) {
+        anchor.position.set(inner.x, this.world.height.at(inner.x, inner.z), inner.z);
+        anchor.rotation.y = inner.yaw;
+      }
+
       if (task.kind === "auto") {
-        const auto = makeAuto(theme.autoCanopy);
-        auto.rotation.y = -Math.PI / 5;
-        auto.position.set(-2.2, 0.02, 0.6);
-        anchor.add(auto);
-        this.colliders.push({ x: x - 2.2, z: z + 0.6, hw: 1.2, hd: 2.0 });
+        // Where the city hails a taxi rather than an auto, the driver waits
+        // with his taxi, parked a little further off (it is longer).
+        const taxi = CITY_TRAFFIC[theme.landmark].hire === "taxi";
+        const cab = taxi ? this.makeTaxi(theme.landmark, hashId(task.id)) : makeAuto(theme.autoCanopy, autoBodyFor(theme.landmark));
+        const cx = taxi ? -2.8 : -2.2;
+        cab.rotation.y = -Math.PI / 5;
+        cab.position.set(cx, 0.02, 0.6);
+        anchor.add(cab);
+        this.taskAutos.set(task.id, cab);
+        collide.box(...at(cx, 0.6), taxi ? 1.3 : 1.2, taxi ? 2.4 : 2.0, yaw);
       } else if (task.kind === "shop") {
         const canopy = theme.canopies[hashId(task.id) % theme.canopies.length];
         const stall = makeMissionShopStall(
@@ -546,145 +432,67 @@ export class Game {
         stall.rotation.y = Math.PI / 6;
         stall.position.set(-1.4, 0, -0.8);
         anchor.add(stall);
-        this.colliders.push({ x: x - 1.4, z: z - 0.8, hw: 1.4, hd: 1.2 });
-      } else if (task.kind === "temple") {
-        // Entrance (torana, local +z) faces the marker so the player walks up
-        // to the front, not the back wall; the old Math.PI flip faced it away.
+        collide.box(...at(-1.4, -0.8), 1.4, 1.2, yaw + Math.PI / 6);
+      } else if (task.kind === "temple" && !inner) {
+        // No temple building nearby: a wayside shrine. Entrance (torana,
+        // local +z) faces the marker so the player walks up to the front.
         const mandir = makeStreetMandir(undefined, hashId(task.id));
         mandir.position.set(0, 0, -2.6);
         anchor.add(mandir);
-        this.colliders.push({ x, z: z - 2.6, hw: 1.9, hd: 1.7 });
+        collide.box(...at(0, -2.6), 1.9, 1.7, yaw);
         // Priest stands beside the entrance, clear of the plinth, instead of
         // on top of it inside the temple's own collider.
-        host.position.set(1.5, 0.26, -0.6);
+        host.position.set(1.5, PLAYER_BASE_Y, -0.6);
       } else if (task.kind === "bus") {
-        const pole = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.08, 0.08, 3.2, 8),
-          new THREE.MeshLambertMaterial({ color: 0x2c3e50 })
-        );
-        pole.position.set(-1.5, 1.6, 0);
-        anchor.add(pole);
-        const sign = new THREE.Mesh(
-          new THREE.BoxGeometry(1.6, 0.5, 0.08),
-          new THREE.MeshLambertMaterial({ color: 0x2980b9 })
-        );
-        sign.position.set(-1.5, 2.8, 0);
-        anchor.add(sign);
-        this.colliders.push({ x: x - 1.5, z, hw: 0.5, hd: 0.5 });
+        // The stop's shelter is part of the street (world/street.ts); the
+        // conductor arrives on the bus (see rides.ts).
+        host.visible = false;
+      } else if (task.kind === "counter") {
+        // A ticket window backed onto the station or jetty (local +z), its
+        // glass to the pavement: the clerk stands behind it, the queue in front.
+        const booth = makeTicketBooth(task.colour);
+        booth.rotation.y = Math.PI;
+        booth.position.set(0, 0, 1.4);
+        anchor.add(booth);
+        host.position.set(0, PLAYER_BASE_Y, 1.5);
+        host.rotation.y = Math.PI;
+        collide.box(...at(0, 1.4), 1.6, 0.9, yaw);
       }
 
       this.scene.add(anchor);
       this.taskAnchors.set(task.id, anchor);
 
-      const marker = makeTaskBlip(markerColourForKind(task.kind));
-      marker.position.set(x, 0, z);
+      const marker = makeTaskArrow(task.colour);
+      marker.position.copy(anchor.position);
       this.scene.add(marker);
       this.markers.set(task.id, marker);
     }
 
-    // Task anchors are the last thing to add static colliders, so the lookup
-    // grid is built here rather than at the end of buildWorld().
-    this.buildColliderGrid();
-  }
-
-  /**
-   * Traffic is placed into LANE SLOTS rather than scattered at random points on
-   * the grid. There are 28 lanes (7 road lines x 2 axes x 2 directions) and
-   * only a dozen or so vehicles, so dealing one vehicle per lane before
-   * doubling up guarantees they start spread across the whole city instead of
-   * clumping three-deep on one street — which is what the old random placement
-   * did, and why the road felt simultaneously empty and congested.
-   */
-  private buildTraffic(rand: () => number) {
-    const theme = this.district.theme;
-    const lines = roadLines();
-
-    type Lane = { line: number; axis: "x" | "z"; dir: 1 | -1 };
-    const lanes: Lane[] = [];
-    for (const line of lines) {
-      for (const axis of ["x", "z"] as const) {
-        for (const dir of [1, -1] as const) lanes.push({ line, axis, dir });
-      }
-    }
-    // Fisher-Yates on the seeded PRNG, so the layout is stable per reload.
-    for (let i = lanes.length - 1; i > 0; i--) {
-      const j = Math.floor(rand() * (i + 1));
-      [lanes[i], lanes[j]] = [lanes[j], lanes[i]];
-    }
-
-    const fleet: ("auto" | CarKind)[] = [];
-    for (let i = 0; i < theme.autos; i++) fleet.push("auto");
-    for (let i = 0; i < theme.cars; i++) {
-      fleet.push(TRAFFIC_KINDS[Math.floor(rand() * TRAFFIC_KINDS.length)]);
-    }
-    for (let i = fleet.length - 1; i > 0; i--) {
-      const j = Math.floor(rand() * (i + 1));
-      [fleet[i], fleet[j]] = [fleet[j], fleet[i]];
-    }
-
-    const span = WORLD_LIMIT * 2;
-    const perLane = new Map<string, number>();
-
-    fleet.forEach((kind, i) => {
-      const lane = lanes[i % lanes.length];
-      const key = `${lane.axis}:${lane.line}:${lane.dir}`;
-      const nth = perLane.get(key) ?? 0;
-      perLane.set(key, nth + 1);
-
-      const mesh =
-        kind === "auto"
-          ? makeAuto(theme.autoCanopy)
-          : makeCar(this.vehicleMats, { kind, seed: Math.floor(rand() * 1e6) });
-
-      // Second and later vehicles in a lane start half a world away from the
-      // first, so even a doubled-up lane is never a convoy.
-      const along = -WORLD_LIMIT + ((nth * 0.5 + rand() * 0.4) % 1) * span;
-      // Keep left, like actual Indian traffic.
-      const off = lane.dir === 1 ? -LANE_OFF : LANE_OFF;
-
-      if (lane.axis === "z") {
-        mesh.position.set(lane.line + off, 0.02, along);
-        mesh.rotation.y = lane.dir === 1 ? 0 : Math.PI;
-      } else {
-        mesh.position.set(along, 0.02, lane.line - off);
-        mesh.rotation.y = lane.dir === 1 ? Math.PI / 2 : -Math.PI / 2;
-      }
-
-      const cruise = (kind === "auto" ? 6.5 : 8.5) + rand() * 4;
-      const v: Vehicle = {
-        mesh,
-        line: lane.line,
-        axis: lane.axis,
-        dir: lane.dir,
-        laneKey: key,
-        cruise,
-        speed: cruise,
-        halfLength: (mesh.userData.halfLength as number) ?? 2,
-        wheels: (mesh.userData.wheels as THREE.Object3D[]) ?? [],
-        wheelRadius: (mesh.userData.wheelRadius as number) ?? 0.33,
-      };
-
-      this.scene.add(mesh);
-      this.vehicles.push(v);
-      if (!this.lanes.has(key)) this.lanes.set(key, []);
-      this.lanes.get(key)!.push(v);
-    });
   }
 
   private buildPlayer() {
-    this.player = makePerson(
-      {
-        preset: "shirt_trousers",
-        seed: 4242,
-        cloth1: 0x2980b9,
-        skin: 0xa0673b,
-        carryProp: false,
-      },
-      this.materials
-    );
-    makeIdlePose(this.player);
+    this.player = makeHero();
+    this.heroAnim = new HeroAnimator(this.player.userData.hero as HeroRig);
+    this.poseHero(0, { sit: 0 });
     this.player.position.copy(this.playerPos);
     this.scene.add(this.player);
+  }
+
+  /** Standing (or sitting) still, for when the body isn't being driven. */
+  private poseHero(dt: number, opts: { sit: number }) {
+    this.heroAnim.update({
+      dt,
+      t: this.clock.elapsedTime,
+      speed: 0,
+      accel: 0,
+      turn: 0,
+      air: 0,
+      vy: 0,
+      crouch: 0,
+      stumble: 0,
+      look: 0,
+      sit: opts.sit,
+    });
   }
 
   private bindInput() {
@@ -749,6 +557,7 @@ export class Game {
     // Queue on the edge rather than reading the held key in updatePlayer, so
     // holding Space is a single hop and not a pogo stick.
     if (e.code === "Space" && !e.repeat && !this.paused) this.jumpQueued = true;
+    if (e.code === "KeyE" && !e.repeat && this.rides?.riding()) this.rides.skip();
 
     this.keys.add(e.code);
 
@@ -821,68 +630,19 @@ export class Game {
   private onResize = () => {
     const w = this.canvas.clientWidth || window.innerWidth;
     const h = this.canvas.clientHeight || window.innerHeight;
-    this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-    this.pipeline?.resize(w, h);
+    // The pipeline owns the canvas size because it owns the supersample factor.
+    if (this.pipeline) this.pipeline.resize(w, h);
+    else this.renderer.setSize(w, h, false);
   };
 
   /* ---------------- collision ---------------- */
 
-  /**
-   * Buckets the static colliders into a uniform grid once at load.
-   *
-   * blocked() runs twice per frame (once per movement axis) and used to scan
-   * the entire city collider list each time. The grid turns that into a
-   * handful of candidates from one cell.
-   */
-  private buildColliderGrid() {
-    this.colliderGrid.clear();
-    for (const b of this.colliders) {
-      const x0 = Math.floor((b.x - b.hw - PLAYER_RADIUS) / COLLIDER_CELL);
-      const x1 = Math.floor((b.x + b.hw + PLAYER_RADIUS) / COLLIDER_CELL);
-      const z0 = Math.floor((b.z - b.hd - PLAYER_RADIUS) / COLLIDER_CELL);
-      const z1 = Math.floor((b.z + b.hd + PLAYER_RADIUS) / COLLIDER_CELL);
-      for (let cx = x0; cx <= x1; cx++) {
-        for (let cz = z0; cz <= z1; cz++) {
-          const key = cx * 10007 + cz;
-          let cell = this.colliderGrid.get(key);
-          if (!cell) {
-            cell = [];
-            this.colliderGrid.set(key, cell);
-          }
-          cell.push(b);
-        }
-      }
-    }
-  }
-
   private blocked(x: number, z: number): boolean {
-    if (Math.abs(x) > WORLD_LIMIT || Math.abs(z) > WORLD_LIMIT) return true;
-
-    const key =
-      Math.floor(x / COLLIDER_CELL) * 10007 + Math.floor(z / COLLIDER_CELL);
-    const cell = this.colliderGrid.get(key);
-    if (cell) {
-      for (const b of cell) {
-        if (
-          Math.abs(x - b.x) < b.hw + PLAYER_RADIUS &&
-          Math.abs(z - b.z) < b.hd + PLAYER_RADIUS
-        ) {
-          return true;
-        }
-      }
-    }
-    return this.vehicles.some((v) => {
-      const px = v.mesh.position.x;
-      const pz = v.mesh.position.z;
-      const hw = v.axis === "z" ? 1.05 : v.halfLength;
-      const hd = v.axis === "z" ? v.halfLength : 1.05;
-      return (
-        Math.abs(x - px) < hw + PLAYER_RADIUS &&
-        Math.abs(z - pz) < hd + PLAYER_RADIUS
-      );
-    });
+    const edge = this.map.half - BOUNDARY_INSET;
+    if (Math.abs(x) > edge || Math.abs(z) > edge) return true;
+    return this.world.collide.blocked(x, z, PLAYER_RADIUS) || this.world.traffic.hit(x, z, PLAYER_RADIUS) !== null;
   }
 
   /* ---------------- loop ---------------- */
@@ -900,6 +660,7 @@ export class Game {
         this.sun,
         this.district.id
       );
+      this.onResize();
     }
     const tick = () => {
       if (this.disposed) return;
@@ -911,6 +672,7 @@ export class Game {
       // Keep the shadow frustum on the player, otherwise a frustum wide enough
       // for the whole city gives soft mush everywhere.
       this.pipeline?.focusShadows(this.playerPos);
+      this.skyRig.follow(this.camera);
 
       if (this.pipeline) this.pipeline.render(dt);
       else this.renderer.render(this.scene, this.camera);
@@ -921,50 +683,52 @@ export class Game {
   private update(dt: number) {
     const t = this.clock.elapsedTime;
 
-    this.updateSignals();
-    this.updateTraffic(dt);
+    this.world.update(dt, t, this.playerPos);
 
-    if (!this.paused) {
+    const ride = this.rides.update(dt, this.playerPos, this.tasks, this.done, this.hostMeshes);
+    if (ride && "kind" in ride) {
+      // Stepped off: back on foot at the kerb.
+      this.playerPos.set(ride.x, 0, ride.z);
+      this.velocity.set(0, 0, 0);
+      this.body = newBody(ride.yaw);
+      this.player.visible = true;
+      this.facing = ride.yaw;
+      this.groundY = this.world.height.at(ride.x, ride.z);
+    } else if (ride) {
+      // Riding: the camera follows the vehicle and the player sits in it.
+      this.playerPos.set(ride.x, 0, ride.z);
+      this.velocity.set(0, 0, 0);
+      this.yaw = dampAngle(this.yaw, ride.yaw, 2.5, dt);
+      this.groundY = 0;
+      this.player.visible = ride.seat !== null;
+      if (ride.seat) {
+        this.player.position.copy(ride.seat);
+        this.player.rotation.y = ride.yaw;
+        this.poseHero(dt, { sit: 1 });
+      }
+    }
+
+    if (!this.paused && !ride) {
       this.updateLook(dt);
       this.updatePlayer(dt);
       this.resolveVehicleOverlap();
     }
     this.updateCamera(dt);
 
+    // Arrows float over the hosts' heads (over the stop for a bus that has
+    // not come yet), bobbing and turning, and grow with distance so a far
+    // errand still shows over the rooftops. A finished errand's goes.
     for (const [id, m] of this.markers) {
-      const done = this.done.has(id);
-      const colour = done
-        ? 0x2ecc71
-        : markerColourForKind(this.tasks.find((tk) => tk.id === id)?.kind ?? "auto");
-      const pulse = 0.5 + Math.sin(t * 2.8) * 0.12;
-
-      const ring = m.userData.blipRing as THREE.Mesh | undefined;
-      const core = m.userData.blipCore as THREE.Mesh | undefined;
-      const inner = m.userData.coronaInner as THREE.Mesh | undefined;
-      const outer = m.userData.coronaOuter as THREE.Mesh | undefined;
-
-      // Slow counter-rotation of the two corona shells: the moving seams are
-      // what make the column shimmer like light instead of sitting like glass.
-      if (inner) {
-        inner.rotation.y = t * 0.7;
-        (inner.material as THREE.MeshBasicMaterial).color.setHex(colour);
-        (inner.material as THREE.MeshBasicMaterial).opacity = done ? 0.15 : 0.35 + pulse * 0.15;
-      }
-      if (outer) {
-        outer.rotation.y = -t * 0.45;
-        (outer.material as THREE.MeshBasicMaterial).color.setHex(colour);
-        (outer.material as THREE.MeshBasicMaterial).opacity = done ? 0.08 : 0.14 + pulse * 0.08;
-        outer.scale.set(1 + pulse * 0.08, 1, 1 + pulse * 0.08);
-      }
-      if (ring) {
-        (ring.material as THREE.MeshBasicMaterial).color.setHex(colour);
-        (ring.material as THREE.MeshBasicMaterial).opacity = done ? 0.18 : 0.3 + pulse * 0.15;
-        ring.scale.setScalar(0.95 + pulse * 0.12);
-      }
-      if (core) {
-        (core.material as THREE.MeshBasicMaterial).color.setHex(colour);
-        (core.material as THREE.MeshBasicMaterial).opacity = done ? 0.15 : 0.25 + pulse * 0.12;
-      }
+      m.visible = !this.done.has(id);
+      if (!m.visible) continue;
+      const host = this.hostMeshes.get(id);
+      if (host?.visible) host.getWorldPosition(this.tmpMarker);
+      else this.tmpMarker.copy(this.taskAnchors.get(id)!.position);
+      const d = Math.hypot(this.tmpMarker.x - this.playerPos.x, this.tmpMarker.z - this.playerPos.z);
+      const s = Math.min(3.2, Math.max(1, d / 18));
+      m.position.set(this.tmpMarker.x, this.tmpMarker.y + 2.1 + 0.4 * s + Math.sin(t * 2.4 + id.length) * 0.1 * s, this.tmpMarker.z);
+      m.rotation.y = t * 1.6;
+      m.scale.setScalar(s);
     }
 
     // Errand hosts turn to face the player when they are close enough to talk,
@@ -1017,7 +781,6 @@ export class Game {
 
   private updatePlayer(dt: number) {
     const sprint = this.keys.has("ShiftLeft") || this.keys.has("ShiftRight");
-    const speed = sprint ? SPRINT_SPEED : WALK_SPEED;
 
     let fwd = this.virtualFwd;
     let strafe = this.virtualStrafe;
@@ -1026,119 +789,136 @@ export class Game {
     if (this.keys.has("KeyA")) strafe -= 1;
     if (this.keys.has("KeyD")) strafe += 1;
 
+    // Knocked aside by a vehicle: no control until the stumble is over.
+    this.stagger = Math.max(0, this.stagger - dt);
+    this.knockCooldown = Math.max(0, this.knockCooldown - dt);
+
     const mag = Math.hypot(fwd, strafe);
     if (mag > 1) {
       fwd /= mag;
       strafe /= mag;
     }
-
     // forward = (sin yaw, 0, cos yaw); right = cross(forward, up) = (-cos yaw, 0, sin yaw).
-    const dir = this.tmpDir.set(
-      Math.sin(this.yaw) * fwd - Math.cos(this.yaw) * strafe,
-      0,
-      Math.cos(this.yaw) * fwd + Math.sin(this.yaw) * strafe
+    const dx = Math.sin(this.yaw) * fwd - Math.cos(this.yaw) * strafe;
+    const dz = Math.cos(this.yaw) * fwd + Math.sin(this.yaw) * strafe;
+
+    const b = this.body;
+    const move = stepBody(
+      b,
+      {
+        dx,
+        dz,
+        sprint,
+        jumpPressed: this.jumpQueued,
+        jumpHeld: this.keys.has("Space"),
+        control: this.stagger > 0 ? 0 : 1,
+      },
+      dt
     );
-
-    const moving = dir.lengthSq() > 0.0001;
-    if (moving) dir.normalize();
-
-    const prevSpeed = this.velocity.length();
-    this.velocity.lerp(dir.multiplyScalar(speed), 1 - Math.exp(-12 * dt));
+    this.jumpQueued = false;
 
     // Resolve each axis separately so we slide along walls instead of sticking.
     // Zeroing the blocked component matters as much as the position clamp: if
     // velocity keeps its full magnitude while pressed into a wall, the stride
-    // driver below keeps advancing and the character foot-slides on the spot.
-    const nx = this.playerPos.x + this.velocity.x * dt;
-    if (this.blocked(nx, this.playerPos.z)) this.velocity.x = 0;
+    // driver keeps advancing and the character foot-slides on the spot.
+    const nx = this.playerPos.x + b.vx * dt;
+    if (this.blocked(nx, this.playerPos.z)) b.vx = 0;
     else this.playerPos.x = nx;
-
-    const nz = this.playerPos.z + this.velocity.z * dt;
-    if (this.blocked(this.playerPos.x, nz)) this.velocity.z = 0;
+    const nz = this.playerPos.z + b.vz * dt;
+    if (this.blocked(this.playerPos.x, nz)) b.vz = 0;
     else this.playerPos.z = nz;
+    this.velocity.set(b.vx, 0, b.vz);
 
-    // Jump: only off the ground, and only from a fresh keypress.
-    const grounded = this.jumpY <= 0 && this.jumpVel <= 0;
-    if (this.jumpQueued && grounded) this.jumpVel = JUMP_SPEED;
-    this.jumpQueued = false;
-
-    if (this.jumpY > 0 || this.jumpVel > 0) {
-      this.jumpVel -= GRAVITY * dt;
-      this.jumpY += this.jumpVel * dt;
-      if (this.jumpY <= 0) {
-        this.jumpY = 0;
-        this.jumpVel = 0;
-      }
+    // The shove plays out as a slide that stops at walls, bleeding off fast.
+    if (this.knock.lengthSq() > 0.0004) {
+      const kx = this.playerPos.x + this.knock.x * dt;
+      if (this.world.collide.blocked(kx, this.playerPos.z, PLAYER_RADIUS)) this.knock.x = 0;
+      else this.playerPos.x = kx;
+      const kz = this.playerPos.z + this.knock.z * dt;
+      if (this.world.collide.blocked(this.playerPos.x, kz, PLAYER_RADIUS)) this.knock.z = 0;
+      else this.playerPos.z = kz;
+      this.knock.multiplyScalar(Math.exp(-5 * dt));
+    } else {
+      this.knock.set(0, 0, 0);
     }
+
+    this.jumpY = b.y;
     // Ramp in fast on takeoff, ease out on landing so the tuck unfolds.
-    this.air = damp(this.air, this.jumpY > 0.02 ? 1 : 0, this.jumpY > 0.02 ? 18 : 9, dt);
+    this.air = damp(this.air, b.y > 0.02 ? 1 : 0, b.y > 0.02 ? 18 : 9, dt);
+    this.stumble = damp(this.stumble, this.stagger > 0 ? 1 : 0, this.stagger > 0 ? 20 : 5, dt);
 
-    this.player.position.set(this.playerPos.x, PLAYER_BASE_Y + this.jumpY, this.playerPos.z);
-
-    const groundSpeed = this.velocity.length();
-
-    // Facing follows the direction of travel, damped. Snapping it straight to
-    // atan2 spun the mesh instantly on every strafe-to-forward transition.
-    if (groundSpeed > 0.15) {
-      const target = Math.atan2(this.velocity.x, this.velocity.z);
-      this.facing = dampAngle(this.facing, target, 12, dt);
-    }
+    // Climb kerbs and steps smoothly rather than popping up them.
+    this.groundY = damp(this.groundY, this.world.height.at(this.playerPos.x, this.playerPos.z), 14, dt);
+    this.player.position.set(this.playerPos.x, this.groundY + PLAYER_BASE_Y + this.jumpY, this.playerPos.z);
+    this.facing = b.facing;
     this.player.rotation.y = this.facing;
 
-    // Gait blend: 0 idle, 1 walk, 2 run. Damped, so stopping crossfades into
-    // the idle pose instead of popping to it the frame velocity hits zero.
-    const targetGait =
-      groundSpeed < 0.2 ? 0 : 1 + THREE.MathUtils.clamp(
-        (groundSpeed - WALK_SPEED) / (SPRINT_SPEED - WALK_SPEED),
-        0,
-        1
-      );
-    this.gait = damp(this.gait, targetGait, 8, dt);
+    this.heroAnim.update({
+      dt,
+      t: this.clock.elapsedTime,
+      speed: Math.hypot(b.vx, b.vz),
+      accel: move.accel,
+      turn: move.turn,
+      air: this.air,
+      vy: b.vy,
+      crouch: move.crouch,
+      stumble: this.stumble,
+      look: this.lookAtNearby(),
+    });
+  }
 
-    // Lean into acceleration. Cheap, and most of what makes a body read as
-    // having weight rather than sliding around on a plane.
-    const accel = (groundSpeed - prevSpeed) / Math.max(dt, 1e-4);
-    this.lean = damp(this.lean, THREE.MathUtils.clamp(accel * 0.012, -0.16, 0.16), 6, dt);
-
-    // Stride rate follows actual ground speed, so a sprint does not look like
-    // a walk played fast.
-    this.walkPhase += dt * (groundSpeed * 1.7 + 1.2);
-    setWalkPhase(
-      this.player,
-      this.walkPhase,
-      this.gait,
-      this.lean,
-      this.clock.elapsedTime,
-      this.air
-    );
+  /** Head turn toward the nearest errand host or the barber, if close and
+   *  roughly ahead; 0 otherwise. */
+  private lookAtNearby(): number {
+    let best = 7;
+    let yaw = 0;
+    const consider = (x: number, z: number) => {
+      const d = Math.hypot(x - this.playerPos.x, z - this.playerPos.z);
+      if (d > best || d < 0.8) return;
+      const bearing = Math.atan2(x - this.playerPos.x, z - this.playerPos.z) - this.facing;
+      const rel = Math.atan2(Math.sin(bearing), Math.cos(bearing));
+      if (Math.abs(rel) > 1.6) return;
+      best = d;
+      yaw = Math.max(-1.1, Math.min(1.1, rel));
+    };
+    for (const t of this.tasks) if (!this.done.has(t.id)) consider(t.pos[0], t.pos[1]);
+    consider(this.barberWorld.x, this.barberWorld.z);
+    return yaw;
   }
 
   /**
    * blocked() only stops the player from walking into a vehicle — it does
-   * nothing when a moving vehicle drives into a player who is standing
-   * still. Push the player out to the nearest edge of any vehicle box they
-   * end up inside, along whichever axis needs the smaller nudge.
+   * nothing when a vehicle drives into a player who is standing still. A
+   * moving vehicle knocks them aside: out across its path (never along it,
+   * which carried them off on the bumper), with a shove, a stumble and a
+   * moment before the controls come back. A parked or crawling one just
+   * nudges them out of its box.
    */
   private resolveVehicleOverlap() {
-    for (const v of this.vehicles) {
-      const px = v.mesh.position.x;
-      const pz = v.mesh.position.z;
-      const hw = (v.axis === "z" ? 1.05 : v.halfLength) + PLAYER_RADIUS;
-      const hd = (v.axis === "z" ? v.halfLength : 1.05) + PLAYER_RADIUS;
-
-      const dx = this.playerPos.x - px;
-      const dz = this.playerPos.z - pz;
-      if (Math.abs(dx) >= hw || Math.abs(dz) >= hd) continue;
-
-      const overlapX = hw - Math.abs(dx);
-      const overlapZ = hd - Math.abs(dz);
-      if (overlapX < overlapZ) {
-        this.playerPos.x = px + Math.sign(dx || 1) * hw;
-      } else {
-        this.playerPos.z = pz + Math.sign(dz || 1) * hd;
+    for (const v of this.world.traffic.vehicles) {
+      const k = knockFrom(
+        { x: v.mesh.position.x, z: v.mesh.position.z, yaw: v.yaw, halfWidth: v.halfWidth, halfLength: v.halfLength, speed: v.speed },
+        this.playerPos.x,
+        this.playerPos.z,
+        PLAYER_RADIUS,
+        (x, z) => this.world.collide.blocked(x, z, PLAYER_RADIUS)
+      );
+      if (!k) continue;
+      this.playerPos.x = k.x;
+      this.playerPos.z = k.z;
+      if (k.shove && this.knockCooldown <= 0) {
+        this.knock.set(k.shove.x, 0, k.shove.z);
+        this.velocity.set(0, 0, 0);
+        this.stagger = 0.45;
+        this.knockCooldown = 0.8;
+        // A stumble off the ground.
+        if (this.body.y <= 0) {
+          this.body.vy = 2.6;
+          this.body.y = 1e-4;
+        }
       }
     }
-    this.player.position.set(this.playerPos.x, PLAYER_BASE_Y + this.jumpY, this.playerPos.z);
+    this.player.position.set(this.playerPos.x, this.groundY + PLAYER_BASE_Y + this.jumpY, this.playerPos.z);
   }
 
   private updateCamera(dt: number) {
@@ -1147,7 +927,7 @@ export class Game {
     // the lower half of the frame with empty road.
     // Follows the jump at a fraction of its height, so a hop reads as vertical
     // movement without the whole frame lurching with it.
-    const height = 2.8 + this.pitch * 5 + this.jumpY * 0.6;
+    const height = this.groundY + 2.8 + this.pitch * 5 + this.jumpY * 0.6;
 
     const speed = this.velocity.length();
     const speed01 = THREE.MathUtils.clamp(speed / SPRINT_SPEED, 0, 1);
@@ -1158,10 +938,24 @@ export class Game {
     const rightZ = Math.sin(this.yaw);
     const shoulder = 0.9;
 
+    // Pull the camera in when a wall stands between it and the player (a
+    // narrow gully, the building behind a pavement), marching out from the
+    // player so it stops short of the first obstruction. Eased, so it
+    // slides in and back out rather than popping.
+    const bx = -Math.sin(this.yaw) * dist + rightX * shoulder;
+    const bz = -Math.cos(this.yaw) * dist + rightZ * shoulder;
+    let clear = 1;
+    for (let f = 0.08; f <= 1; f += 0.04) {
+      if (this.world.collide.blocked(this.playerPos.x + bx * f, this.playerPos.z + bz * f, 0.3)) {
+        clear = Math.max(0.18, f - 0.08);
+        break;
+      }
+    }
+    this.camReach = damp(this.camReach, clear, clear < this.camReach ? 18 : 3, dt);
     const target = this.tmpCam.set(
-      this.playerPos.x - Math.sin(this.yaw) * dist + rightX * shoulder,
-      height,
-      this.playerPos.z - Math.cos(this.yaw) * dist + rightZ * shoulder
+      this.playerPos.x + bx * this.camReach,
+      height - (1 - this.camReach) * 1.2,
+      this.playerPos.z + bz * this.camReach
     );
 
     this.camera.position.lerp(target, 1 - Math.exp(-9 * dt));
@@ -1177,7 +971,7 @@ export class Game {
       7,
       dt
     );
-    this.lookTarget.y = damp(this.lookTarget.y, PLAYER_LOOK_H + this.jumpY * 0.6, 7, dt);
+    this.lookTarget.y = damp(this.lookTarget.y, this.groundY + PLAYER_LOOK_H + this.jumpY * 0.6, 7, dt);
     this.lookTarget.z = damp(
       this.lookTarget.z,
       this.playerPos.z + this.velocity.z * lead,
@@ -1204,110 +998,15 @@ export class Game {
    * drives every junction: with a grid this regular, per-junction phases would
    * only mean a vehicle clearing one green straight into a red at the next.
    */
-  private signalPhase(axis: "x" | "z"): 0 | 1 | 2 {
-    const total = SIGNAL_CYCLE.reduce((a, b) => a + b, 0);
-    let t = this.clock.elapsedTime % total;
-    let stage = 0;
-    while (t >= SIGNAL_CYCLE[stage]) {
-      t -= SIGNAL_CYCLE[stage];
-      stage++;
-    }
-    // stage: 0 z-green, 1 z-amber, 2 x-green, 3 x-amber.
-    if (axis === "z") return stage === 0 ? 2 : stage === 1 ? 1 : 0;
-    return stage === 2 ? 2 : stage === 3 ? 1 : 0;
-  }
-
-  private updateSignals() {
-    for (const s of this.signals) setSignalPhase(s.group, this.signalPhase(s.axis));
-  }
-
-  /**
-   * Traffic drives its lane, stops for its signal, and does not drive through
-   * the vehicle in front. That last rule is why lanes are indexed: comparing
-   * every vehicle against every other is quadratic for no benefit, since only
-   * vehicles sharing a lane can ever conflict.
-   */
-  private updateTraffic(dt: number) {
-    const lines = roadLines();
-    const along = (v: Vehicle) => (v.axis === "z" ? v.mesh.position.z : v.mesh.position.x);
-
-    for (const [, lane] of this.lanes) {
-      // Sorted in the direction of travel, so index i+1 is always the vehicle
-      // in front of index i. Order only actually changes when a vehicle wraps
-      // around the world edge, so check first and sort only then rather than
-      // re-sorting every lane every frame.
-      let ordered = true;
-      for (let i = 1; i < lane.length; i++) {
-        if ((along(lane[i]) - along(lane[i - 1])) * lane[i].dir < 0) {
-          ordered = false;
-          break;
-        }
-      }
-      if (!ordered) lane.sort((a, b) => (along(a) - along(b)) * a.dir);
-
-      for (let i = 0; i < lane.length; i++) {
-        const v = lane[i];
-        const pos = along(v);
-        let target = v.cruise;
-
-        // --- signal ahead
-        if (this.signalPhase(v.axis) !== 2) {
-          let nearest = Infinity;
-          for (const L of lines) {
-            const d = (L - pos) * v.dir;
-            if (d > 0 && d < nearest) nearest = d;
-          }
-          const stopDist = nearest - (ROAD_W / 2 + 0.9 + v.halfLength);
-          if (stopDist > -0.2 && stopDist < 26) {
-            target = Math.min(target, v.cruise * THREE.MathUtils.clamp(stopDist / 12, 0, 1));
-            if (stopDist < 0.4) target = 0;
-          }
-        }
-
-        // --- vehicle in front
-        const lead = lane[i + 1];
-        if (lead) {
-          const gap = (along(lead) - pos) * v.dir - (v.halfLength + lead.halfLength);
-          if (gap < FOLLOW_GAP) {
-            target = Math.min(target, lead.speed * THREE.MathUtils.clamp(gap / FOLLOW_GAP, 0, 1));
-          }
-        }
-
-        // Ease rather than snap: an instant stop reads as a glitch, and the
-        // nose-dive of a car easing off is most of what sells traffic as
-        // physical.
-        const rate = target < v.speed ? 6 : 2.2;
-        v.speed += (target - v.speed) * (1 - Math.exp(-rate * dt));
-
-        const move = v.speed * dt * v.dir;
-        if (v.axis === "z") {
-          v.mesh.position.z += move;
-          if (v.mesh.position.z > WORLD_LIMIT) v.mesh.position.z = -WORLD_LIMIT;
-          if (v.mesh.position.z < -WORLD_LIMIT) v.mesh.position.z = WORLD_LIMIT;
-        } else {
-          v.mesh.position.x += move;
-          if (v.mesh.position.x > WORLD_LIMIT) v.mesh.position.x = -WORLD_LIMIT;
-          if (v.mesh.position.x < -WORLD_LIMIT) v.mesh.position.x = WORLD_LIMIT;
-        }
-
-        // Wheels roll at the speed the body is actually travelling.
-        const spin = (v.speed * dt) / v.wheelRadius;
-        for (const w of v.wheels) w.rotation.x -= spin;
-
-        // Suspension jitter, scaled by speed so a stopped vehicle sits still.
-        const jitter = Math.min(1, v.speed / v.cruise);
-        v.mesh.position.y =
-          0.02 + Math.sin(this.clock.elapsedTime * 11 + v.line) * 0.018 * jitter;
-      }
-    }
-  }
-
   /** Nearest interactable task, or null. Cheap enough to run every frame. */
   private findNearby(): string | null {
+    if (this.rides.riding()) return null;
     let nearby: string | null = null;
     let best = TALK_RADIUS;
     for (const task of this.tasks) {
       if (this.done.has(task.id)) continue;
+      // The ticket is bought from the conductor, so only with a bus in.
+      if (task.kind === "bus" && !this.rides.busReady(task.id)) continue;
       const anchor = this.taskAnchors.get(task.id)!;
       const d = Math.hypot(
         this.playerPos.x - anchor.position.x,
@@ -1358,6 +1057,7 @@ export class Game {
         x: anchor.position.x,
         z: anchor.position.z,
         done: this.done.has(task.id),
+        colour: `#${task.colour.toString(16).padStart(6, "0")}`,
       };
     });
 
@@ -1370,6 +1070,7 @@ export class Game {
       heading: this.live.heading,
       tasks,
       speed: this.live.speed,
+      ride: this.rides.riding(),
     });
   }
 
@@ -1384,45 +1085,70 @@ export class Game {
     this.done.add(npcId);
   }
 
-  /** Snap back to the chowk spawn pose (position, facing, camera). */
+  /** Jump to the end of the current ride, if any. */
+  public skipRide() {
+    this.rides.skip();
+  }
+
+  /** The taxi an auto errand's driver waits with: Kolkata's yellow
+   *  Ambassador, else the city's taxi livery. Its back seat rides with it. */
+  private makeTaxi(city: Landmark, seed: number): THREE.Group {
+    const car = city === "kolkata" ? makeAmbassadorTaxi(undefined, seed) : makeCar(this.vehicleMats, { kind: "taxi", seed, taxiStyle: CITY_TRAFFIC[city].taxi });
+    car.userData.seat = new THREE.Vector3(0.4, 0, -0.55);
+    return car;
+  }
+
+  /** After an auto or bus errand: ride it. */
+  public startRide(taskId: string) {
+    const task = this.tasks.find((t) => t.id === taskId);
+    if (!task) return;
+    if (task.kind === "auto") {
+      const auto = this.taskAutos.get(taskId);
+      if (auto) this.rides.startAuto(task, auto, this.tasks, this.done);
+    } else if (task.kind === "bus") {
+      this.rides.startBus(task);
+    }
+  }
+
+  /** Snap back to the spawn pose (position, facing, camera). */
   public recenter() {
-    this.playerPos.set(SPAWN.x, 0, SPAWN.z);
+    const sp = this.spawn;
+    this.playerPos.set(sp.x, 0, sp.z);
     this.velocity.set(0, 0, 0);
-    this.yaw = 0;
-    this.facing = 0;
+    this.yaw = sp.yaw;
+    this.facing = sp.yaw;
     this.pitch = 0.16;
     this.pendingYaw = 0;
     this.pendingPitch = 0;
     this.turnRate = 0;
     this.jumpY = 0;
-    this.jumpVel = 0;
     this.jumpQueued = false;
     this.air = 0;
-    this.walkPhase = 0;
-    this.gait = 0;
-    this.lean = 0;
+    this.body = newBody(sp.yaw);
+    this.stumble = 0;
     this.setVirtualMove(0, 0);
 
-    this.player.position.set(SPAWN.x, PLAYER_BASE_Y, SPAWN.z);
-    this.player.rotation.y = 0;
+    this.groundY = this.world.height.at(sp.x, sp.z);
+    this.player.position.set(sp.x, this.groundY + PLAYER_BASE_Y, sp.z);
+    this.player.rotation.y = sp.yaw;
 
     const dist = 9;
     const shoulder = 0.9;
-    const height = 2.8 + this.pitch * 5;
+    const height = this.groundY + 2.8 + this.pitch * 5;
     this.camera.position.set(
-      SPAWN.x - Math.sin(0) * dist + -Math.cos(0) * shoulder,
+      sp.x - Math.sin(sp.yaw) * dist - Math.cos(sp.yaw) * shoulder,
       height,
-      SPAWN.z - Math.cos(0) * dist + Math.sin(0) * shoulder
+      sp.z - Math.cos(sp.yaw) * dist + Math.sin(sp.yaw) * shoulder
     );
-    this.lookTarget.set(SPAWN.x, PLAYER_LOOK_H, SPAWN.z);
+    this.lookTarget.set(sp.x, this.groundY + PLAYER_LOOK_H, sp.z);
     this.camera.lookAt(this.lookTarget);
     this.camFov = 55;
     this.camera.fov = 55;
     this.camera.updateProjectionMatrix();
 
-    this.live.x = SPAWN.x;
-    this.live.z = SPAWN.z;
-    this.live.heading = 0;
+    this.live.x = sp.x;
+    this.live.z = sp.z;
+    this.live.heading = sp.yaw;
     this.live.speed = 0;
   }
 
@@ -1450,7 +1176,7 @@ export class Game {
 
     // Instanced clutter owns its own geometry/material lifetimes; let it clean
     // up before the scene walk, which does not understand InstancedMesh.
-    this.clutter?.dispose();
+    this.world.dispose();
     this.vehicleMats.dispose();
 
     this.scene.traverse((o) => {

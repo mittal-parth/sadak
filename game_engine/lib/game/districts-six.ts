@@ -23,7 +23,7 @@ const charminarPhrases: Phrase[] = [
 
 export const charminarLane: District = {
   id: "charminar-lane",
-  name: "Charminar Lane",
+  name: "Charminar",
   city: "Hyderabad",
   blurb: "Mirchi smoke, afternoon haze, and an auto gone from the old city lane.",
   coverImage: "/covers/charminar-lane.jpg",
@@ -320,7 +320,7 @@ const dadarChowkPhrases: Phrase[] = [
 
 export const dadarChowk: District = {
   id: "dadar-chowk",
-  name: "Dadar Chowk",
+  name: "Dadar",
   city: "Mumbai",
   blurb: "Local trains, vada pav steam, and a share-auto gone from the square.",
   coverImage: "/covers/dadar-chowk.jpg",
@@ -478,7 +478,7 @@ morning wedding orders, vanished from Manek Chowk while he was arguing about
 parking. Three people on this street saw pieces of it. In the old city nobody
 simply tells a stranger anything.`,
   theme: {
-    // Was a near-copy of Charminar Lane (7 of 10 palette fields identical).
+    // Was a near-copy of Charminar (7 of 10 palette fields identical).
     // Now Gujarat's saffron-and-indigo: bandhani blue against marigold and
     // whitewash, versus Hyderabad's granite-and-pearl.
     sky: ["#2a72c8", "#5c96dc", "#9ab6e0", "#f0c98a", "#ffe6b4"],
@@ -613,7 +613,7 @@ const hallBazaarPhrases: Phrase[] = [
 
 export const hallBazaar: District = {
   id: "hall-bazaar",
-  name: "Hall Bazaar",
+  name: "Golden Temple",
   city: "Amritsar",
   blurb: "Golden Temple bells, lassi steam, and a cycle-cart gone from the bazaar lane.",
   coverImage: "/covers/hall-bazaar.jpg",
@@ -759,7 +759,7 @@ const lingarajLanePhrases: Phrase[] = [
 
 export const lingarajLane: District = {
   id: "lingaraj-lane",
-  name: "Lingaraj Lane",
+  name: "Old Town",
   city: "Bhubaneswar",
   blurb: "Temple bells, pakhala steam, and a flower tempo gone from the lane.",
   coverImage: "/covers/lingaraj-lane.jpg",

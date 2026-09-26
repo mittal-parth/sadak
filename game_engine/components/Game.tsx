@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Game, type LiveState, type Telemetry } from "@/lib/game/engine";
+import { loadMap } from "@/lib/game/world";
+import type { MapData } from "@/lib/game/world/mapData";
 import type { District } from "@/lib/game/districts";
 import {
-  barberTaskFor,
   errandIndexForTask,
   findTaskById,
   resolveTaskLesson,
@@ -24,6 +25,7 @@ import { playSfx } from "@/lib/audio/sfx";
 import Title from "./Title";
 import EnterLoading from "./EnterLoading";
 import Hud from "./Hud";
+import { FullMap } from "./map/FullMap";
 import Dialogue from "./Dialogue";
 import BarberShop from "./BarberShop";
 import VirtualJoystick from "./VirtualJoystick";
@@ -49,6 +51,8 @@ import {
   type NpcTurn,
 } from "@/lib/game/npc-memory";
 import { prefetchTtsUrls, revokeTtsPrefetchMap, type TtsPrefetchMap } from "@/lib/tts/prefetch-client";
+import { useDiscovery } from "@/components/map/useDiscovery";
+import { taskLook } from "@/components/map/mapKit";
 
 /** Minimum time the enter screen stays up, so its controls are readable even
  *  when the district and progress fetches come back instantly. */
@@ -59,7 +63,13 @@ export default function GameShell() {
   const gameRef = useRef<Game | null>(null);
 
   const [district, setDistrict] = useState<District | null>(null);
+  /** The district's compiled street map (public/maps), loaded with it. */
+  const [worldMap, setWorldMap] = useState<MapData | null>(null);
+  /** Places found in this district (kept between visits). */
+  const { discovery, claim: claimPlace } = useDiscovery(worldMap, district?.id ?? null);
   const [tasks, setTasks] = useState<StreetTask[]>([]);
+  /** The district's haircut, from its stored pack like the errands. */
+  const [barberTask, setBarberTask] = useState<StreetTask | null>(null);
   const [taskFinale, setTaskFinale] = useState<DistrictTaskPack["finale"] | null>(null);
   const [entering, setEntering] = useState(false);
   const [enteringCity, setEnteringCity] = useState<string | undefined>();
@@ -74,6 +84,8 @@ export default function GameShell() {
   // happens once when the engine is created; the object itself is mutated in
   // place by the engine and read by the minimap's own rAF, never diffed.
   const [live, setLive] = useState<LiveState | null>(null);
+  const [mapOpen, setMapOpen] = useState(false);
+  const mapOpenRef = useRef(false);
   const [talking, setTalking] = useState<StreetTask | null>(null);
   const [barberOpen, setBarberOpen] = useState(false);
   const [cash, setCash] = useState(0);
@@ -165,9 +177,10 @@ export default function GameShell() {
       setEnteringCity(cityLabel);
       const startedAt = Date.now();
       try {
-        const [districtRes, progressRes] = await Promise.all([
+        const [districtRes, progressRes, map] = await Promise.all([
           fetch(`/api/districts/${encodeURIComponent(districtId)}`),
           fetch(`/api/progress?districtId=${encodeURIComponent(districtId)}`),
+          loadMap(districtId),
         ]);
         if (!districtRes.ok) {
           throw new Error("Could not load district.");
@@ -193,8 +206,10 @@ export default function GameShell() {
           await new Promise((r) => setTimeout(r, ENTER_DWELL_MS - elapsed));
         }
 
+        setWorldMap(map);
         setDistrict(districtPayload.district);
         setTasks(districtPayload.tasks);
+        setBarberTask(districtPayload.taskPack.barber);
         setTaskFinale(districtPayload.taskPack.finale);
         setLastDistrictId(districtId);
         setComfort(pickedComfort);
@@ -222,7 +237,8 @@ export default function GameShell() {
             barberTaskId(districtPayload.district.id),
           ),
         });
-      } catch {
+      } catch (err) {
+        console.error("[game] entering district failed", err);
         setToast("Could not enter district");
         setTimeout(() => setToast(null), 4000);
       } finally {
@@ -276,6 +292,7 @@ export default function GameShell() {
     talkingRef.current = talking;
     barberOpenRef.current = barberOpen;
     menuRef.current = menuOpen;
+    mapOpenRef.current = mapOpen;
 
     const g = gameRef.current;
     if (!g) return;
@@ -283,11 +300,12 @@ export default function GameShell() {
       talking !== null ||
       barberOpen ||
       menuOpen ||
+      mapOpen ||
       card !== null ||
       (mobilePlay && portrait);
     g.paused = frozen;
     if (frozen) g.releasePointer();
-  }, [talking, barberOpen, menuOpen, card, mobilePlay, portrait]);
+  }, [talking, barberOpen, menuOpen, mapOpen, card, mobilePlay, portrait]);
 
   // Music sits under the dialogue's TTS and the held mic, and stays down
   // for the pause menu and the portrait rotate-gate, so it never fights the
@@ -303,13 +321,19 @@ export default function GameShell() {
   }, [duck, talking, barberOpen, menuOpen, mobilePlay, portrait]);
 
   useEffect(() => {
-    if (!district || !canvasRef.current) return;
+    if (!district || !worldMap || !canvasRef.current) return;
 
-    const game = new Game(canvasRef.current, district, tasks, (t) => {
-      nearbyRef.current = t.nearby;
-      nearBarberRef.current = t.nearBarber;
-      setTel(t);
-    });
+    const game = new Game(
+      canvasRef.current,
+      district,
+      tasks,
+      (t) => {
+        nearbyRef.current = t.nearby;
+        nearBarberRef.current = t.nearBarber;
+        setTel(t);
+      },
+      worldMap
+    );
     gameRef.current = game;
     setLive(game.live);
     if (process.env.NODE_ENV !== "production") {
@@ -322,7 +346,7 @@ export default function GameShell() {
       gameRef.current = null;
       setLive(null);
     };
-  }, [district, tasks]);
+  }, [district, tasks, worldMap]);
 
   /**
    * The haircut is talked through at the door and the cutscene is the payoff.
@@ -349,8 +373,9 @@ export default function GameShell() {
       district_name: district.name,
       language: district.language,
     });
-    setTalking(barberTaskFor(district.id));
-  }, [district, completed]);
+    if (!barberTask) throw new Error(`[game] ${district.id}: no barber in the loaded task pack`);
+    setTalking(barberTask);
+  }, [district, completed, barberTask]);
 
   const openTalk = useCallback(() => {
     if (!district || talkingRef.current) return;
@@ -378,17 +403,24 @@ export default function GameShell() {
       return;
     }
     setTalking(task);
-  }, [district, tasks]);
+  }, [district, tasks, worldMap]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code === "Escape") {
         if (talkingRef.current) setTalking(null);
         else if (barberOpenRef.current) setBarberOpen(false);
+        else if (mapOpenRef.current) setMapOpen(false);
         else setMenuOpen((m) => !m);
         return;
       }
       if (talkingRef.current || menuRef.current || barberOpenRef.current) return;
+      if (e.code === "KeyM") {
+        e.preventDefault();
+        setMapOpen((o) => !o);
+        return;
+      }
+      if (mapOpenRef.current) return;
 
       if (e.code === "KeyE") {
         e.preventDefault();
@@ -494,6 +526,9 @@ export default function GameShell() {
       setToast(`Done: ${task.title}`);
       setTimeout(() => setToast(null), 4000);
       setTalking(null);
+      // The auto and the bus actually take you somewhere once you have
+      // talked your way on.
+      if (task.kind === "auto" || task.kind === "bus") gameRef.current?.startRide(taskId);
     },
     [district, tasks, completed, cash, comfort, persistProgress]
   );
@@ -542,7 +577,8 @@ export default function GameShell() {
     card !== null ||
     (mobilePlay && portrait);
 
-  if (!district) {
+  // District and map are set together when a district is entered.
+  if (!district || !worldMap) {
     return (
       <>
         <Title defaultDistrictId={lastDistrictId} onEnter={enterDistrict} />
@@ -563,6 +599,10 @@ export default function GameShell() {
       <canvas ref={canvasRef} className="scene" />
 
       <Hud
+        map={worldMap}
+        onSkipRide={() => gameRef.current?.skipRide()}
+        onOpenMap={() => setMapOpen(true)}
+        onPlace={claimPlace}
         district={district}
         baseLang={baseLang}
         tasks={tasks}
@@ -593,6 +633,20 @@ export default function GameShell() {
           className="absolute right-4 bottom-10 z-30"
           onMove={onJoystickMove}
           disabled={gameplayFrozen}
+        />
+      )}
+
+      {mapOpen && worldMap && (
+        <FullMap
+          map={worldMap}
+          live={live}
+          tasks={tel?.tasks ?? []}
+          barber={tel?.barber}
+          district={district}
+          titles={Object.fromEntries(tasks.map((t) => [t.id, t.title]))}
+          icons={Object.fromEntries(tasks.map((t) => [t.id, taskLook(t, district.theme.landmark).icon]))}
+          found={discovery?.found ?? null}
+          onClose={() => setMapOpen(false)}
         />
       )}
 

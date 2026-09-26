@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { roadLines, WORLD_LIMIT, ROAD_W } from "@/lib/game/city";
+import type { MapData } from "@/lib/game/world/mapData";
 import type { LiveState, TaskSnapshot, Telemetry } from "@/lib/game/engine";
 import type { District } from "@/lib/game/districts";
 import type { BaseLangCode } from "@/lib/i18n/base-lang";
@@ -17,50 +17,16 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
+import { css, kindColour, renderStreetMap, taskLook } from "@/components/map/mapKit";
+import { ErrandIcon } from "@/components/map/errandIcons";
+import type { Landmark } from "@/lib/game/assets";
+import { roadLabels, type RoadLabel } from "@/lib/game/world/mapLabels";
+import { LocationCard } from "@/components/map/LocationCard";
 import { LocateFixed, PanelLeftClose, PanelLeftOpen, Volume2, VolumeX } from "lucide-react";
 
 const MAP_PX = 168;
 const MAP_PX_MOBILE = 80;
 const MAP_RANGE = 90;
-
-function kindColour(kind: TaskKind, done: boolean): string {
-  if (done) return "#3ddc84";
-  switch (kind) {
-    case "auto":
-      return "#f5c518";
-    case "shop":
-      return "#e67e22";
-    case "temple":
-      return "#e74c3c";
-    case "bus":
-      return "#3498db";
-    case "barber":
-      return "#33406b";
-    default: {
-      const _exhaustive: never = kind;
-      return _exhaustive;
-    }
-  }
-}
-
-function kindIcon(kind: TaskKind): string {
-  switch (kind) {
-    case "auto":
-      return "🛺";
-    case "shop":
-      return "🏪";
-    case "temple":
-      return "🛕";
-    case "bus":
-      return "🚌";
-    case "barber":
-      return "💈";
-    default: {
-      const _exhaustive: never = kind;
-      return _exhaustive;
-    }
-  }
-}
 
 /** Duolingo-style circular lesson progress ring. */
 function ProgressRing({
@@ -113,25 +79,6 @@ function ProgressRing({
   );
 }
 
-function kindLabel(kind: TaskKind): string {
-  switch (kind) {
-    case "auto":
-      return "Auto";
-    case "shop":
-      return "Shop";
-    case "temple":
-      return "Temple";
-    case "bus":
-      return "Bus";
-    case "barber":
-      return "Barber";
-    default: {
-      const _exhaustive: never = kind;
-      return _exhaustive;
-    }
-  }
-}
-
 /**
  * Draws from the engine's LiveState on its own rAF rather than from React
  * state, so the map stays smooth at 60fps while the HUD around it only
@@ -147,13 +94,22 @@ function Minimap({
   tasks,
   barber,
   size,
+  map,
+  onOpen,
 }: {
   live: LiveState | null;
   tasks: TaskSnapshot[];
   barber?: { x: number; z: number };
   size: number;
+  map: MapData;
+  /** Open the full map. */
+  onOpen: () => void;
 }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
+  const streets = useRef<{ map: MapData; canvas: HTMLCanvasElement; labels: RoadLabel[] } | null>(null);
+  if (typeof document !== "undefined" && streets.current?.map !== map) {
+    streets.current = { map, canvas: renderStreetMap(map), labels: roadLabels(map) };
+  }
   // Read through a ref so the draw loop never needs to be torn down and
   // rebuilt when the (throttled) task list changes.
   const tasksRef = useRef(tasks);
@@ -190,9 +146,11 @@ function Minimap({
       const scale = R / MAP_RANGE;
       const ui = size / MAP_PX;
 
+      // A rounded square, filling its card (GTA's minimap, not a disc in a box).
+      const corner = 4 * ui;
       ctx.save();
       ctx.beginPath();
-      ctx.arc(R, R, R - 2, 0, Math.PI * 2);
+      ctx.roundRect(1, 1, size - 2, size - 2, corner);
       ctx.clip();
 
       ctx.fillStyle = "#1d2229";
@@ -202,23 +160,15 @@ function Minimap({
       ctx.rotate(l.heading + Math.PI);
       ctx.translate(-l.x * scale, -l.z * scale);
 
-      ctx.strokeStyle = "#454f5a";
-      ctx.lineWidth = ROAD_W * scale;
-      const L = WORLD_LIMIT;
-      for (const c of roadLines()) {
-        ctx.beginPath();
-        ctx.moveTo(c * scale, -L * scale);
-        ctx.lineTo(c * scale, L * scale);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(-L * scale, c * scale);
-        ctx.lineTo(L * scale, c * scale);
-        ctx.stroke();
+      const sm = streets.current;
+      if (sm) {
+        const h = sm.map.half;
+        ctx.drawImage(sm.canvas, -h * scale, -h * scale, h * 2 * scale, h * 2 * scale);
       }
 
       for (const t of tasksRef.current) {
-        const col = kindColour(t.kind, t.done);
+        const col = t.colour;
+        ctx.globalAlpha = t.done ? 0.45 : 1;
         const dotR = 4.5 * ui;
         const sx = t.x * scale;
         const sy = t.z * scale;
@@ -239,6 +189,7 @@ function Minimap({
         ctx.beginPath();
         ctx.arc(sx, sy, dotR + 0.5 * ui, 0, Math.PI * 2);
         ctx.stroke();
+        ctx.globalAlpha = 1;
       }
 
       const b = barberRef.current;
@@ -250,7 +201,7 @@ function Minimap({
         ctx.beginPath();
         ctx.arc(sx + 1.2 * ui, sy + 1.2 * ui, dotR + 1.5 * ui, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = "#9b59b6";
+        ctx.fillStyle = kindColour("barber", false);
         ctx.beginPath();
         ctx.arc(sx, sy, dotR, 0, Math.PI * 2);
         ctx.fill();
@@ -263,6 +214,36 @@ function Minimap({
 
       ctx.restore();
 
+      // Street names nearby, upright over the turning map, biggest roads
+      // first and never on top of each other.
+      if (sm && size >= 120) {
+        const th = l.heading + Math.PI;
+        const cs = Math.cos(th);
+        const sn = Math.sin(th);
+        ctx.font = `${(9 * ui).toFixed(1)}px ui-sans-serif, system-ui, sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.lineJoin = "round";
+        const used: [number, number, number][] = [];
+        for (const lb of sm.labels) {
+          const dx = (lb.x - l.x) * scale;
+          const dz = (lb.z - l.z) * scale;
+          const sx = R + dx * cs - dz * sn;
+          const sy = R + dx * sn + dz * cs;
+          if (Math.max(Math.abs(sx - R), Math.abs(sy - R)) > R * 0.78) continue;
+          const w = ctx.measureText(lb.name).width;
+          if (w > size * 0.85) continue;
+          if (used.some(([ux, uy, uw]) => Math.abs(ux - sx) < (uw + w) / 2 + 4 && Math.abs(uy - sy) < 12 * ui)) continue;
+          ctx.lineWidth = 3 * ui;
+          ctx.strokeStyle = "rgba(10,12,16,0.85)";
+          ctx.strokeText(lb.name, sx, sy);
+          ctx.fillStyle = "#e8edf2";
+          ctx.fillText(lb.name, sx, sy);
+          used.push([sx, sy, w]);
+          if (used.length >= 4) break;
+        }
+      }
+
       ctx.fillStyle = "#5ab0ff";
       ctx.beginPath();
       ctx.moveTo(R, R - 7 * ui);
@@ -271,10 +252,10 @@ function Minimap({
       ctx.closePath();
       ctx.fill();
 
-      ctx.strokeStyle = "rgba(255,255,255,0.32)";
-      ctx.lineWidth = Math.max(1, 2 * ui);
+      ctx.strokeStyle = "rgba(255,255,255,0.28)";
+      ctx.lineWidth = Math.max(1, 1.5 * ui);
       ctx.beginPath();
-      ctx.arc(R, R, R - 2, 0, Math.PI * 2);
+      ctx.roundRect(1, 1, size - 2, size - 2, corner);
       ctx.stroke();
     };
 
@@ -282,25 +263,50 @@ function Minimap({
     return () => cancelAnimationFrame(raf);
   }, [size]);
 
-  return <canvas ref={ref} style={{ width: size, height: size }} />;
+  return (
+    <canvas
+      ref={ref}
+      style={{ width: size, height: size }}
+      className="cursor-pointer"
+      onClick={onOpen}
+      role="button"
+      aria-label="Open the map (M)"
+    />
+  );
 }
 
-function MinimapPanel({
+export function MinimapPanel({
   live,
   tasks,
   barber,
   size,
+  map,
   onRecenter,
+  onOpenMap,
+  showKey = false,
 }: {
   live: LiveState | null;
   tasks: TaskSnapshot[];
   barber?: { x: number; z: number };
   size: number;
+  map: MapData;
   onRecenter: () => void;
+  onOpenMap: () => void;
+  /** Show the M key on it (keyboard play). */
+  showKey?: boolean;
 }) {
   return (
-    <div className="relative inline-block">
-      <Minimap live={live} tasks={tasks} barber={barber} size={size} />
+    <div className="relative block overflow-hidden rounded-base">
+      <Minimap live={live} tasks={tasks} barber={barber} size={size} map={map} onOpen={onOpenMap} />
+      {showKey && (
+        <kbd className="pointer-events-none absolute top-1.5 left-1.5 text-[10px] leading-none opacity-90" aria-hidden>
+          M
+        </kbd>
+      )}
+      {/* ODbL requires the attribution wherever the map data is shown. */}
+      <span className="pointer-events-none absolute bottom-0.5 left-1 text-[8px] leading-none text-white/70">
+        © OpenStreetMap contributors
+      </span>
       <Button
         variant="neutral"
         size="icon"
@@ -332,10 +338,12 @@ function HudCard({
 function ErrandsList({
   tasks,
   completed,
+  city,
   compact,
 }: {
   tasks: StreetTask[];
   completed: Set<string>;
+  city: Landmark;
   compact?: boolean;
 }) {
   return (
@@ -350,10 +358,11 @@ function ErrandsList({
                 done ? "bg-chart-4/20" : "bg-main/10",
                 compact && "size-5 text-[0.65rem]"
               )}
-              style={{ borderColor: done ? undefined : kindColour(t.kind, false) }}
+              // The errand's own colour, as on its marker and its map dot.
+              style={{ borderColor: css(t.colour), borderWidth: 2, background: `${css(t.colour)}33` }}
               aria-hidden
             >
-              {kindIcon(t.kind)}
+              <ErrandIcon id={taskLook(t, city).icon} className={cn("size-3.5", compact && "size-3")} />
             </span>
             <div>
               <strong className={cn("block text-sm", compact && "text-xs")}>{t.title}</strong>
@@ -363,7 +372,7 @@ function ErrandsList({
                   compact && "text-[0.65rem]"
                 )}
               >
-                {kindLabel(t.kind)} · {t.name}
+                {taskLook(t, city).label} · {t.name}
               </em>
             </div>
           </div>
@@ -417,7 +426,18 @@ export default function Hud({
   onTogglePanels,
   audioOn,
   onToggleAudio,
+  map,
+  onSkipRide,
+  onOpenMap,
+  onPlace,
 }: {
+  map: MapData;
+  /** Open the full map (also on M). */
+  onOpenMap: () => void;
+  /** A place walked into: its find tally the first time, else null. */
+  onPlace: (name: string) => { found: number; total: number } | null;
+  /** Jump to the end of an auto or bus ride. */
+  onSkipRide: () => void;
   district: District;
   baseLang: BaseLangCode;
   tasks: StreetTask[];
@@ -470,6 +490,7 @@ export default function Hud({
 
   return (
     <>
+      <LocationCard map={map} live={live} district={district} compact={mobilePlay} onPlace={onPlace} />
       {mobilePlay ? (
         <>
           <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-2">
@@ -509,11 +530,13 @@ export default function Hud({
               <HudCard className="pointer-events-auto p-1">
                 <CardContent className="px-0 py-0">
                   <MinimapPanel
+                    map={map}
                     live={live}
                     tasks={tel.tasks}
                     barber={tel.barber}
                     size={mapSize}
                     onRecenter={onRecenter}
+                    onOpenMap={onOpenMap}
                   />
                 </CardContent>
               </HudCard>
@@ -544,7 +567,7 @@ export default function Hud({
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-3 pt-0">
-                  <ErrandsList tasks={tasks} completed={completed} compact />
+                  <ErrandsList tasks={tasks} completed={completed} city={district.theme.landmark} compact />
                 </CardContent>
               </HudCard>
               <HudCard className="py-2">
@@ -593,6 +616,9 @@ export default function Hud({
               <Badge variant="neutral" className="uppercase tracking-widest">
                 {district.name} · <strong className="font-indic normal-case">{district.native}</strong>
               </Badge>
+              <Button variant="neutral" size="sm" onClick={onOpenMap}>
+                <kbd>M</kbd> Map
+              </Button>
               <Button variant="neutral" size="sm" onClick={onTogglePhrases}>
                 <kbd>P</kbd> Phrasebook
               </Button>
@@ -646,7 +672,7 @@ export default function Hud({
               <CardTitle className="text-xs uppercase tracking-widest text-main">Errands</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 px-4 pt-0">
-              <ErrandsList tasks={tasks} completed={completed} />
+              <ErrandsList tasks={tasks} completed={completed} city={district.theme.landmark} />
             </CardContent>
           </HudCard>
 
@@ -663,20 +689,39 @@ export default function Hud({
 
           <div className="absolute right-6 bottom-6 max-lg:origin-bottom-right max-lg:scale-90">
             {tel && (
-              <HudCard className="p-2">
-                <CardContent className="px-2 py-0">
+              <HudCard className="p-1">
+                <CardContent className="p-0">
                   <MinimapPanel
+                    map={map}
                     live={live}
                     tasks={tel.tasks}
                     barber={tel.barber}
                     size={mapSize}
                     onRecenter={onRecenter}
+                    onOpenMap={onOpenMap}
+                    showKey
                   />
                 </CardContent>
               </HudCard>
             )}
           </div>
         </>
+      )}
+
+      {tel?.ride && (
+        <Button
+          variant="neutral"
+          className={cn(
+            "pointer-events-auto absolute left-1/2 -translate-x-1/2",
+            mobilePlay ? "top-3 text-sm" : "top-6"
+          )}
+          size={mobilePlay ? "default" : "lg"}
+          onClick={onSkipRide}
+        >
+          Riding to {tel.ride}
+          {!mobilePlay && <kbd>E</kbd>}
+          Skip
+        </Button>
       )}
 
       {nearbyTask ? (

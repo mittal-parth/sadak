@@ -1,5 +1,5 @@
 /**
- * Chennai / Marina Nagar kit.
+ * Chennai / Triplicane kit.
  *
  * Signature reads: a tiered, tapering gopuram tower (the whole point of this
  * city — must be unmistakable in silhouette alone), a kattumaram catamaran

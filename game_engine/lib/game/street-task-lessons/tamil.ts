@@ -20,7 +20,7 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("இவரும் டி நகர் தான்!", "Ivarum T Nagar dhaan!", "This person is also going to T Nagar!", "சரி, பகிர்ந்து போகலாம்", "Sari, pagirndhu pogalaam", "Okay, we can share the ride"),
       s("சரி", "Sari", "Okay", "எவ்வளவு?", "Evvalavu?", "How much?"),
       s("எழுபது ரூபாய்", "Ezhupathi rupaai", "Seventy rupees", "பகிர்ந்து கொள்ளலாமா?", "Pagirndhu kollalaamaa?", "Can we split it?"),
-      s("மீட்டர் போடலாமா?", "Meter podalaamaa?", "Shall we use the meter?", "சரி, மீட்டர்", "Sari, meter", "Okay, meter"),
+      s("ஆளுக்கு முப்பத்தைந்து", "Aalukku muppaththainthu", "Thirty-five each", "சரி, இதோ", "Sari, itho", "Okay, here you go"),
       s("சரி, ஏறுங்க", "Sari, erunga", "Okay, get in", "நன்றி", "Nandri", "Thank you"),
       s("போகலாம்", "Pogalaam", "Let's go", "சரி", "Sari", "Okay"),
     ],
@@ -73,19 +73,19 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
   },
   "marina-nagar-bus": {
     easy: [
-      s("எங்க போறீங்க?", "Enga poringa?", "Where are you going?", "மெரினா", "Merina", "Marina"),
+      s("எங்க போறீங்க?", "Enga poringa?", "Where are you going?", "மயிலாப்பூர்", "Mylapore", "Mylapore"),
       s("பதினைந்து ரூபாய்", "Pathinaidu rupaai", "Fifteen rupees", "இதோ", "Itho", "Here you go"),
       s("போங்க", "Ponga", "Go ahead", "நன்றி", "Nandri", "Thank you"),
     ],
     medium: [
-      s("எங்க போறீங்க?", "Enga poringa?", "Where are you going?", "மெரினா", "Merina", "Marina"),
+      s("எங்க போறீங்க?", "Enga poringa?", "Where are you going?", "மயிலாப்பூர்", "Mylapore", "Mylapore"),
       s("பின்னாடி ஏறுங்க!", "Pinnadi erunga!", "Board from the back!", "சரி, பின்னாடி ஏறுகிறேன்", "Sari, pinnadi erukiren", "Okay, I'm boarding from the back"),
       s("சரி", "Sari", "Okay", "எவ்வளவு?", "Evvalavu?", "How much?"),
       s("பதினைந்து ரூபாய்", "Pathinaidu rupaai", "Fifteen rupees", "இதோ", "Itho", "Here you go"),
       s("போங்க", "Ponga", "Go ahead", "நன்றி", "Nandri", "Thank you"),
     ],
     hard: [
-      s("எங்க போறீங்க?", "Enga poringa?", "Where are you going?", "மெரினா", "Merina", "Marina"),
+      s("எங்க போறீங்க?", "Enga poringa?", "Where are you going?", "மயிலாப்பூர்", "Mylapore", "Mylapore"),
       s("பின்னாடி ஏறுங்க!", "Pinnadi erunga!", "Board from the back!", "சரி, பின்னாடி ஏறுகிறேன்", "Sari, pinnadi erukiren", "Okay, I'm boarding from the back"),
       s("சரி", "Sari", "Okay", "ஒரு டிக்கெட்", "Oru ticket", "One ticket"),
       s("சரி", "Sari", "Okay", "எவ்வளவு?", "Evvalavu?", "How much?"),
@@ -94,18 +94,50 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("போங்க", "Ponga", "Go ahead", "நன்றி", "Nandri", "Thank you"),
     ],
   },
+  "marina-nagar-sundal": {
+    easy: [
+      s("சுண்டல் வேணுமா?", "Sundal venumaa?", "Do you want sundal?", "ஆம், ஒரு பொட்டலம்", "Aam, oru pottalam", "Yes, one packet"),
+      s("மாங்காய் போடவா?", "Maangaai podavaa?", "Shall I add raw mango?", "ஆம், போடுங்க", "Aam, podunga", "Yes, add it"),
+      s("இருபது ரூபாய்", "Irupathu rupaai", "Twenty rupees", "இதோ, நன்றி", "Itho, nandri", "Here you go, thank you"),
+    ],
+    medium: [
+      s("சுண்டல் வேணுமா?", "Sundal venumaa?", "Do you want sundal?", "ஆம், ஒரு பொட்டலம்", "Aam, oru pottalam", "Yes, one packet"),
+      s("காரமா வேணுமா?", "Kaaramaa venumaa?", "Do you want it spicy?", "கொஞ்சம் காரம்", "Konjam kaaram", "A little spicy"),
+      s("மாங்காய் போடவா?", "Maangaai podavaa?", "Shall I add raw mango?", "ஆம், போடுங்க", "Aam, podunga", "Yes, add it"),
+      s("சரி", "Sari", "Okay", "எவ்வளவு?", "Evvalavu?", "How much?"),
+      s("இருபது ரூபாய்", "Irupathu rupaai", "Twenty rupees", "இதோ, நன்றி", "Itho, nandri", "Here you go, thank you"),
+    ],
+    hard: [
+      s("சுண்டல் வேணுமா?", "Sundal venumaa?", "Do you want sundal?", "ஆம், ஒரு பொட்டலம்", "Aam, oru pottalam", "Yes, one packet"),
+      s("காரமா வேணுமா?", "Kaaramaa venumaa?", "Do you want it spicy?", "கொஞ்சம் காரம்", "Konjam kaaram", "A little spicy"),
+      s("அலை பெரிசா வருது!", "Alai perisaa varudhu!", "The waves are coming in big!", "ஆமா, பார்த்துக்கறேன்", "Aamaa, paarthukkaren", "Yes, I'll be careful"),
+      s("மாங்காய் போடவா?", "Maangaai podavaa?", "Shall I add raw mango?", "ஆம், போடுங்க", "Aam, podunga", "Yes, add it"),
+      s("வேற ஏதாவது?", "Vera edhaavadhu?", "Anything else?", "இல்லை, போதும்", "Illai, podhum", "No, that's enough"),
+      s("சரி", "Sari", "Okay", "எவ்வளவு?", "Evvalavu?", "How much?"),
+      s("இருபது ரூபாய்", "Irupathu rupaai", "Twenty rupees", "இதோ, நன்றி", "Itho, nandri", "Here you go, thank you"),
+    ],
+  },
   "marina-nagar-barber": {
     easy: [
       s("வாங்க, உட்காருங்க. என்ன பண்ணணும்?", "Vaanga, utkaarunga. Enna pannanum?", "Come, sit down. What should I do?", "முடி வெட்டுங்க", "Mudi vettunga", "Please cut my hair"),
       s("சரி, கொஞ்சம் காத்திருக்கணும்", "Sari, konjam kaathirukkanum", "Okay, you'll have to wait a little", "எவ்வளவு நேரம் ஆகும்?", "Evvalavu neram aagum?", "How long will it take?"),
+      s("பத்து நிமிஷம்", "Pathu nimisham", "Ten minutes", "சரி, காத்திருக்கேன்", "Sari, kaathirukken", "Okay, I'll wait"),
     ],
     medium: [
       s("வாங்க, உட்காருங்க. என்ன பண்ணணும்?", "Vaanga, utkaarunga. Enna pannanum?", "Come, sit down. What should I do?", "முடி வெட்டுங்க", "Mudi vettunga", "Please cut my hair"),
       s("சரி, கொஞ்சம் காத்திருக்கணும்", "Sari, konjam kaathirukkanum", "Okay, you'll have to wait a little", "எவ்வளவு நேரம் ஆகும்?", "Evvalavu neram aagum?", "How long will it take?"),
+      s("பத்து நிமிஷம்", "Pathu nimisham", "Ten minutes", "சரி, காத்திருக்கேன்", "Sari, kaathirukken", "Okay, I'll wait"),
+      s("முடிஞ்சது. எப்படி இருக்கு?", "Mudinjadhu. Eppadi irukku?", "Done. How does it look?", "ரொம்ப நல்லா இருக்கு! எவ்வளவு?", "Romba nallaa irukku! Evvalavu?", "Very nice! How much?"),
+      s("எண்பது ரூபாய்", "Enbadhu rupaai", "Eighty rupees", "இதோ, நன்றி", "Itho, nandri", "Here you go, thank you"),
     ],
     hard: [
       s("வாங்க, உட்காருங்க. என்ன பண்ணணும்?", "Vaanga, utkaarunga. Enna pannanum?", "Come, sit down. What should I do?", "முடி வெட்டுங்க", "Mudi vettunga", "Please cut my hair"),
       s("சரி, கொஞ்சம் காத்திருக்கணும்", "Sari, konjam kaathirukkanum", "Okay, you'll have to wait a little", "எவ்வளவு நேரம் ஆகும்?", "Evvalavu neram aagum?", "How long will it take?"),
+      s("பத்து நிமிஷம்", "Pathu nimisham", "Ten minutes", "சரி, காத்திருக்கேன்", "Sari, kaathirukken", "Okay, I'll wait"),
+      s("ஒட்ட வெட்டணுமா, இல்ல லேசா?", "Otta vettanumaa, illa lesaa?", "Short, or just a trim?", "லேசா போதும்", "Lesaa podhum", "Just a trim"),
+      s("ஷேவ் பண்ணணுமா?", "Shave pannanumaa?", "Shave as well?", "இல்ல, முடி மட்டும்", "Illa, mudi mattum", "No, just the haircut"),
+      s("முடிஞ்சது. எப்படி இருக்கு?", "Mudinjadhu. Eppadi irukku?", "Done. How does it look?", "ரொம்ப நல்லா இருக்கு! எவ்வளவு?", "Romba nallaa irukku! Evvalavu?", "Very nice! How much?"),
+      s("எண்பது ரூபாய்", "Enbadhu rupaai", "Eighty rupees", "இதோ, நன்றி", "Itho, nandri", "Here you go, thank you"),
     ],
   },
 };

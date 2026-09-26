@@ -1,5 +1,5 @@
 /**
- * Old Delhi / Purani Sadak kit.
+ * Old Delhi / Chandni Chowk kit.
  *
  * Signature reads: a pointed-arch bazaar gate crowned with chhatri domes, a
  * three-wheeled cycle-rickshaw (NOT an auto — pedal-driven, open canopy,
@@ -191,8 +191,8 @@ export function makeCycleRickshaw(mats?: AssetMaterialLib, seed = 3): THREE.Grou
   frameParts.push({ geo: bakedBox(0.1, 0.1, 2.6, 0, 0.62, 0.2), mat: frame });
   // Front fork + single steering wheel.
   frameParts.push({ geo: bakedCyl(0.03, 0.03, 0.7, 6, 0, 0.55, 1.55, 0.25), mat: chrome });
-  wheelParts.push({ geo: bakedTorus(0.42, 0.05, 0, 0.42, 1.75, Math.PI / 2), mat: black });
-  frameParts.push({ geo: bakedCyl(0.05, 0.05, 0.08, 10, 0, 0.42, 1.75, Math.PI / 2), mat: chrome }); // hub
+  wheelParts.push({ geo: bakedTorus(0.42, 0.05, 0, 0.42, 1.75, 0, Math.PI / 2), mat: black });
+  frameParts.push({ geo: bakedCyl(0.05, 0.05, 0.08, 10, 0, 0.42, 1.75, 0, Math.PI / 2), mat: chrome }); // hub
   // Handlebar.
   frameParts.push({ geo: bakedBox(0.55, 0.05, 0.05, 0, 0.98, 1.85), mat: chrome });
   // Pedal crank + seat post for the rider up front.
@@ -201,8 +201,8 @@ export function makeCycleRickshaw(mats?: AssetMaterialLib, seed = 3): THREE.Grou
 
   // Rear axle + two large wheels (the tricycle signature).
   for (const x of [-0.62, 0.62]) {
-    wheelParts.push({ geo: bakedTorus(0.46, 0.06, x, 0.46, -0.75, Math.PI / 2), mat: black });
-    frameParts.push({ geo: bakedCyl(0.06, 0.06, 0.1, 10, x, 0.46, -0.75, Math.PI / 2), mat: chrome });
+    wheelParts.push({ geo: bakedTorus(0.46, 0.06, x, 0.46, -0.75, 0, Math.PI / 2), mat: black });
+    frameParts.push({ geo: bakedCyl(0.06, 0.06, 0.1, 10, x, 0.46, -0.75, 0, Math.PI / 2), mat: chrome });
     // spokes
     for (let s = 0; s < 4; s++) {
       frameParts.push({

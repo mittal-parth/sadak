@@ -94,18 +94,50 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("ନିଅ, ଟିକେଟ", "Nian, ticket", "Here, your ticket", "ଧନ୍ୟବାଦ", "Dhanyabaad", "Thank you"),
     ],
   },
+  "lingaraj-lane-chhena": {
+    easy: [
+      s("କଣ ନେବେ?", "Kana nebe?", "What will you have?", "ଛେନା ପୋଡ଼", "Chhena poda", "Chhena poda"),
+      s("ଗରମ ଗରମ ଅଛି", "Garama garama achhi", "It's fresh and warm", "ବାଃ, ଦିଅ", "Baah, dia", "Great, give it"),
+      s("ଷାଠିଏ ଟଙ୍କା", "Shaathie tanka", "Sixty rupees", "ନିଅ, ଧନ୍ୟବାଦ", "Nian, dhanyabaad", "Here you go, thank you"),
+    ],
+    medium: [
+      s("କଣ ନେବେ?", "Kana nebe?", "What will you have?", "ଛେନା ପୋଡ଼", "Chhena poda", "Chhena poda"),
+      s("କେତେ ନେବେ?", "Kete nebe?", "How much will you take?", "ଅଢ଼େଇ ଶହ ଗ୍ରାମ", "Adhei saha gram", "Two hundred and fifty grams"),
+      s("ଗରମ ଗରମ ଅଛି", "Garama garama achhi", "It's fresh and warm", "ବାଃ, ଦିଅ", "Baah, dia", "Great, give it"),
+      s("କୁହନ୍ତୁ", "Kuhantu", "Tell me", "କେତେ ହେଲା?", "Kete hela?", "What do I owe you?"),
+      s("ଷାଠିଏ ଟଙ୍କା", "Shaathie tanka", "Sixty rupees", "ନିଅ, ଧନ୍ୟବାଦ", "Nian, dhanyabaad", "Here you go, thank you"),
+    ],
+    hard: [
+      s("କଣ ନେବେ?", "Kana nebe?", "What will you have?", "ଛେନା ପୋଡ଼", "Chhena poda", "Chhena poda"),
+      s("କେତେ ନେବେ?", "Kete nebe?", "How much will you take?", "ଅଢ଼େଇ ଶହ ଗ୍ରାମ", "Adhei saha gram", "Two hundred and fifty grams"),
+      s("ଗରମ ଗରମ ଅଛି", "Garama garama achhi", "It's fresh and warm", "ବାଃ, ଦିଅ", "Baah, dia", "Great, give it"),
+      s("ରସଗୋଲା ବି ନେବେ?", "Rasagola bi nebe?", "Will you take rasagola too?", "ହଁ, ଦୁଇଟା", "Hum, duita", "Yes, two"),
+      s("ଆଉ କିଛି?", "Au kichhi?", "Anything else?", "ନାହିଁ, ଏତିକି", "Nahin, etiki", "No, that's all"),
+      s("କୁହନ୍ତୁ", "Kuhantu", "Tell me", "କେତେ ହେଲା?", "Kete hela?", "What do I owe you?"),
+      s("ଅଶୀ ଟଙ୍କା", "Ashi tanka", "Eighty rupees", "ନିଅ, ଧନ୍ୟବାଦ", "Nian, dhanyabaad", "Here you go, thank you"),
+    ],
+  },
   "lingaraj-lane-barber": {
     easy: [
       s("ଆସନ୍ତୁ, ବସନ୍ତୁ। କଣ କରିବାକୁ ହେବ?", "Aasantu, basantu. Kana karibaaku heba?", "Come, sit. What needs doing?", "ବାଳ କାଟି ଦିଅନ୍ତୁ", "Baala kaati diantu", "Please cut my hair"),
       s("ଠିକ ଅଛି, ଟିକେ ଅପେକ୍ଷା କରିବାକୁ ପଡ଼ିବ", "Thika achhi, tike apekkhaa karibaaku padiba", "Alright, you'll have to wait a bit", "କେତେ ସମୟ ଲାଗିବ?", "Kete samaya laagiba?", "How long will it take?"),
+      s("ଦଶ ମିନିଟ", "Dasa minita", "Ten minutes", "ଠିକ ଅଛି, ଅପେକ୍ଷା କରୁଛି", "Thika achhi, apekkhaa karuchhi", "Okay, I'll wait"),
     ],
     medium: [
       s("ଆସନ୍ତୁ, ବସନ୍ତୁ। କଣ କରିବାକୁ ହେବ?", "Aasantu, basantu. Kana karibaaku heba?", "Come, sit. What needs doing?", "ବାଳ କାଟି ଦିଅନ୍ତୁ", "Baala kaati diantu", "Please cut my hair"),
       s("ଠିକ ଅଛି, ଟିକେ ଅପେକ୍ଷା କରିବାକୁ ପଡ଼ିବ", "Thika achhi, tike apekkhaa karibaaku padiba", "Alright, you'll have to wait a bit", "କେତେ ସମୟ ଲାଗିବ?", "Kete samaya laagiba?", "How long will it take?"),
+      s("ଦଶ ମିନିଟ", "Dasa minita", "Ten minutes", "ଠିକ ଅଛି, ଅପେକ୍ଷା କରୁଛି", "Thika achhi, apekkhaa karuchhi", "Okay, I'll wait"),
+      s("ହୋଇଗଲା। କେମିତି ଲାଗୁଛି?", "Hoigalaa. Kemiti laaguchhi?", "Done. How does it look?", "ବହୁତ ସୁନ୍ଦର! କେତେ ହେଲା?", "Bahuta sundara! Kete helaa?", "Very nice! How much?"),
+      s("ଅଶୀ ଟଙ୍କା", "Ashi tanka", "Eighty rupees", "ନିଅନ୍ତୁ, ଧନ୍ୟବାଦ", "Niantu, dhanyabaad", "Here you go, thank you"),
     ],
     hard: [
       s("ଆସନ୍ତୁ, ବସନ୍ତୁ। କଣ କରିବାକୁ ହେବ?", "Aasantu, basantu. Kana karibaaku heba?", "Come, sit. What needs doing?", "ବାଳ କାଟି ଦିଅନ୍ତୁ", "Baala kaati diantu", "Please cut my hair"),
       s("ଠିକ ଅଛି, ଟିକେ ଅପେକ୍ଷା କରିବାକୁ ପଡ଼ିବ", "Thika achhi, tike apekkhaa karibaaku padiba", "Alright, you'll have to wait a bit", "କେତେ ସମୟ ଲାଗିବ?", "Kete samaya laagiba?", "How long will it take?"),
+      s("ଦଶ ମିନିଟ", "Dasa minita", "Ten minutes", "ଠିକ ଅଛି, ଅପେକ୍ଷା କରୁଛି", "Thika achhi, apekkhaa karuchhi", "Okay, I'll wait"),
+      s("ଛୋଟ କରିବି ନା ଟିକେ ସଜାଡ଼ିବି?", "Chhota karibi naa tike sajaadibi?", "Short, or just a trim?", "ଟିକେ ସଜାଡ଼ି ଦିଅନ୍ତୁ", "Tike sajaadi diantu", "Just a trim"),
+      s("ଦାଢ଼ି ବି କାଟିବି?", "Daadhi bi kaatibi?", "Shave as well?", "ନା, କେବଳ ବାଳ", "Naa, kebala baala", "No, just the haircut"),
+      s("ହୋଇଗଲା। କେମିତି ଲାଗୁଛି?", "Hoigalaa. Kemiti laaguchhi?", "Done. How does it look?", "ବହୁତ ସୁନ୍ଦର! କେତେ ହେଲା?", "Bahuta sundara! Kete helaa?", "Very nice! How much?"),
+      s("ଅଶୀ ଟଙ୍କା", "Ashi tanka", "Eighty rupees", "ନିଅନ୍ତୁ, ଧନ୍ୟବାଦ", "Niantu, dhanyabaad", "Here you go, thank you"),
     ],
   },
 };

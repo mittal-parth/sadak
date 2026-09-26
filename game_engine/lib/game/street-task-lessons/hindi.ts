@@ -73,19 +73,19 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
   },
   "purani-sadak-bus": {
     easy: [
-      s("कहाँ जाना है?", "Kahaan jaana hai?", "Where are you going?", "चांदनी चौक", "Chandni Chowk", "Chandni Chowk"),
+      s("कहाँ जाना है?", "Kahaan jaana hai?", "Where are you going?", "कश्मीरी गेट", "Kashmiri Gate", "Kashmere Gate"),
       s("बीस रुपये", "Bees rupaye", "Twenty rupees", "ये लीजिए", "Ye lijiye", "Here you go"),
       s("लो, टिकट", "Lo, ticket", "Here, your ticket", "धन्यवाद", "Dhanyavaad", "Thank you"),
     ],
     medium: [
-      s("कहाँ जाना है?", "Kahaan jaana hai?", "Where are you going?", "चांदनी चौक", "Chandni Chowk", "Chandni Chowk"),
+      s("कहाँ जाना है?", "Kahaan jaana hai?", "Where are you going?", "कश्मीरी गेट", "Kashmiri Gate", "Kashmere Gate"),
       s("पीछे से चढ़ो, भीड़ है", "Peeche se chadho, bheed hai", "Board from the back, it's crowded", "ठीक है, पीछे से चढ़ता हूँ", "Theek hai, peeche se chadhta hoon", "Okay, I'll board from the back"),
       s("हाँ, बताइए", "Haan, bataiye", "Yes, tell me", "कितने का है?", "Kitne ka hai?", "How much is it?"),
       s("बीस रुपये", "Bees rupaye", "Twenty rupees", "ये लीजिए", "Ye lijiye", "Here you go"),
       s("लो, टिकट", "Lo, ticket", "Here, your ticket", "धन्यवाद", "Dhanyavaad", "Thank you"),
     ],
     hard: [
-      s("कहाँ जाना है?", "Kahaan jaana hai?", "Where are you going?", "चांदनी चौक", "Chandni Chowk", "Chandni Chowk"),
+      s("कहाँ जाना है?", "Kahaan jaana hai?", "Where are you going?", "कश्मीरी गेट", "Kashmiri Gate", "Kashmere Gate"),
       s("पीछे से चढ़ो, भीड़ है", "Peeche se chadho, bheed hai", "Board from the back, it's crowded", "ठीक है, पीछे से चढ़ता हूँ", "Theek hai, peeche se chadhta hoon", "Okay, I'll board from the back"),
       s("हाँ, बताइए", "Haan, bataiye", "Yes, tell me", "एक टिकट दीजिए", "Ek ticket dijiye", "One ticket, please"),
       s("बताइए", "Bataiye", "Tell me", "कितने का है?", "Kitne ka hai?", "How much is it?"),
@@ -94,18 +94,73 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("लो, टिकट", "Lo, ticket", "Here, your ticket", "धन्यवाद", "Dhanyavaad", "Thank you"),
     ],
   },
+  "purani-sadak-paranthe": {
+    easy: [
+      s("कौन सा पराँठा?", "Kaun sa paraantha?", "Which paratha?", "एक आलू पराँठा", "Ek aaloo paraantha", "One aloo paratha"),
+      s("चटनी साथ में?", "Chatni saath mein?", "Chutney with it?", "हाँ, चटनी दीजिए", "Haan, chatni dijiye", "Yes, chutney please"),
+      s("साठ रुपये", "Saath rupaye", "Sixty rupees", "ये लीजिए, धन्यवाद", "Ye lijiye, dhanyavaad", "Here you go, thank you"),
+    ],
+    medium: [
+      s("कौन सा पराँठा?", "Kaun sa paraantha?", "Which paratha?", "एक आलू पराँठा", "Ek aaloo paraantha", "One aloo paratha"),
+      s("एक ही?", "Ek hi?", "Just one?", "नहीं, दो दीजिए", "Nahin, do dijiye", "No, give me two"),
+      s("चटनी साथ में?", "Chatni saath mein?", "Chutney with it?", "हाँ, चटनी दीजिए", "Haan, chatni dijiye", "Yes, chutney please"),
+      s("बताइए", "Bataiye", "Tell me", "कितने पैसे हुए?", "Kitne paise hue?", "What do I owe you?"),
+      s("एक सौ बीस रुपये", "Ek sau bees rupaye", "A hundred and twenty rupees", "ये लीजिए, धन्यवाद", "Ye lijiye, dhanyavaad", "Here you go, thank you"),
+    ],
+    hard: [
+      s("कौन सा पराँठा?", "Kaun sa paraantha?", "Which paratha?", "एक आलू पराँठा", "Ek aaloo paraantha", "One aloo paratha"),
+      s("एक ही?", "Ek hi?", "Just one?", "नहीं, दो दीजिए", "Nahin, do dijiye", "No, give me two"),
+      s("गरम गरम, घी वाला", "Garam garam, ghee wala", "Piping hot, with ghee", "वाह, बहुत बढ़िया", "Waah, bahut badhiya", "Wow, excellent"),
+      s("चटनी साथ में?", "Chatni saath mein?", "Chutney with it?", "हाँ, चटनी दीजिए", "Haan, chatni dijiye", "Yes, chutney please"),
+      s("और कुछ?", "Aur kuch?", "Anything else?", "नहीं, बस", "Nahin, bas", "No, that's all"),
+      s("बताइए", "Bataiye", "Tell me", "कितने पैसे हुए?", "Kitne paise hue?", "What do I owe you?"),
+      s("एक सौ बीस रुपये", "Ek sau bees rupaye", "A hundred and twenty rupees", "ये लीजिए, धन्यवाद", "Ye lijiye, dhanyavaad", "Here you go, thank you"),
+    ],
+  },
   "purani-sadak-barber": {
     easy: [
       s("आइए, बैठिए। क्या करवाना है?", "Aaiye, baithiye. Kya karvaana hai?", "Come, sit down. What would you like done?", "बाल काट दीजिए", "Baal kaat dijiye", "Please cut my hair"),
       s("ठीक है, थोड़ा इंतज़ार करना होगा", "Theek hai, thoda intezaar karna hoga", "Alright, you'll have to wait a bit", "कितनी देर लगेगी?", "Kitni der lagegi?", "How long will it take?"),
+      s("दस मिनट", "Das minat", "Ten minutes", "ठीक है, रुकता हूँ", "Theek hai, rukta hoon", "Okay, I'll wait"),
     ],
     medium: [
       s("आइए, बैठिए। क्या करवाना है?", "Aaiye, baithiye. Kya karvaana hai?", "Come, sit down. What would you like done?", "बाल काट दीजिए", "Baal kaat dijiye", "Please cut my hair"),
       s("ठीक है, थोड़ा इंतज़ार करना होगा", "Theek hai, thoda intezaar karna hoga", "Alright, you'll have to wait a bit", "कितनी देर लगेगी?", "Kitni der lagegi?", "How long will it take?"),
+      s("दस मिनट", "Das minat", "Ten minutes", "ठीक है, रुकता हूँ", "Theek hai, rukta hoon", "Okay, I'll wait"),
+      s("हो गया। कैसा लगा?", "Ho gaya. Kaisa laga?", "Done. How does it look?", "बहुत बढ़िया! कितने हुए?", "Bahut badhiya! Kitne hue?", "Very nice! How much?"),
+      s("अस्सी रुपये", "Assi rupaye", "Eighty rupees", "ये लीजिए, शुक्रिया", "Ye lijiye, shukriya", "Here you go, thank you"),
     ],
     hard: [
       s("आइए, बैठिए। क्या करवाना है?", "Aaiye, baithiye. Kya karvaana hai?", "Come, sit down. What would you like done?", "बाल काट दीजिए", "Baal kaat dijiye", "Please cut my hair"),
       s("ठीक है, थोड़ा इंतज़ार करना होगा", "Theek hai, thoda intezaar karna hoga", "Alright, you'll have to wait a bit", "कितनी देर लगेगी?", "Kitni der lagegi?", "How long will it take?"),
+      s("दस मिनट", "Das minat", "Ten minutes", "ठीक है, रुकता हूँ", "Theek hai, rukta hoon", "Okay, I'll wait"),
+      s("छोटे या बस हल्के से?", "Chhote ya bas halke se?", "Short, or just a trim?", "बस हल्के से", "Bas halke se", "Just a trim"),
+      s("दाढ़ी भी बनाऊँ?", "Daadhi bhi banaaoon?", "Shave as well?", "नहीं, बस बाल", "Nahin, bas baal", "No, just the haircut"),
+      s("हो गया। कैसा लगा?", "Ho gaya. Kaisa laga?", "Done. How does it look?", "बहुत बढ़िया! कितने हुए?", "Bahut badhiya! Kitne hue?", "Very nice! How much?"),
+      s("अस्सी रुपये", "Assi rupaye", "Eighty rupees", "ये लीजिए, शुक्रिया", "Ye lijiye, shukriya", "Here you go, thank you"),
+    ],
+  },
+  "purani-sadak-minaret": {
+    easy: [
+      s("मीनार पर चढ़ना है?", "Meenaar par chadhna hai?", "Want to climb the minaret?", "हाँ, एक टिकट दीजिए", "Haan, ek ticket dijiye", "Yes, one ticket please"),
+      s("पहले जूते उतारिए", "Pehle joote utaariye", "Take your shoes off first", "ठीक है, कितने का?", "Theek hai, kitne ka?", "Okay, how much?"),
+      s("पचास रुपये", "Pachaas rupaye", "Fifty rupees", "ये लीजिए, शुक्रिया", "Ye lijiye, shukriya", "Here you go, thank you"),
+    ],
+    medium: [
+      s("मीनार पर चढ़ना है?", "Meenaar par chadhna hai?", "Want to climb the minaret?", "हाँ, एक टिकट दीजिए", "Haan, ek ticket dijiye", "Yes, one ticket please"),
+      s("पहले जूते उतारिए", "Pehle joote utaariye", "Take your shoes off first", "ठीक है, उतार दिए", "Theek hai, utaar diye", "Okay, they're off"),
+      s("सीढ़ियाँ तंग हैं, संभलकर", "Seedhiyaan tang hain, sambhalkar", "The stairs are narrow, careful", "जी, ध्यान रखूँगा", "Ji, dhyaan rakhunga", "Yes, I'll be careful"),
+      s("जी, बताइए", "Ji, bataiye", "Yes, tell me", "कितने का है?", "Kitne ka hai?", "How much is it?"),
+      s("पचास रुपये", "Pachaas rupaye", "Fifty rupees", "ये लीजिए, शुक्रिया", "Ye lijiye, shukriya", "Here you go, thank you"),
+    ],
+    hard: [
+      s("मीनार पर चढ़ना है?", "Meenaar par chadhna hai?", "Want to climb the minaret?", "हाँ, एक टिकट दीजिए", "Haan, ek ticket dijiye", "Yes, one ticket please"),
+      s("पहले जूते उतारिए", "Pehle joote utaariye", "Take your shoes off first", "ठीक है, उतार दिए", "Theek hai, utaar diye", "Okay, they're off"),
+      s("अकेले हैं या साथ में कोई?", "Akele hain ya saath mein koi?", "Alone, or is someone with you?", "अकेला हूँ", "Akela hoon", "I'm alone"),
+      s("सीढ़ियाँ तंग हैं, संभलकर", "Seedhiyaan tang hain, sambhalkar", "The stairs are narrow, careful", "जी, ध्यान रखूँगा", "Ji, dhyaan rakhunga", "Yes, I'll be careful"),
+      s("ऊपर से पूरी दिल्ली दिखती है", "Upar se poori Dilli dikhti hai", "You can see all of Delhi from the top", "वाह, ज़रूर देखूँगा", "Waah, zaroor dekhunga", "Wow, I'll be sure to look"),
+      s("जी, बताइए", "Ji, bataiye", "Yes, tell me", "कितने का है?", "Kitne ka hai?", "How much is it?"),
+      s("पचास रुपये", "Pachaas rupaye", "Fifty rupees", "ये लीजिए, शुक्रिया", "Ye lijiye, shukriya", "Here you go, thank you"),
     ],
   },
 };

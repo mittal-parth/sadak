@@ -1,24 +1,11 @@
 import type { LangCode } from "@/lib/sarvam";
 import { BARBER_TRACKS } from "./barber-tracks";
 
-/**
- * Offset from CHOWK centre. This sits mid-block on the north face of the block
- * south of the chowk, so the shopfront addresses the z=0 street head-on rather
- * than sitting diagonally on a junction corner. The z is set back far enough
- * that the corrugated sheet stops just inside the kerb rather than hanging over
- * the carriageway. It reads as one more shop in the terrace row, just a low one
- * set back far enough for its awning.
- */
-export const BARBER_POS: [number, number] = [0, -35.6];
-
 /** Rotation about Y so the door faces the road. Model fronts along +z. */
 export const BARBER_FACING = 0;
 
-/**
- * Footprint the terrace row must leave clear, as a half-extent in metres.
- * city.ts skips any plot that would land on top of this so the shop slots into
- * a real gap instead of clipping through a five-storey party wall.
- */
+/** The shop's footprint, half extents in metres: the map compiler leaves a
+ *  gap this size in a street frontage (scripts/osm/build.ts). */
 export const BARBER_PLOT = { hw: 3.2, hd: 2.4 };
 
 export const BARBER_ENTER_RADIUS = 4.5;

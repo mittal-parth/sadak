@@ -94,18 +94,73 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("લો, ટિકિટ", "Lo, ticket", "Here, your ticket", "આભાર", "Aabhaar", "Thank you"),
     ],
   },
+  "manek-chowk-kulfi": {
+    easy: [
+      s("શું લેશ?", "Shu lesh?", "What will you have?", "એક કુલ્ફી", "Ek kulfi", "One kulfi"),
+      s("પ્લેટમાં કે સ્ટિકમાં?", "Platemaan ke stickmaan?", "On a plate or on a stick?", "સ્ટિકમાં", "Stickmaan", "On a stick"),
+      s("ચાલીસ રૂપિયા", "Chaalis rupiya", "Forty rupees", "લો, આભાર", "Lo, aabhaar", "Here you go, thank you"),
+    ],
+    medium: [
+      s("શું લેશ?", "Shu lesh?", "What will you have?", "એક કુલ્ફી", "Ek kulfi", "One kulfi"),
+      s("કેસર કે મલાઈ?", "Kesar ke malai?", "Saffron or cream?", "કેસર આપો", "Kesar aapo", "Saffron, please"),
+      s("પ્લેટમાં કે સ્ટિકમાં?", "Platemaan ke stickmaan?", "On a plate or on a stick?", "સ્ટિકમાં", "Stickmaan", "On a stick"),
+      s("કહો", "Kaho", "Tell me", "કેટલા થયા?", "Ketlaa thaya?", "What do I owe you?"),
+      s("ચાલીસ રૂપિયા", "Chaalis rupiya", "Forty rupees", "લો, આભાર", "Lo, aabhaar", "Here you go, thank you"),
+    ],
+    hard: [
+      s("શું લેશ?", "Shu lesh?", "What will you have?", "એક કુલ્ફી", "Ek kulfi", "One kulfi"),
+      s("કેસર કે મલાઈ?", "Kesar ke malai?", "Saffron or cream?", "કેસર આપો", "Kesar aapo", "Saffron, please"),
+      s("રાત્રે અહીં બહુ ભીડ હોય છે", "Raatre ahin bahu bheed hoy che", "It gets very crowded here at night", "હા, બહુ મજા છે", "Haa, bahu majaa che", "Yes, it's great fun"),
+      s("પ્લેટમાં કે સ્ટિકમાં?", "Platemaan ke stickmaan?", "On a plate or on a stick?", "સ્ટિકમાં", "Stickmaan", "On a stick"),
+      s("બીજું કંઈ?", "Bijun kain?", "Anything else?", "ના, એટલું જ", "Naa, etlu j", "No, that's all"),
+      s("કહો", "Kaho", "Tell me", "કેટલા થયા?", "Ketlaa thaya?", "What do I owe you?"),
+      s("ચાલીસ રૂપિયા", "Chaalis rupiya", "Forty rupees", "લો, આભાર", "Lo, aabhaar", "Here you go, thank you"),
+    ],
+  },
   "manek-chowk-barber": {
     easy: [
       s("આવો, બેસો. શું કરવાનું છે?", "Aavo, beso. Shu karvaanu chhe?", "Come, sit. What needs doing?", "વાળ કાપી આપો", "Vaal kaapi aapo", "Please cut my hair"),
       s("ઠીક છે, થોડી રાહ જોવી પડશે", "Thik chhe, thodi raah jovi padshe", "Alright, you'll have to wait a bit", "કેટલો સમય લાગશે?", "Ketlo samay laagshe?", "How long will it take?"),
+      s("દસ મિનિટ", "Das minit", "Ten minutes", "ઠીક છે, રાહ જોઉં છું", "Thik chhe, raah jou chhu", "Okay, I'll wait"),
     ],
     medium: [
       s("આવો, બેસો. શું કરવાનું છે?", "Aavo, beso. Shu karvaanu chhe?", "Come, sit. What needs doing?", "વાળ કાપી આપો", "Vaal kaapi aapo", "Please cut my hair"),
       s("ઠીક છે, થોડી રાહ જોવી પડશે", "Thik chhe, thodi raah jovi padshe", "Alright, you'll have to wait a bit", "કેટલો સમય લાગશે?", "Ketlo samay laagshe?", "How long will it take?"),
+      s("દસ મિનિટ", "Das minit", "Ten minutes", "ઠીક છે, રાહ જોઉં છું", "Thik chhe, raah jou chhu", "Okay, I'll wait"),
+      s("થઈ ગયું. કેવું લાગે છે?", "Thai gayu. Kevu laage chhe?", "Done. How does it look?", "સરસ! કેટલા થયા?", "Saras! Ketlaa thayaa?", "Very nice! How much?"),
+      s("એંસી રૂપિયા", "Ensi rupiya", "Eighty rupees", "લો, આભાર", "Lo, aabhaar", "Here you go, thank you"),
     ],
     hard: [
       s("આવો, બેસો. શું કરવાનું છે?", "Aavo, beso. Shu karvaanu chhe?", "Come, sit. What needs doing?", "વાળ કાપી આપો", "Vaal kaapi aapo", "Please cut my hair"),
       s("ઠીક છે, થોડી રાહ જોવી પડશે", "Thik chhe, thodi raah jovi padshe", "Alright, you'll have to wait a bit", "કેટલો સમય લાગશે?", "Ketlo samay laagshe?", "How long will it take?"),
+      s("દસ મિનિટ", "Das minit", "Ten minutes", "ઠીક છે, રાહ જોઉં છું", "Thik chhe, raah jou chhu", "Okay, I'll wait"),
+      s("ટૂંકા કરું કે થોડા સરખા?", "Tunka karu ke thoda sarkha?", "Short, or just a trim?", "થોડા સરખા કરો", "Thoda sarkha karo", "Just a trim"),
+      s("દાઢી પણ કરું?", "Daadhi pan karu?", "Shave as well?", "ના, ફક્ત વાળ", "Naa, fakt vaal", "No, just the haircut"),
+      s("થઈ ગયું. કેવું લાગે છે?", "Thai gayu. Kevu laage chhe?", "Done. How does it look?", "સરસ! કેટલા થયા?", "Saras! Ketlaa thayaa?", "Very nice! How much?"),
+      s("એંસી રૂપિયા", "Ensi rupiya", "Eighty rupees", "લો, આભાર", "Lo, aabhaar", "Here you go, thank you"),
+    ],
+  },
+  "manek-chowk-masjid": {
+    easy: [
+      s("આવો, શું જોઈએ?", "Aavo, shu joie?", "Come, what do you need?", "મસ્જિદ જોઈ શકું?", "Masjid joi shaku?", "May I see the mosque?"),
+      s("હા, માથું ઢાંકો", "Haa, maathu dhaanko", "Yes, cover your head", "ઠીક છે, રૂમાલ છે", "Theek che, rumaal che", "Okay, I have a handkerchief"),
+      s("નમાજ વખતે અંદર ન જતા", "Namaaj vakhate andar na jataa", "Don't go in during prayers", "સમજી ગયો, આભાર", "Samji gayo, aabhaar", "Understood, thank you"),
+    ],
+    medium: [
+      s("આવો, શું જોઈએ?", "Aavo, shu joie?", "Come, what do you need?", "મસ્જિદ જોઈ શકું?", "Masjid joi shaku?", "May I see the mosque?"),
+      s("હા, માથું ઢાંકો", "Haa, maathu dhaanko", "Yes, cover your head", "ઠીક છે, રૂમાલ છે", "Theek che, rumaal che", "Okay, I have a handkerchief"),
+      s("જૂતા અહીં ઉતારો", "Joota ahin utaaro", "Leave your shoes here", "ક્યાં રાખું?", "Kyaan raakhu?", "Where do I keep them?"),
+      s("બાજુમાં ખાનામાં", "Baajumaan khaanaamaan", "In the rack alongside", "નમાજ કેટલા વાગે છે?", "Namaaj ketlaa vaage che?", "What time is the prayer?"),
+      s("એક વાગે જોહર", "Ek vaage johar", "Zuhr at one o'clock", "સમજી ગયો, આભાર", "Samji gayo, aabhaar", "Understood, thank you"),
+    ],
+    hard: [
+      s("આવો, શું જોઈએ?", "Aavo, shu joie?", "Come, what do you need?", "મસ્જિદ જોઈ શકું?", "Masjid joi shaku?", "May I see the mosque?"),
+      s("હા, માથું ઢાંકો", "Haa, maathu dhaanko", "Yes, cover your head", "ઠીક છે, રૂમાલ છે", "Theek che, rumaal che", "Okay, I have a handkerchief"),
+      s("જૂતા અહીં ઉતારો", "Joota ahin utaaro", "Leave your shoes here", "ક્યાં રાખું?", "Kyaan raakhu?", "Where do I keep them?"),
+      s("બાજુમાં ખાનામાં", "Baajumaan khaanaamaan", "In the rack alongside", "નમાજ કેટલા વાગે છે?", "Namaaj ketlaa vaage che?", "What time is the prayer?"),
+      s("એક વાગે જોહર", "Ek vaage johar", "Zuhr at one o'clock", "ત્યાં સુધી ફરી શકું?", "Tyaan sudhi fari shaku?", "May I walk round till then?"),
+      s("હા, હોજ સુધી જાઓ", "Haa, hoj sudhi jaao", "Yes, go as far as the tank", "ઠીક છે", "Theek che", "Okay"),
+      s("નમાજ વખતે અંદર ન જતા", "Namaaj vakhate andar na jataa", "Don't go in during prayers", "સમજી ગયો, આભાર", "Samji gayo, aabhaar", "Understood, thank you"),
     ],
   },
 };

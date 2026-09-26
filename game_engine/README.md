@@ -44,10 +44,10 @@ city**, so the four arcs are not the same shape.
 
 | District | City | Language | The job | Shape |
 | --- | --- | --- | --- | --- |
-| **Purani Sadak** | Old Delhi | हिन्दी | Raju's auto is gone, and Friday's loan instalment isn't | 3 open, then a 3-clue confrontation |
-| **Marina Nagar** | Chennai | தமிழ் | Selvi's fish tempo vanished; the catch rots by noon | 2 open, a 2-clue gate, then a 3-clue confrontation |
-| **Majestic Cross** | Bengaluru | ಕನ್ನಡ | A rented delivery scooter, cash bag still under the seat | 3 open, then a 2-clue confrontation |
-| **Park Gully** | Kolkata | বাংলা | A yellow Ambassador, and the photograph clipped to its visor | 2 open, a 1-clue gate, then a 3-clue confrontation |
+| **Chandni Chowk** | Old Delhi | हिन्दी | Raju's auto is gone, and Friday's loan instalment isn't | 3 open, then a 3-clue confrontation |
+| **Triplicane** | Chennai | தமிழ் | Selvi's fish tempo vanished; the catch rots by noon | 2 open, a 2-clue gate, then a 3-clue confrontation |
+| **Majestic** | Bengaluru | ಕನ್ನಡ | A rented delivery scooter, cash bag still under the seat | 3 open, then a 2-clue confrontation |
+| **Park Street** | Kolkata | বাংলা | A yellow Ambassador, and the photograph clipped to its visor | 2 open, a 1-clue gate, then a 3-clue confrontation |
 
 Nobody hands anything over. Kumar mocks you for saying "tea" instead of chai.
 Havaldar Singh throws you out if you hint at a bribe. Dass hardens if you accuse
@@ -124,9 +124,30 @@ Two things had to be right for this to work at all:
 
 ## The world
 
-- **Procedural city.** 6×6 blocks on a road grid, buildings with canvas-painted
-  facades (lit windows, balconies, shopfront awnings, rooftop water tanks, dish
-  antennas), pavements, streetlights, trees.
+- **Real neighbourhoods.** Each district is a 720m OpenStreetMap extract of
+  the place it is set in (Chandni Chowk, Dadar, Triplicane, Majestic, Park
+  Street, Charminar, Fort Kochi, Manek Chowk, the Golden Temple, Old Town
+  Bhubaneswar): the real street network, water, parks, railways, bus stops
+  and landmark sites. OSM has only a fraction of the ordinary buildings, so
+  the map compiler fills every street frontage with building plots in the
+  city's own grain, and the named landmarks are rebuilt as walkable monuments
+  on their footprints (Jama Masjid on its plinth, Charminar in its
+  roundabout, Harmandir Sahib in the sarovar).
+- **Streaming detail.** Every building has a cheap far version; tiles near
+  the player swap to full detail (recessed shops, windows, balconies, AC
+  units, laundry, lettered signs in the local script) a few milliseconds a
+  frame.
+- **Street life.** Traffic drives the real roads on the left, turns at real
+  junctions and fits the road (buses on arterials, scooters and cycle
+  rickshaws in the gullies); a dressed-per-city crowd walks the footpaths;
+  Mumbai's locals, Chennai's MRTS and Kolkata's trams run on their mapped
+  lines; underground metros get entrances with trilingual signs.
+- **Illustrated render.** Everything is cel-shaded (`lib/game/fx/toon.ts`):
+  flat light bands with shadows that shift toward a cool violet, a depth-based
+  ink line on silhouettes and creases, a split-tone grade, a painted sky with
+  flat cel clouds, and a hazy skyline past the map edge (`fx/celShader.ts`,
+  `fx/sky.ts`, `render.ts`). Per-district ink, tone and grade live in
+  `fx/presets.ts`.
 - **Per-district theming.** Sky gradient, fog, sun colour and intensity, ground,
   tarmac, building palette and traffic density all shift per city. Delhi is
   golden and dusty; Chennai is hard coastal light; Bengaluru is monsoon
@@ -209,6 +230,37 @@ fully walkable. Only conversation returns an error.
 >    memory to avoid most of it. For builds, exclude the folder from OneDrive
 >    sync or move the repo out of OneDrive.
 
+### District maps
+
+The maps in `public/maps/` are compiled from OpenStreetMap and committed, so
+the game never calls the OSM API. To rebuild them:
+
+```bash
+npx tsx scripts/osm/fetch.ts            # download extracts (needs network)
+npx tsx scripts/osm/build.ts            # compile public/maps/*.json
+npx tsx scripts/osm/write-task-positions.ts   # move tasks onto the map spots, write the re-seed
+npx tsx scripts/audit-colliders.ts [id]       # find invisible walls: blocked places with nothing drawn
+```
+
+`scripts/osm/cities.ts` holds each district's centre, building grain,
+landmark rules, task anchors and its city errand (the fifth task: paranthe in
+Chandni Chowk, a local train ticket at Dadar, langar at the Golden Temple, and
+so on — `errands` names the OSM place it happens at). Moving a task spot
+changes task positions: re-run the last script and apply the migration it
+writes (`supabase/migrations/012_osm_task_packs.sql`), which re-seeds every
+district's task pack.
+
+### Tests
+
+```bash
+npm test
+```
+
+Runs the `lib/**/*.test.ts` unit tests with Node's test runner (via `tsx`):
+cel material conversion, building geometry (including regressions for windows
+and shop bays hidden inside the wall), and sign/preset coverage for every
+district.
+
 ## Controls
 
 | | |
@@ -216,10 +268,12 @@ fully walkable. Only conversation returns an error.
 | `W` `A` `S` `D` | Move |
 | `←` `→` | Turn the camera (mouse also works, click to capture, or drag) |
 | `Shift` | Run |
-| `E` | Talk to a nearby NPC |
-| `Space` *(held)* | Speak, release to send — push-to-talk only |
+| `Space` | Jump (hold for a higher jump) |
+| `E` | Talk to a nearby NPC; skip a ride |
+| `M` | Full map of the district (or tap the minimap): drag to pan, scroll or pinch to zoom |
+| `Space` *(held, in a conversation)* | Speak, release to send — push-to-talk only |
 | `P` | Phrasebook for this district |
-| `Esc` | Back out: conversation, then pause menu (resume or leave district) |
+| `Esc` | Back out: conversation, map, then pause menu (resume or leave district) |
 
 In a live conversation the mic is already open, so there is nothing to hold:
 just talk, and use the mic button to mute yourself. On the push-to-talk
@@ -242,9 +296,14 @@ lib/
   game/
     districts.ts        THE BIBLE: themes, personas, missions, clues, finales
     prompt.ts           the prompts both paths share, built from the bible
-    city.ts             procedural city layout + colliders
+    world/              the district from its map: roads, areas, buildings,
+                        landmarks, street furniture, traffic, rails, collision
+    buildings.ts        facade geometry + the lived-in detail layer
+    signage.ts          per-language shop signboard atlas
     props.ts            autos, cows, buildings, stalls, characters
-    engine.ts           three.js scene, controller, camera, traffic
+    engine.ts           three.js scene, controller, camera, traffic, lights
+    render.ts           cel pipeline: scene -> ink/grade pass -> FXAA
+    fx/                 toon materials, cel shader, sky, per-district presets
 components/
   Title.tsx             landing page, Sarvam-aligned
   Game.tsx              shell: districts, wanted level, overlays
@@ -264,6 +323,15 @@ components/
   Kannada and Bengali are loaded explicitly rather than left to fallback.
 
 ## Provenance
+
+Map data © OpenStreetMap contributors, available under the Open Database
+License (ODbL 1.0): https://www.openstreetmap.org/copyright. The compiled maps
+in `public/maps/` are derived from it, and the game credits OSM on the minimap.
+
+The cel look (toon ramps with tinted shadow bands, the depth-based ink pass,
+the split-tone grade, painted sky and cloud cards) is adapted from
+[sakura-crossing](https://github.com/Kenton-GMI/sakura-crossing), MIT License,
+Copyright (c) 2026 Kenton Wang. The ported files carry that notice.
 
 Sibling to [kahani](https://github.com/harshagw/kahani), our AI game studio that
 generates isometric worlds from a text premise. Kahani's Sarvam TTS client is the

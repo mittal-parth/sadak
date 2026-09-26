@@ -23,49 +23,33 @@ import * as THREE from "three";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { MaterialLibrary } from "./materials";
 import type { Theme } from "./districts";
-import type { Box } from "./city";
 
 /* ------------------------------------------------------------------ *
  * Public API
  * ------------------------------------------------------------------ */
 
-export type ClutterOpts = {
-  /** Building/tree/etc colliders already in the scene — never spawn inside these. */
-  colliders: Box[];
-  /**
-   * The subset of `colliders` that are actual building footprints. Anything
-   * that mounts on a wall (posters, signboards, hoardings, a leaning bicycle)
-   * is placed against these, so a poster never ends up pasted to a parked car
-   * or floating in a tree. Defaults to `colliders`.
-   */
-  facades?: Box[];
-  /** Coordinates of every road centreline, used for BOTH axes (matches city.ts's grid). */
-  roadLines: number[];
-  /** Full road width. */
-  roadWidth: number;
-  /** Building block edge length (pavement squares are blockSize+5 on a side). */
-  blockSize: number;
-  /** Distance between consecutive road lines (block + road). */
-  spacing: number;
-  /** Centre of the open plaza, left lighter on clutter. */
-  chowk: { x: number; z: number };
-  /** Half-extent of the playable world; nothing spawns outside it. */
-  worldLimit: number;
-  /**
-   * World Y of the pavement top surface (city.ts's kerb block sits at 0.22,
-   * a 0.22-thick slab centred at y=0.11). Every ground-level prop is placed
-   * here, not at y=0 — get this wrong and short props (kerb chips, drain
-   * covers, puddles) end up buried under the pavement slab and invisible.
-   */
-  pavementY?: number;
-  /**
-   * Global multiplier on every prop count. The per-type weights are tuned for
-   * a maximally busy street; anything below 1 thins the whole scatter evenly,
-   * which is what you want when the street should read as lived-in rather than
-   * as a jumble sale. Defaults to 1.
-   */
+/**
+ * Where props can go, derived from the district map by the world builder.
+ * Placement never looks at the street network itself; it only asks for
+ * these, which keeps this file about props rather than about maps.
+ */
+export type ClutterSites = {
+  /** Kerb lines, ordered along the street: poles and wires stand on these. */
+  kerbs: [number, number][][];
+  /** A random clear point on a footpath or plaza, off the walking lines. */
+  ground(rand: () => number): { x: number; z: number } | null;
+  /** Street corners, with the clearance radius of the junction. */
+  junctions: { x: number; z: number; r: number }[];
+  /** Building fronts: centre of the street face, facing yaw, and width. */
+  fronts: { x: number; z: number; rot: number; w: number; top: number }[];
+  /** Busy spots (bazaar, temple gate) for stalls. */
+  squares: { x: number; z: number }[];
+  /** Is a circle of radius `margin` at (x, z) clear of everything? */
+  free(x: number, z: number, margin: number): boolean;
+  /** Walkable surface height. */
+  groundAt(x: number, z: number): number;
+  /** Global multiplier on every prop count. */
   density?: number;
-  /** Deterministic seed so the street looks the same on every reload. */
   seed?: number;
 };
 
@@ -176,82 +160,6 @@ function ownMat(roughness = 0.85, metalness = 0.05): THREE.MeshStandardMaterial 
 }
 
 /* ------------------------------------------------------------------ *
- * Placement helpers
- * ------------------------------------------------------------------ */
-
-type Placer = {
-  onRoad(x: number, z: number, margin?: number): boolean;
-  onBuilding(x: number, z: number, margin?: number): boolean;
-  free(x: number, z: number, margin?: number): boolean;
-  inBounds(x: number, z: number): boolean;
-};
-
-function makePlacer(opts: ClutterOpts): Placer {
-  const half = opts.roadWidth / 2;
-  return {
-    onRoad(x, z, margin = 0) {
-      for (const c of opts.roadLines) {
-        if (Math.abs(x - c) < half + margin) return true;
-        if (Math.abs(z - c) < half + margin) return true;
-      }
-      return false;
-    },
-    onBuilding(x, z, margin = 0.4) {
-      for (const b of opts.colliders) {
-        if (Math.abs(x - b.x) < b.hw + margin && Math.abs(z - b.z) < b.hd + margin) return true;
-      }
-      return false;
-    },
-    free(x, z, margin = 0.4) {
-      if (!this.inBounds(x, z)) return false;
-      if (this.onRoad(x, z, margin)) return false;
-      if (this.onBuilding(x, z, margin)) return false;
-      return true;
-    },
-    inBounds(x, z) {
-      return Math.abs(x) < opts.worldLimit && Math.abs(z) < opts.worldLimit;
-    },
-  };
-}
-
-/** Pavement squares reconstructed from adjacent road lines, the same maths
- * city.ts uses for its kerb blocks — but derived from the lines array so
- * this file never needs GRID/BLOCK constants of its own. */
-function pavementSquares(opts: ClutterOpts): { cx: number; cz: number; half: number }[] {
-  const lines = [...opts.roadLines].sort((a, b) => a - b);
-  const out: { cx: number; cz: number; half: number }[] = [];
-  const half = (opts.blockSize + 5) / 2;
-  for (let i = 0; i < lines.length - 1; i++) {
-    for (let j = 0; j < lines.length - 1; j++) {
-      out.push({ cx: (lines[i] + lines[i + 1]) / 2, cz: (lines[j] + lines[j + 1]) / 2, half });
-    }
-  }
-  return out;
-}
-
-/** Kerb-line runs: for every road line, both edges, as a set of straight
- * segments so poles/wires/kerb chips can walk along them. */
-function kerbRuns(opts: ClutterOpts): { fixed: number; axis: "x" | "z"; side: 1 | -1 }[] {
-  const runs: { fixed: number; axis: "x" | "z"; side: 1 | -1 }[] = [];
-  for (const c of opts.roadLines) {
-    // Road running north-south at x=c: kerbs run along z, offset in x.
-    runs.push({ fixed: c, axis: "z", side: 1 });
-    runs.push({ fixed: c, axis: "z", side: -1 });
-    // Road running east-west at z=c: kerbs run along x, offset in z.
-    runs.push({ fixed: c, axis: "x", side: 1 });
-    runs.push({ fixed: c, axis: "x", side: -1 });
-  }
-  return runs;
-}
-
-/** Every road intersection, the natural place for rubbish/carts to gather. */
-function intersections(opts: ClutterOpts): { x: number; z: number }[] {
-  const out: { x: number; z: number }[] = [];
-  for (const a of opts.roadLines) for (const b of opts.roadLines) out.push({ x: a, z: b });
-  return out;
-}
-
-/* ------------------------------------------------------------------ *
  * District weighting
  * ------------------------------------------------------------------ */
 
@@ -263,7 +171,7 @@ function districtWeights(landmark: Theme["landmark"]): Weights {
     groundPatch: 1, drainCover: 1, puddle: 1, rubble: 1,
     cart: 1, chairStack: 1, drum: 1, rubbishPile: 1, tyreStack: 1,
     sackBundle: 1, gasCylinder: 1, crate: 1, paanStall: 1,
-    signboard: 1, poster: 1, barberPole: 1, hoarding: 1,
+    poster: 1, barberPole: 1, hoarding: 1,
     pottedPlant: 1, bananaClump: 1, weed: 1,
     bicycle: 1, scooter: 1, coveredVehicle: 1,
   };
@@ -290,7 +198,7 @@ function districtWeights(landmark: Theme["landmark"]): Weights {
     case "ahmedabad":
       return { ...base, cart: 1.8, chairStack: 1.6, paanStall: 1.5, pottedPlant: 1.4, sackBundle: 1.4 };
     case "amritsar":
-      return { ...base, cart: 1.6, drum: 1.5, sackBundle: 1.7, signboard: 1.6, gasCylinder: 1.4 };
+      return { ...base, cart: 1.6, drum: 1.5, sackBundle: 1.7, gasCylinder: 1.4 };
     case "bhubaneswar":
       return { ...base, bananaClump: 1.7, weed: 1.6, pottedPlant: 1.6, groundPatch: 1.3, bicycle: 1.5 };
   }
@@ -505,17 +413,6 @@ function buildPaanStallGeo(): THREE.BufferGeometry {
   ]);
 }
 
-function buildSignboardGeo(): THREE.BufferGeometry {
-  const r = rng(41);
-  const colours = [0xd94f4f, 0x2f8f5a, 0xe0a52f, 0x2f6f9f, 0xf2f2ec];
-  const c = C(colours[Math.floor(r() * colours.length)]);
-  return merge([
-    box(1.5, 0.55, 0.06, 0, 0, 0, c),
-    box(0.05, 0.4, 0.05, -0.5, -0.4, 0.15, C(0x2a2a2a)),
-    box(0.05, 0.4, 0.05, 0.5, -0.4, 0.15, C(0x2a2a2a)),
-  ]);
-}
-
 function buildPosterGeo(): THREE.BufferGeometry {
   const r = rng(43);
   const colours = [0xc0392b, 0xf1c40f, 0x2980b9, 0x27ae60, 0xecf0f1, 0x8e44ad];
@@ -691,31 +588,27 @@ export function createClutter(
   scene: THREE.Object3D,
   theme: Theme,
   mats: MaterialLibrary | undefined,
-  opts: ClutterOpts
+  sites: ClutterSites
 ): Clutter {
   const group = new THREE.Group();
   group.name = "clutter";
-  const GY = opts.pavementY ?? 0.22;
-  const r = rng(opts.seed ?? 20260726);
-  const P = makePlacer(opts);
+  const r = rng(sites.seed ?? 20260726);
   const W = districtWeights(theme.landmark);
   // Scaling the weights rather than each call site keeps `density` honest: it
   // thins every prop type by the same proportion, so the district's character
   // (Bengaluru's scooters, Kolkata's wires) survives at any density.
-  const density = opts.density ?? 1;
+  const density = sites.density ?? 1;
   if (density !== 1) for (const k of Object.keys(W)) W[k] *= density;
-  const squares = pavementSquares(opts);
-  const runs = kerbRuns(opts);
-  const nodes = intersections(opts);
-  const facades = opts.facades ?? opts.colliders;
+  const Y = (x: number, z: number) => sites.groundAt(x, z);
+  const { kerbs, junctions, fronts, squares } = sites;
+  const n = (base: number, w: number) => Math.round(base * w);
 
   let instanceCount = 0;
   let drawCalls = 0;
-  const track = (n: number) => {
-    instanceCount += n;
-    if (n > 0) drawCalls++;
+  const track = (k: number) => {
+    instanceCount += k;
+    if (k > 0) drawCalls++;
   };
-
   const disposables: THREE.BufferGeometry[] = [];
   const track_ = (g: THREE.BufferGeometry) => {
     disposables.push(g);
@@ -729,72 +622,66 @@ export function createClutter(
    * ------------------------------------------------------------- */
 
   const poleStep = 11;
-  type PoleRec = { x: number; z: number; axis: "x" | "z"; side: 1 | -1; run: number };
+  type PoleRec = { x: number; z: number; run: number };
   const poles: PoleRec[] = [];
-
-  for (const run of runs) {
-    const runIdx = runs.indexOf(run);
-    const off = opts.roadWidth / 2 + 1.0;
-    for (let t = -opts.worldLimit + 8; t < opts.worldLimit; t += poleStep) {
-      const x = run.axis === "z" ? run.fixed + off * run.side : t;
-      const z = run.axis === "x" ? run.fixed + off * run.side : t;
-      if (!P.inBounds(x, z)) continue;
-      if (P.onBuilding(x, z, 0.6)) continue;
-      poles.push({ x, z, axis: run.axis, side: run.side, run: runIdx });
+  kerbs.forEach((run, runIdx) => {
+    let carry = 4;
+    for (let k = 0; k < run.length - 1; k++) {
+      const [ax, az] = run[k];
+      const [bx, bz] = run[k + 1];
+      const L = Math.hypot(bx - ax, bz - az);
+      let t = carry;
+      for (; t < L; t += poleStep) {
+        const x = ax + ((bx - ax) * t) / L;
+        const z = az + ((bz - az) * t) / L;
+        if (sites.free(x, z, 0.35)) poles.push({ x, z, run: runIdx });
+      }
+      carry = t - L;
     }
-  }
+  });
 
   {
     const geo = track_(buildPoleGeo());
-    const mat = metalMat;
-    const wanted = Math.round(poles.length * W.pole);
-    const list = poles.slice(0, Math.min(poles.length, wanted));
-    const n = spawn(group, geo, mat, list.length, r, (i, d, rr) => {
-      const p = list[i];
-      d.position.set(p.x, GY, p.z);
-      d.rotation.set((rr() - 0.5) * 0.05, rr() * Math.PI * 2, (rr() - 0.5) * 0.05);
-      const s = 0.85 + rr() * 0.3;
-      d.scale.set(s, s, s);
-      return true;
-    });
-    track(n);
+    const list = poles.slice(0, n(poles.length, W.pole));
+    track(
+      spawn(group, geo, metalMat, list.length, r, (i, d, rr) => {
+        const p = list[i];
+        d.position.set(p.x, Y(p.x, p.z), p.z);
+        d.rotation.set((rr() - 0.5) * 0.05, rr() * Math.PI * 2, (rr() - 0.5) * 0.05);
+        const s = 0.85 + rr() * 0.3;
+        d.scale.set(s, s, s);
+        return true;
+      })
+    );
   }
 
-  // Wires: connect consecutive poles along the same run.
+  // Wires: connect consecutive poles along the same kerb.
   {
     const wireGeo = track_(buildWireGeo(poleStep, 0.9));
     const wireMat = ownMat(0.6, 0.4);
-    const byRun = new Map<number, PoleRec[]>();
-    for (const p of poles) {
-      if (!byRun.has(p.run)) byRun.set(p.run, []);
-      byRun.get(p.run)!.push(p);
+    const spans: { x: number; z: number; y: number; ang: number; len: number }[] = [];
+    for (let i = 0; i < poles.length - 1; i++) {
+      const a = poles[i];
+      const b = poles[i + 1];
+      if (a.run !== b.run) continue;
+      const dist = Math.hypot(b.x - a.x, b.z - a.z);
+      if (dist > poleStep * 1.4) continue;
+      spans.push({ x: a.x, z: a.z, y: Y(a.x, a.z), ang: Math.atan2(b.z - a.z, b.x - a.x), len: dist });
     }
-    const spans: { x: number; z: number; ang: number }[] = [];
-    for (const list of byRun.values()) {
-      for (let i = 0; i < list.length - 1; i++) {
-        const a = list[i];
-        const b = list[i + 1];
-        const dx = b.x - a.x;
-        const dz = b.z - a.z;
-        const dist = Math.hypot(dx, dz);
-        if (dist > poleStep * 1.4) continue; // gap too big, poles not adjacent
-        spans.push({ x: a.x, z: a.z, ang: Math.atan2(dz, dx) });
-      }
-    }
-    const wanted = Math.round(spans.length * W.wire);
-    const list = spans.slice(0, Math.min(spans.length, wanted));
-    const n = spawn(group, wireGeo, wireMat, list.length, r, (i, d) => {
-      const s = list[i];
-      d.position.set(s.x, GY + 5.6, s.z);
-      d.rotation.y = -s.ang;
-      return true;
-    });
-    track(n);
+    const list = spans.slice(0, n(spans.length, W.wire));
+    track(
+      spawn(group, wireGeo, wireMat, list.length, r, (i, d) => {
+        const s = list[i];
+        d.position.set(s.x, s.y + 5.6, s.z);
+        d.rotation.y = -s.ang;
+        d.scale.x = s.len / poleStep;
+        return true;
+      })
+    );
 
     // Festoon bulbs sampled along the same catenary shape as the wire.
     const bulbGeo = track_(buildBulbGeo());
     const bulbMat = ownMat(0.4, 0.2);
-    const bulbSamples: { x: number; y: number; z: number }[] = [];
     const half = poleStep / 2;
     let a = poleStep;
     for (let iter = 0; iter < 30; iter++) {
@@ -802,359 +689,298 @@ export function createClutter(
       if (sag > 0.9) a *= 1.08;
       else a *= 0.93;
     }
+    const bulbs: { x: number; y: number; z: number }[] = [];
     for (const s of list) {
       for (const t of [0.25, 0.5, 0.75]) {
         const x = -half + t * poleStep;
         const y = -(a * (Math.cosh(x / a) - 1));
-        const along = x + half;
-        bulbSamples.push({
-          x: s.x + Math.cos(s.ang) * along,
-          y: GY + 5.6 + y,
-          z: s.z + Math.sin(s.ang) * along,
-        });
+        const along = (x + half) * (s.len / poleStep);
+        bulbs.push({ x: s.x + Math.cos(s.ang) * along, y: s.y + 5.6 + y, z: s.z + Math.sin(s.ang) * along });
       }
     }
-    const bWanted = Math.round(bulbSamples.length * W.bulb);
-    const bList = bulbSamples.slice(0, Math.min(bulbSamples.length, bWanted));
-    const bn = spawn(group, bulbGeo, bulbMat, bList.length, r, (i, d) => {
-      const p = bList[i];
-      d.position.set(p.x, p.y, p.z);
-      return true;
-    });
-    track(bn);
+    const bList = bulbs.slice(0, n(bulbs.length, W.bulb));
+    track(
+      spawn(group, bulbGeo, bulbMat, bList.length, r, (i, d) => {
+        const p = bList[i];
+        d.position.set(p.x, p.y, p.z);
+        return true;
+      })
+    );
   }
 
-  // Transformer boxes: mounted on roughly every 4th pole.
+  // Transformer boxes on roughly every 4th pole.
   {
     const geo = track_(buildTransformerGeo());
-    const wanted = Math.round((poles.length / 4) * W.transformerBox);
-    const n = spawn(group, geo, metalMat, wanted, r, (i, d, rr) => {
-      const p = poles[Math.floor(rr() * poles.length)];
-      if (!p) return false;
-      d.position.set(p.x, GY + 3.2 + rr() * 0.4, p.z);
-      d.rotation.y = rr() * Math.PI * 2;
-      return true;
-    });
-    track(n);
+    track(
+      spawn(group, geo, metalMat, n(poles.length / 4, W.transformerBox), r, (i, d, rr) => {
+        const p = poles[Math.floor(rr() * poles.length)];
+        if (!p) return false;
+        d.position.set(p.x, Y(p.x, p.z) + 3.2 + rr() * 0.4, p.z);
+        d.rotation.y = rr() * Math.PI * 2;
+        return true;
+      })
+    );
   }
 
   /* ------------------------------------------------------------- *
    * GROUND: kerb chips / broken paving / bricks, drain covers, puddles, rubble
    * ------------------------------------------------------------- */
 
+  const onGround = (margin: number, rr: () => number) => {
+    const p = sites.ground(rr);
+    return p && sites.free(p.x, p.z, margin) ? p : null;
+  };
+  const base = Math.max(40, fronts.length);
+
   {
     const geo = track_(buildGroundPatchGeo());
-    const mat = ownMat(0.95, 0.02);
-    const wanted = Math.round(squares.length * 9 * W.groundPatch);
-    const n = spawn(group, geo, mat, wanted, r, (i, d, rr) => {
-      const sq = squares[Math.floor(rr() * squares.length)];
-      const x = sq.cx + (rr() - 0.5) * sq.half * 1.8;
-      const z = sq.cz + (rr() - 0.5) * sq.half * 1.8;
-      if (!P.free(x, z, 0.3)) return false;
-      const kind = rr();
-      if (kind < 0.4) {
-        // kerb chip: small pale cube
-        d.scale.set(0.22 + rr() * 0.1, 0.12 + rr() * 0.06, 0.22 + rr() * 0.1);
-      } else if (kind < 0.75) {
-        // broken paving patch: wide, thin, dark
-        d.scale.set(0.6 + rr() * 0.5, 0.04, 0.5 + rr() * 0.4);
-      } else {
-        // loose brick
-        d.scale.set(0.2, 0.1, 0.42);
-      }
-      d.position.set(x, GY, z);
-      d.rotation.y = rr() * Math.PI * 2;
-      const tone = kind < 0.4 ? 0.75 + rr() * 0.15 : kind < 0.75 ? 0.15 + rr() * 0.1 : 0.5 + rr() * 0.15;
-      return kind < 0.75
-        ? new THREE.Color(tone, tone, tone)
-        : new THREE.Color(tone, tone * 0.55, tone * 0.4);
-    });
-    track(n);
+    track(
+      spawn(group, geo, ownMat(0.95, 0.02), n(base * 1.2, W.groundPatch), r, (i, d, rr) => {
+        const p = onGround(0.3, rr);
+        if (!p) return false;
+        const kind = rr();
+        if (kind < 0.4) d.scale.set(0.22 + rr() * 0.1, 0.12 + rr() * 0.06, 0.22 + rr() * 0.1);
+        else if (kind < 0.75) d.scale.set(0.6 + rr() * 0.5, 0.04, 0.5 + rr() * 0.4);
+        else d.scale.set(0.2, 0.1, 0.42);
+        d.position.set(p.x, Y(p.x, p.z), p.z);
+        d.rotation.y = rr() * Math.PI * 2;
+        const tone = kind < 0.4 ? 0.75 + rr() * 0.15 : kind < 0.75 ? 0.15 + rr() * 0.1 : 0.5 + rr() * 0.15;
+        return kind < 0.75 ? new THREE.Color(tone, tone, tone) : new THREE.Color(tone, tone * 0.55, tone * 0.4);
+      })
+    );
   }
 
   {
     const geo = track_(buildDrainCoverGeo());
-    const wanted = Math.round(squares.length * 2.4 * W.drainCover);
-    const n = spawn(group, geo, metalMat, wanted, r, (i, d, rr) => {
-      const sq = squares[Math.floor(rr() * squares.length)];
-      const x = sq.cx + (rr() - 0.5) * sq.half * 1.6;
-      const z = sq.cz + (rr() - 0.5) * sq.half * 1.6;
-      if (!P.free(x, z, 0.5)) return false;
-      d.position.set(x, GY, z);
-      d.rotation.y = rr() * Math.PI * 2;
-      return true;
-    });
-    track(n);
+    track(
+      spawn(group, geo, metalMat, n(base * 0.3, W.drainCover), r, (i, d, rr) => {
+        const p = onGround(0.5, rr);
+        if (!p) return false;
+        d.position.set(p.x, Y(p.x, p.z), p.z);
+        d.rotation.y = rr() * Math.PI * 2;
+        return true;
+      })
+    );
   }
 
   {
     const geo = track_(buildPuddleGeo());
-    const mat = ownMat(0.08, 0.6);
-    const wanted = Math.round(squares.length * 2.2 * W.puddle);
-    const n = spawn(group, geo, mat, wanted, r, (i, d, rr) => {
-      const run = runs[Math.floor(rr() * runs.length)];
-      const off = opts.roadWidth / 2 + 0.6 + rr() * 1.5;
-      const t = (rr() - 0.5) * opts.worldLimit * 1.8;
-      const x = run.axis === "z" ? run.fixed + off * run.side : t;
-      const z = run.axis === "x" ? run.fixed + off * run.side : t;
-      if (!P.free(x, z, 0.3)) return false;
-      const s = 0.5 + rr() * 1.1;
-      d.scale.set(s, 1, s * (0.7 + rr() * 0.5));
-      d.position.set(x, GY, z);
-      d.rotation.y = rr() * Math.PI * 2;
-      return true;
-    });
-    track(n);
+    track(
+      spawn(group, geo, ownMat(0.08, 0.6), n(base * 0.25, W.puddle), r, (i, d, rr) => {
+        const p = onGround(0.3, rr);
+        if (!p) return false;
+        const s = 0.5 + rr() * 1.1;
+        d.scale.set(s, 1, s * (0.7 + rr() * 0.5));
+        d.position.set(p.x, Y(p.x, p.z), p.z);
+        d.rotation.y = rr() * Math.PI * 2;
+        return true;
+      })
+    );
   }
+
+  /* ------------------------------------------------------------- *
+   * STREET CORNERS: rubble and clusters of carts, drums, crates
+   * ------------------------------------------------------------- */
+
+  const atCorner = (rr: () => number, margin: number) => {
+    if (!junctions.length) return null;
+    const j = junctions[Math.floor(rr() * junctions.length)];
+    const ang = rr() * Math.PI * 2;
+    const dist = j.r + 1.2 + rr() * 2.5;
+    const x = j.x + Math.cos(ang) * dist;
+    const z = j.z + Math.sin(ang) * dist;
+    return sites.free(x, z, margin) ? { x, z } : null;
+  };
 
   {
     const geo = track_(buildRubbleGeo());
-    const wanted = Math.round(squares.length * 1.6 * W.rubble);
-    const n = spawn(group, geo, ownMat(), wanted, r, (i, d, rr) => {
-      const node = nodes[Math.floor(rr() * nodes.length)];
-      const ang = rr() * Math.PI * 2;
-      const dist = opts.roadWidth / 2 + 1.5 + rr() * 3;
-      const x = node.x + Math.cos(ang) * dist;
-      const z = node.z + Math.sin(ang) * dist;
-      if (!P.free(x, z, 0.5)) return false;
-      d.position.set(x, GY, z);
-      d.rotation.y = rr() * Math.PI * 2;
-      const s = 0.7 + rr() * 0.6;
-      d.scale.set(s, s, s);
-      return true;
-    });
-    track(n);
+    track(
+      spawn(group, geo, ownMat(), n(junctions.length * 0.4, W.rubble), r, (i, d, rr) => {
+        const p = atCorner(rr, 0.5);
+        if (!p) return false;
+        d.position.set(p.x, Y(p.x, p.z), p.z);
+        d.rotation.y = rr() * Math.PI * 2;
+        const s = 0.7 + rr() * 0.6;
+        d.scale.set(s, s, s);
+        return true;
+      })
+    );
   }
 
-  /* ------------------------------------------------------------- *
-   * STREET FURNITURE: clusters at corners + near the chowk
-   * ------------------------------------------------------------- */
-
-  function furnitureCluster(
-    geo: THREE.BufferGeometry,
-    mat: THREE.Material,
-    perNode: number,
-    weight: number,
-    scaleJitter = 0.15
-  ) {
-    const wanted = Math.round(nodes.length * perNode * weight);
-    const n = spawn(group, geo, mat, wanted, r, (i, d, rr) => {
-      const node = nodes[Math.floor(rr() * nodes.length)];
-      const ang = rr() * Math.PI * 2;
-      const dist = opts.roadWidth / 2 + 1.2 + rr() * 2.5;
-      const x = node.x + Math.cos(ang) * dist;
-      const z = node.z + Math.sin(ang) * dist;
-      if (!P.free(x, z, 0.6)) return false;
-      d.position.set(x, GY, z);
-      d.rotation.y = rr() * Math.PI * 2;
-      const s = 1 - scaleJitter / 2 + rr() * scaleJitter;
-      d.scale.set(s, s, s);
-      return true;
-    });
-    track(n);
+  function furnitureCluster(geo: THREE.BufferGeometry, mat: THREE.Material, perNode: number, weight: number, jitter = 0.15) {
+    track(
+      spawn(group, geo, mat, n(junctions.length * perNode, weight), r, (i, d, rr) => {
+        const p = atCorner(rr, 0.6);
+        if (!p) return false;
+        d.position.set(p.x, Y(p.x, p.z), p.z);
+        d.rotation.y = rr() * Math.PI * 2;
+        const s = 1 - jitter / 2 + rr() * jitter;
+        d.scale.set(s, s, s);
+        return true;
+      })
+    );
   }
 
-  furnitureCluster(track_(buildCartGeo()), ownMat(), 0.45, W.cart);
-  furnitureCluster(track_(buildChairStackGeo()), ownMat(0.7), 0.35, W.chairStack);
-  furnitureCluster(track_(buildDrumGeo()), ownMat(0.6, 0.3), 0.35, W.drum);
-  furnitureCluster(track_(buildRubbishPileGeo()), ownMat(), 0.6, W.rubbishPile, 0.4);
-  furnitureCluster(track_(buildTyreStackGeo()), ownMat(0.9), 0.3, W.tyreStack);
-  furnitureCluster(track_(buildSackBundleGeo()), ownMat(), 0.5, W.sackBundle);
-  furnitureCluster(track_(buildGasCylinderGeo()), ownMat(0.4, 0.6), 0.3, W.gasCylinder);
-  furnitureCluster(track_(buildCrateGeo()), ownMat(), 0.5, W.crate);
+  furnitureCluster(track_(buildCartGeo()), ownMat(), 0.3, W.cart);
+  furnitureCluster(track_(buildChairStackGeo()), ownMat(0.7), 0.2, W.chairStack);
+  furnitureCluster(track_(buildDrumGeo()), ownMat(0.6, 0.3), 0.2, W.drum);
+  furnitureCluster(track_(buildRubbishPileGeo()), ownMat(), 0.3, W.rubbishPile, 0.4);
+  furnitureCluster(track_(buildTyreStackGeo()), ownMat(0.9), 0.15, W.tyreStack);
+  furnitureCluster(track_(buildSackBundleGeo()), ownMat(), 0.25, W.sackBundle);
+  furnitureCluster(track_(buildGasCylinderGeo()), ownMat(0.4, 0.6), 0.15, W.gasCylinder);
+  furnitureCluster(track_(buildCrateGeo()), ownMat(), 0.25, W.crate);
 
   {
-    // Paan stalls: a few, near the chowk specifically.
+    // Paan stalls at the busy spots.
     const geo = track_(buildPaanStallGeo());
-    const wanted = Math.max(2, Math.round(3 * W.paanStall));
-    const n = spawn(group, geo, ownMat(), wanted, r, (i, d, rr) => {
-      const ang = rr() * Math.PI * 2;
-      const dist = opts.blockSize * 0.3 + rr() * opts.blockSize * 0.3;
-      const x = opts.chowk.x + Math.cos(ang) * dist;
-      const z = opts.chowk.z + Math.sin(ang) * dist;
-      if (!P.free(x, z, 0.8)) return false;
-      d.position.set(x, GY, z);
-      d.rotation.y = rr() * Math.PI * 2;
-      return true;
-    });
-    track(n);
+    track(
+      spawn(group, geo, ownMat(), Math.max(2, n(squares.length * 1.5, W.paanStall)), r, (i, d, rr) => {
+        if (!squares.length) return false;
+        const sq = squares[Math.floor(rr() * squares.length)];
+        const ang = rr() * Math.PI * 2;
+        const x = sq.x + Math.cos(ang) * (4 + rr() * 6);
+        const z = sq.z + Math.sin(ang) * (4 + rr() * 6);
+        if (!sites.free(x, z, 0.8)) return false;
+        d.position.set(x, Y(x, z), z);
+        d.rotation.y = rr() * Math.PI * 2;
+        return true;
+      })
+    );
   }
 
   /* ------------------------------------------------------------- *
-   * SIGNAGE: mounted on / near building facades
+   * ON THE FRONTS: posters, barber poles, rooftop hoardings, bicycles
    * ------------------------------------------------------------- */
 
-  function facadePoint(b: Box, rr: () => number): { x: number; z: number; ny: number } {
-    // Pick one of the four sides, biased to the two long ones.
-    const side = Math.floor(rr() * 4);
-    const along = (rr() - 0.5) * 1.6;
-    switch (side) {
-      case 0: return { x: b.x + along * b.hw, z: b.z + b.hd + 0.12, ny: 0 };
-      case 1: return { x: b.x + along * b.hw, z: b.z - b.hd - 0.12, ny: Math.PI };
-      case 2: return { x: b.x + b.hw + 0.12, z: b.z + along * b.hd, ny: -Math.PI / 2 };
-      default: return { x: b.x - b.hw - 0.12, z: b.z + along * b.hd, ny: Math.PI / 2 };
+  /** A point on a building's street face, `out` metres in front of it. */
+  const front = (rr: () => number, out: number) => {
+    const f = fronts[Math.floor(rr() * fronts.length)];
+    const along = (rr() - 0.5) * f.w * 0.8;
+    const c = Math.cos(f.rot);
+    const s = Math.sin(f.rot);
+    // Local +x is (cos, -sin), local +z (the street) is (sin, cos).
+    return { x: f.x + along * c + out * s, z: f.z - along * s + out * c, ny: f.rot, top: f.top };
+  };
+
+  if (fronts.length) {
+    {
+      const geo = track_(buildPosterGeo());
+      track(
+        spawn(group, geo, ownMat(0.9), n(fronts.length * 0.5, W.poster), r, (i, d, rr) => {
+          const p = front(rr, 0.12);
+          d.position.set(p.x, 1.4 + rr() * 1.4, p.z);
+          d.rotation.y = p.ny;
+          const big = rr() > 0.8;
+          const s = big ? 1.8 + rr() * 0.6 : 0.6 + rr() * 0.3;
+          d.scale.set(s, s * (big ? 0.6 : 1), 1);
+          return true;
+        })
+      );
+    }
+    {
+      const geo = track_(buildBarberPoleGeo());
+      track(
+        spawn(group, geo, ownMat(0.5), Math.max(1, n(fronts.length * 0.03, W.barberPole)), r, (i, d, rr) => {
+          const p = front(rr, 0.5);
+          if (!sites.free(p.x, p.z, 0.2)) return false;
+          d.position.set(p.x, Y(p.x, p.z), p.z);
+          d.rotation.y = rr() * Math.PI * 2;
+          return true;
+        })
+      );
+    }
+    {
+      const geo = track_(buildHoardingGeo());
+      track(
+        spawn(group, geo, ownMat(0.4), Math.max(1, n(fronts.length * 0.04, W.hoarding)), r, (i, d, rr) => {
+          const p = front(rr, -1.5);
+          d.position.set(p.x, p.top + 1, p.z);
+          d.rotation.y = p.ny + Math.PI;
+          return true;
+        })
+      );
+    }
+    {
+      const geo = track_(buildBicycleGeo());
+      track(
+        spawn(group, geo, ownMat(0.5), n(fronts.length * 0.12, W.bicycle), r, (i, d, rr) => {
+          const p = front(rr, 0.45);
+          if (!sites.free(p.x, p.z, 0.3)) return false;
+          d.position.set(p.x, Y(p.x, p.z), p.z);
+          d.rotation.y = p.ny + Math.PI / 2 + (rr() - 0.5) * 0.4;
+          return true;
+        })
+      );
+    }
+    {
+      const geo = track_(buildPottedPlantGeo(theme.leaf));
+      track(
+        spawn(group, geo, ownMat(), n(fronts.length * 0.15, W.pottedPlant), r, (i, d, rr) => {
+          const p = front(rr, 0.4);
+          if (!sites.free(p.x, p.z, 0.3)) return false;
+          d.position.set(p.x, Y(p.x, p.z), p.z);
+          d.rotation.y = rr() * Math.PI * 2;
+          const s = 0.8 + rr() * 0.4;
+          d.scale.set(s, s, s);
+          return true;
+        })
+      );
     }
   }
 
-  {
-    const geo = track_(buildSignboardGeo());
-    const wanted = Math.round(facades.length * 0.9 * W.signboard);
-    const n = spawn(group, geo, ownMat(0.6), wanted, r, (i, d, rr) => {
-      const b = facades[Math.floor(rr() * facades.length)];
-      const p = facadePoint(b, rr);
-      d.position.set(p.x, GY + 3.4 + rr() * 1.2, p.z);
-      d.rotation.y = p.ny;
-      const s = 0.8 + rr() * 0.5;
-      d.scale.set(s, s, 1);
-      return true;
-    });
-    track(n);
-  }
-
-  {
-    const geo = track_(buildPosterGeo());
-    const wanted = Math.round(facades.length * 1.6 * W.poster);
-    const n = spawn(group, geo, ownMat(0.9), wanted, r, (i, d, rr) => {
-      const b = facades[Math.floor(rr() * facades.length)];
-      const p = facadePoint(b, rr);
-      d.position.set(p.x, GY + 1.4 + rr() * 1.4, p.z);
-      d.rotation.y = p.ny;
-      // occasionally scale up into a wall-advertising panel
-      const big = rr() > 0.8;
-      const s = big ? 1.8 + rr() * 0.6 : 0.6 + rr() * 0.3;
-      d.scale.set(s, s * (big ? 0.6 : 1), 1);
-      return true;
-    });
-    track(n);
-  }
-
-  {
-    const geo = track_(buildBarberPoleGeo());
-    const wanted = Math.max(1, Math.round(facades.length * 0.06 * W.barberPole));
-    const n = spawn(group, geo, ownMat(0.5), wanted, r, (i, d, rr) => {
-      const b = facades[Math.floor(rr() * facades.length)];
-      const p = facadePoint(b, rr);
-      d.position.set(p.x, GY, p.z);
-      d.rotation.y = rr() * Math.PI * 2;
-      return true;
-    });
-    track(n);
-  }
-
-  {
-    const geo = track_(buildHoardingGeo());
-    const wanted = Math.max(1, Math.round(facades.length * 0.1 * W.hoarding));
-    const n = spawn(group, geo, ownMat(0.4), wanted, r, (i, d, rr) => {
-      const b = facades[Math.floor(rr() * facades.length)];
-      const p = facadePoint(b, rr);
-      // approximate roof height from footprint; real height isn't passed in
-      const roofY = GY + 8 + rr() * 8;
-      d.position.set(p.x, roofY, p.z);
-      d.rotation.y = rr() * Math.PI * 2;
-      return true;
-    });
-    track(n);
-  }
-
   /* ------------------------------------------------------------- *
-   * VEGETATION
+   * VEGETATION AND PARKED BITS on open ground
    * ------------------------------------------------------------- */
-
-  {
-    const geo = track_(buildPottedPlantGeo(theme.leaf));
-    const wanted = Math.round(squares.length * 2.4 * W.pottedPlant);
-    const n = spawn(group, geo, ownMat(), wanted, r, (i, d, rr) => {
-      const sq = squares[Math.floor(rr() * squares.length)];
-      const x = sq.cx + (rr() - 0.5) * sq.half * 1.7;
-      const z = sq.cz + (rr() - 0.5) * sq.half * 1.7;
-      if (!P.free(x, z, 0.5)) return false;
-      d.position.set(x, GY, z);
-      d.rotation.y = rr() * Math.PI * 2;
-      const s = 0.8 + rr() * 0.4;
-      d.scale.set(s, s, s);
-      return true;
-    });
-    track(n);
-  }
 
   {
     const geo = track_(buildBananaClumpGeo());
-    const wanted = Math.max(1, Math.round(squares.length * 0.6 * W.bananaClump));
-    const n = spawn(group, geo, ownMat(), wanted, r, (i, d, rr) => {
-      const sq = squares[Math.floor(rr() * squares.length)];
-      const x = sq.cx + (rr() - 0.5) * sq.half * 1.6;
-      const z = sq.cz + (rr() - 0.5) * sq.half * 1.6;
-      if (!P.free(x, z, 0.7)) return false;
-      d.position.set(x, GY, z);
-      d.rotation.y = rr() * Math.PI * 2;
-      return true;
-    });
-    track(n);
+    track(
+      spawn(group, geo, ownMat(), n(base * 0.05, W.bananaClump), r, (i, d, rr) => {
+        const p = onGround(0.7, rr);
+        if (!p) return false;
+        d.position.set(p.x, Y(p.x, p.z), p.z);
+        d.rotation.y = rr() * Math.PI * 2;
+        return true;
+      })
+    );
   }
-
   {
     const geo = track_(buildWeedGeo());
-    const wanted = Math.round(squares.length * 14 * W.weed);
-    const n = spawn(group, geo, ownMat(1, 0), wanted, r, (i, d, rr) => {
-      const sq = squares[Math.floor(rr() * squares.length)];
-      const x = sq.cx + (rr() - 0.5) * sq.half * 1.95;
-      const z = sq.cz + (rr() - 0.5) * sq.half * 1.95;
-      if (P.onBuilding(x, z, 0.2)) return false;
-      if (!P.inBounds(x, z)) return false;
-      d.position.set(x, GY, z);
-      d.rotation.y = rr() * Math.PI * 2;
-      const s = 0.6 + rr() * 0.8;
-      d.scale.set(s, s, s);
-      return true;
-    });
-    track(n);
+    track(
+      spawn(group, geo, ownMat(1, 0), n(base * 1.2, W.weed), r, (i, d, rr) => {
+        const p = sites.ground(rr);
+        if (!p) return false;
+        d.position.set(p.x, Y(p.x, p.z), p.z);
+        d.rotation.y = rr() * Math.PI * 2;
+        const s = 0.6 + rr() * 0.8;
+        d.scale.set(s, s, s);
+        return true;
+      })
+    );
   }
-
-  /* ------------------------------------------------------------- *
-   * PARKED: bicycles, scooters, a covered vehicle
-   * ------------------------------------------------------------- */
-
-  {
-    const geo = track_(buildBicycleGeo());
-    const wanted = Math.round(facades.length * 0.4 * W.bicycle);
-    const n = spawn(group, geo, ownMat(0.5), wanted, r, (i, d, rr) => {
-      const b = facades[Math.floor(rr() * facades.length)];
-      const p = facadePoint(b, rr);
-      d.position.set(p.x, GY, p.z);
-      d.rotation.y = p.ny + (rr() - 0.5) * 0.4;
-      return true;
-    });
-    track(n);
-  }
-
   {
     const geo = track_(buildScooterGeo());
-    const wanted = Math.round(squares.length * 1.2 * W.scooter);
-    const n = spawn(group, geo, ownMat(0.55), wanted, r, (i, d, rr) => {
-      const sq = squares[Math.floor(rr() * squares.length)];
-      const x = sq.cx + (rr() - 0.5) * sq.half * 1.7;
-      const z = sq.cz + (rr() - 0.5) * sq.half * 1.7;
-      if (!P.free(x, z, 0.6)) return false;
-      d.position.set(x, GY, z);
-      d.rotation.y = rr() * Math.PI * 2;
-      return true;
-    });
-    track(n);
+    track(
+      spawn(group, geo, ownMat(0.55), n(base * 0.12, W.scooter), r, (i, d, rr) => {
+        const p = onGround(0.6, rr);
+        if (!p) return false;
+        d.position.set(p.x, Y(p.x, p.z), p.z);
+        d.rotation.y = rr() * Math.PI * 2;
+        return true;
+      })
+    );
   }
-
   {
     const geo = track_(buildCoveredVehicleGeo(theme.canopies[0] ?? 0x3a4a5a));
-    const wanted = Math.max(1, Math.round(squares.length * 0.3 * W.coveredVehicle));
-    const n = spawn(group, geo, ownMat(0.9), wanted, r, (i, d, rr) => {
-      const sq = squares[Math.floor(rr() * squares.length)];
-      const x = sq.cx + (rr() - 0.5) * sq.half * 1.5;
-      const z = sq.cz + (rr() - 0.5) * sq.half * 1.5;
-      if (!P.free(x, z, 1.2)) return false;
-      d.position.set(x, GY, z);
-      d.rotation.y = rr() * Math.PI * 2;
-      return true;
-    });
-    track(n);
+    track(
+      spawn(group, geo, ownMat(0.9), Math.max(1, n(base * 0.02, W.coveredVehicle)), r, (i, d, rr) => {
+        const p = onGround(1.2, rr);
+        if (!p) return false;
+        d.position.set(p.x, Y(p.x, p.z), p.z);
+        d.rotation.y = rr() * Math.PI * 2;
+        return true;
+      })
+    );
   }
 
   scene.add(group);

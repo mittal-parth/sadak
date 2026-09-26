@@ -152,7 +152,7 @@ export function makeArchedOpening(
 
   // Pointed arches rise higher than semicircular ones for the same span.
   const rise = style === "mughal" ? r * 1.5 : r;
-  const segs = 9;
+  const segs = 5;
   const thickness = 0.13;
 
   for (let i = 0; i < segs; i++) {

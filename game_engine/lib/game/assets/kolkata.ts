@@ -1,5 +1,5 @@
 /**
- * Kolkata / Park Gully kit.
+ * Kolkata / Park Street kit.
  *
  * Signature reads: a rounded 1950s yellow Ambassador (bulbous, unmistakably
  * not the boxy auto), a tram with a roof pantograph reaching for an overhead
@@ -20,8 +20,8 @@ import {
 } from "./shared";
 
 /* ------------------------------------------------------------------ *
- * Vehicle: yellow Ambassador taxi — rounded body, domed roof, bulging
- * fenders, round headlamps. Deliberately bulbous next to the boxy auto.
+ * Vehicle: yellow Ambassador taxi — the rounded three-box saloon, domed
+ * roof, chrome grille and bumpers, round headlamps.
  * ------------------------------------------------------------------ */
 export function makeAmbassadorTaxi(mats?: AssetMaterialLib, seed = 30): THREE.Group {
   const rand = mulberry32(seed);
@@ -35,45 +35,58 @@ export function makeAmbassadorTaxi(mats?: AssetMaterialLib, seed = 30): THREE.Gr
   const wheelParts: Part[] = [];
   const glassParts: Part[] = [];
 
-  // Main body: a rounded lower shell built from a stretched sphere rather
-  // than a box, so the fenders bulge instead of reading as a crate.
-  bodyParts.push({ geo: bakedSphere(1.0, 0, 0.72, 0, { wSeg: 14, hSeg: 10, sx: 2.15, sy: 0.62, sz: 1.0 }), mat: yellow });
-  // Domed cabin roof, set back towards the rear.
-  bodyParts.push({
-    geo: bakedSphere(0.78, 0, 1.18, -0.15, { wSeg: 14, hSeg: 8, thetaLength: Math.PI * 0.58, sx: 1.35, sy: 0.9, sz: 1.0 }),
-    mat: black,
-  });
-  // Rounded front and rear fender bulges.
-  for (const z of [1.55, -1.6]) {
-    bodyParts.push({ geo: bakedSphere(0.42, 0, 0.5, z, { wSeg: 10, hSeg: 8, sx: 1.1, sy: 0.85, sz: 0.7 }), mat: yellow });
+  // The Ambassador's three boxes, rounded off: a tall, softly curved body
+  // with the bonnet and boot lower than the waist, a cabin with upright
+  // glass under a domed roof, all in taxi yellow.
+  const W = 1.74;
+  bodyParts.push({ geo: bakedBox(W, 0.62, 3.9, 0, 0.72, 0), mat: yellow });
+  // Rounded shoulders along the sides, and the bonnet and boot humps.
+  for (const x of [-W / 2 + 0.06, W / 2 - 0.06]) {
+    bodyParts.push({ geo: bakedCyl(0.14, 0.14, 3.8, 10, x, 1.0, 0, Math.PI / 2), mat: yellow });
   }
-  // Running board strip along the base — a period-correct chrome accent.
-  trimParts.push({ geo: bakedBox(1.95, 0.08, 3.3, 0, 0.42, 0), mat: chrome });
-  trimParts.push({ geo: bakedBox(2.02, 0.05, 0.15, 0, 0.72, 1.68), mat: chrome }); // front bumper
-  trimParts.push({ geo: bakedBox(2.02, 0.05, 0.15, 0, 0.72, -1.68), mat: chrome }); // rear bumper
-
-  // Round headlamps, prominent and separate from the body — the classic
-  // Ambassador face.
-  for (const x of [-0.62, 0.62]) {
-    trimParts.push({ geo: bakedCyl(0.13, 0.13, 0.1, 12, x, 0.78, 1.68, Math.PI / 2), mat: chrome });
+  bodyParts.push({ geo: bakedCyl(0.55, 0.55, W - 0.3, 14, 0, 0.88, 1.35, 0, Math.PI / 2), mat: yellow });
+  bodyParts.push({ geo: bakedCyl(0.5, 0.5, W - 0.3, 14, 0, 0.86, -1.45, 0, Math.PI / 2), mat: yellow });
+  bodyParts.push({ geo: bakedBox(W - 0.1, 0.12, 1.3, 0, 1.06, 1.3), mat: yellow }); // bonnet
+  bodyParts.push({ geo: bakedBox(W - 0.1, 0.12, 0.9, 0, 1.04, -1.5), mat: yellow }); // boot
+  // Cabin: pillars and a domed roof over the glass.
+  const cz = -0.1;
+  const cl = 1.95;
+  for (const [x, z] of [[-0.72, cz + cl / 2 - 0.05], [0.72, cz + cl / 2 - 0.05], [-0.72, cz - cl / 2 + 0.05], [0.72, cz - cl / 2 + 0.05], [-0.74, cz], [0.74, cz]]) {
+    bodyParts.push({ geo: bakedBox(0.08, 0.42, 0.08, x, 1.3, z), mat: yellow });
   }
-  // Split windscreen + side glass band.
-  glassParts.push({ geo: bakedBox(1.1, 0.5, 0.06, 0, 1.05, 0.78, 0.15), mat: glass });
-  glassParts.push({ geo: bakedBox(0.06, 0.42, 1.5, 0.68, 1.05, -0.2), mat: glass });
-  glassParts.push({ geo: bakedBox(0.06, 0.42, 1.5, -0.68, 1.05, -0.2), mat: glass });
-
-  // Black roof-mounted taxi light box.
-  trimParts.push({ geo: bakedBox(0.3, 0.14, 0.16, 0, 1.66, -0.15), mat: black });
+  bodyParts.push({ geo: bakedBox(1.52, 0.06, cl, 0, 1.51, cz), mat: yellow });
+  bodyParts.push({ geo: bakedSphere(0.78, 0, 1.5, cz, { wSeg: 14, hSeg: 6, thetaLength: Math.PI * 0.5, sx: 0.98, sy: 0.16, sz: 1.25 }), mat: yellow });
+  // Glass all round the cabin.
+  glassParts.push({ geo: bakedBox(1.4, 0.36, 0.05, 0, 1.3, cz + cl / 2 - 0.02, 0.28), mat: glass });
+  glassParts.push({ geo: bakedBox(1.4, 0.36, 0.05, 0, 1.3, cz - cl / 2 + 0.02, -0.28), mat: glass });
+  for (const x of [-0.75, 0.75]) glassParts.push({ geo: bakedBox(0.04, 0.34, cl - 0.15, x, 1.3, cz), mat: glass });
+  // A black band along the waist, the way Kolkata paints them.
+  for (const x of [-W / 2 - 0.01, W / 2 + 0.01]) trimParts.push({ geo: bakedBox(0.02, 0.1, 3.6, x, 0.9, 0), mat: black });
+  // Chrome grille, bumpers and round headlamps: the classic face.
+  trimParts.push({ geo: bakedBox(1.0, 0.3, 0.05, 0, 0.8, 1.96), mat: chrome });
+  for (let k = -3; k <= 3; k++) trimParts.push({ geo: bakedBox(0.03, 0.28, 0.06, k * 0.14, 0.8, 1.98), mat: black });
+  trimParts.push({ geo: bakedBox(1.82, 0.12, 0.14, 0, 0.5, 2.0), mat: chrome });
+  trimParts.push({ geo: bakedBox(1.82, 0.12, 0.14, 0, 0.5, -2.0), mat: chrome });
+  for (const x of [-0.66, 0.66]) {
+    trimParts.push({ geo: bakedCyl(0.14, 0.14, 0.08, 12, x, 0.84, 1.96, Math.PI / 2), mat: chrome });
+    trimParts.push({ geo: bakedBox(0.16, 0.1, 0.04, x, 0.84, -1.97), mat: black }); // tail lamps
+  }
+  // The taxi light on the roof.
+  trimParts.push({ geo: bakedBox(0.34, 0.12, 0.18, 0, 1.68, cz + 0.5), mat: black });
+  // Wheel arches.
+  for (const [x, z] of [[-W / 2, 1.2], [W / 2, 1.2], [-W / 2, -1.25], [W / 2, -1.25]]) {
+    trimParts.push({ geo: bakedCyl(0.42, 0.42, 0.04, 14, x, 0.42, z, 0, Math.PI / 2), mat: black });
+  }
 
   // Wheels with a chrome hubcap.
   for (const [x, z] of [
-    [-0.85, 1.05],
-    [0.85, 1.05],
-    [-0.85, -1.1],
-    [0.85, -1.1],
+    [-0.78, 1.2],
+    [0.78, 1.2],
+    [-0.78, -1.25],
+    [0.78, -1.25],
   ]) {
-    wheelParts.push({ geo: bakedCyl(0.36, 0.36, 0.24, 14, x, 0.38, z, 0, Math.PI / 2), mat: black });
-    trimParts.push({ geo: bakedCyl(0.16, 0.16, 0.26, 10, x, 0.38, z, 0, Math.PI / 2), mat: chrome });
+    wheelParts.push({ geo: bakedCyl(0.36, 0.36, 0.22, 14, x, 0.36, z, 0, Math.PI / 2), mat: black });
+    trimParts.push({ geo: bakedCyl(0.16, 0.16, 0.24, 10, x, 0.36, z, 0, Math.PI / 2), mat: chrome });
   }
 
   void rand;

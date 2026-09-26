@@ -1,13 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import type { District } from "@/lib/game/districts";
-import { barberTaskFor, type DistrictTaskPack, type StreetTask } from "@/lib/game/tasks";
-import { barberTaskId } from "@/lib/game/barber";
+import type { DistrictTaskPack, StreetTask } from "@/lib/game/tasks";
 
 export type LoadedDistrict = {
   id: string;
   district: District;
   taskPack: DistrictTaskPack;
   tasks: StreetTask[];
+  /** The optional haircut, stored with the pack. */
+  barber: StreetTask;
 };
 
 type DistrictRow = {
@@ -35,11 +36,13 @@ export type DistrictListItem = {
 
 function rowToLoaded(row: DistrictRow): LoadedDistrict {
   const taskPack = row.task_pack;
+  if (!taskPack.barber) throw new Error(`District ${row.id}: its task pack has no barber (apply migration 012).`);
   return {
     id: row.id,
     district: row.district,
     taskPack,
     tasks: taskPack.tasks ?? [],
+    barber: taskPack.barber,
   };
 }
 
@@ -122,8 +125,7 @@ export function findTaskInLoaded(
 ): StreetTask | undefined {
   const inPack = loaded.tasks.find((t) => t.id === taskId);
   if (inPack) return inPack;
-  // The haircut is optional and lives outside the stored pack, so it has to be
-  // derived here or /api/talk and /api/speak would 404 on it.
-  if (taskId === barberTaskId(loaded.id)) return barberTaskFor(loaded.id);
+  // The haircut is stored beside the errands, not among them.
+  if (taskId === loaded.barber.id) return loaded.barber;
   return undefined;
 }
