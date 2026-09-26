@@ -27,7 +27,7 @@ import { OSM_CITIES, type OsmCity } from "./cities";
 import { planRoute, reachShare } from "../../lib/game/world/route";
 import { BARBER_PLOT } from "../../lib/game/barber";
 import { modelExtent } from "../../lib/game/world/extent";
-import { polylineLength } from "../../lib/game/world/roads";
+import { isDrivable, polylineLength } from "../../lib/game/world/roads";
 import { keyhole, precinctGates } from "./precinct";
 import { crossings } from "../../lib/game/world/precinct";
 import type {
@@ -1071,6 +1071,18 @@ function compile(city: OsmCity): MapData {
     }
   }
 
+  // A small gurdwara, mosque or temple in a bigger compound stands
+  // at the compound's street front (Sis Ganj opens on Chandni Chowk), not
+  // lost in its middle; its footprint shrinks to the model.
+  const AT_THE_FRONT = new Set(["gurdwara_small", "mosque_small", "dargah", "temple"]);
+  for (const l of landmarks) {
+    if (!AT_THE_FRONT.has(l.model)) continue;
+    const [mw, md] = modelExtent(l.model, l.w, l.d);
+    if (md >= l.d - 2) continue;
+    const back = (l.d - md) / 2;
+    Object.assign(l, { x: r1(l.x + Math.sin(l.rot) * back), z: r1(l.z + Math.cos(l.rot) * back), w: mw, d: md });
+  }
+
   // The models replace the OSM buildings under them (a mosque's own gates
   // and prayer hall, mapped as buildings, would otherwise wall off its
   // courtyard); the rest of a big compound keeps its real buildings.
@@ -1238,6 +1250,8 @@ function compile(city: OsmCity): MapData {
       // real footprints (Majestic's bus stand). With `clearance`, not against
       // one either.
       if (grid.near(x, z, clearance, BUILT)) continue;
+      // Never well out in another street's carriageway (a crossing main road).
+      if (roads.some((o) => o !== r && isDrivable(o) && nearestOnPolyline(o.pts, [x, z]).dist < o.w / 2 - 1)) continue;
       // Keep clear of spots already taken, so two set pieces never share a kerb.
       if (avoid.some((a) => Math.hypot(a.x - x, a.z - z) < (opts.avoidR ?? 12))) continue;
       if (opts.sight !== undefined && !inSight(x, z, opts.sightTo ?? p, opts.sight)) continue;
@@ -1417,16 +1431,26 @@ function compile(city: OsmCity): MapData {
   if (city.busNear && !stand) throw new Error(`${city.id}: bus stand ${city.busNear} not in the extract`);
   const byspread = (pts: Pt[]) => pts.filter(wellIn).sort((a, b) => spread(b) - spread(a));
   const busCandidates = [
-    ...(stand ? [() => busStop(frontOf(stand, 6), 0)] : []),
+    // Round all four sides of the stand, the front first.
+    ...(stand
+      ? [0, Math.PI, Math.PI / 2, -Math.PI / 2].map((turn) => () => {
+          const r = stand.rot + turn;
+          const out = (turn === 0 || turn === Math.PI ? stand.d : stand.w) / 2 + 6;
+          return busStop([stand.x + Math.sin(r) * out, stand.z + Math.cos(r) * out], 0);
+        })
+      : []),
     ...byspread(pois.filter((p) => p.kind === "bus_stop").map((p): Pt => [p.x, p.z])).map((p) => () => busStop(p, 0)),
     ...byspread(alongRoads(roads.filter(major), 25)).slice(0, 12).map((p) => () => busStop(p, 0)),
     () => busStop([spawn.x - 60, spawn.z + 30], 50),
     () => busStop([spawn.x + 60, spawn.z - 30], 50),
   ];
   let busSpot: Spot | null = null;
-  for (const make of busCandidates) {
+  const standCandidates = stand ? 4 : 0;
+  for (const [k, make] of busCandidates.entries()) {
     const st = make();
-    if (reachShare(routeMap, st.x, st.z, 4.2) >= 0.5 && busLeaves(st)) {
+    // A stop out in the town has to be on the connected streets; a bus
+    // stand's bays are on its own lanes, and the bus's own run proves it.
+    if ((k < standCandidates || reachShare(routeMap, st.x, st.z, 4.2) >= 0.5) && busLeaves(st)) {
       busSpot = st;
       break;
     }
@@ -1469,20 +1493,34 @@ function compile(city: OsmCity): MapData {
   // front if nothing is in the way, else the nearest kerb round it.
   function spawnSpot(): Spot {
     const at: Pt = [spawnMark!.x, spawnMark!.z];
-    // Far enough back to take the whole of it in.
-    const minDist = Math.max(spawnMark!.w, spawnMark!.d) / 2 + 22;
+    // Far enough back to take the whole of it in (further for a tall one).
+    const TALL: Record<string, number> = { charminar: 40 };
+    const size = Math.max(spawnMark!.w, spawnMark!.d);
+    const minDist = size / 2 + Math.min(22, Math.max(8, size * 0.6)) + (TALL[spawnMark!.model] ?? 0);
     const reach = Math.hypot(spawnMark!.w, spawnMark!.d) / 2 + 1.5;
     // Facing its entrance when the rule says where that is.
     const rule = city.landmarks.find((r) => r.match.test(spawnMark!.name));
     if ((rule?.faces ?? MODEL_FACES[spawnMark!.model]) !== undefined) {
-      const front = kerbSpotOrNull(frontOf(spawnMark!, 14), () => true, 0, [...Object.values(spots), ...Object.values(errandSpots)], 0, {
+      const front = kerbSpotOrNull(frontOf(spawnMark!, 14), (r) => r.foot > 0 || !drivable(r), 0, [...Object.values(spots), ...Object.values(errandSpots)], 0, {
+        avoidR: 8,
+        sight: reach,
+        sightTo: at,
+      }) ?? kerbSpotOrNull(frontOf(spawnMark!, 14), () => true, 0, [...Object.values(spots), ...Object.values(errandSpots)], 0, {
         avoidR: 8,
         sight: reach,
         sightTo: at,
       });
       if (front) return { ...front, yaw: +Math.atan2(at[0] - front.x, at[1] - front.z).toFixed(3) };
     }
-    const inView = kerbSpotOrNull(at, () => true, minDist, [...Object.values(spots), ...Object.values(errandSpots)], 0, { avoidR: 8, sight: reach });
+    // Off the carriageway: on a footpath, or a street no traffic uses (a
+    // player standing in a lane holds up the first bus behind them).
+    const offRoad = (r: MapRoad) => r.foot > 0 || !drivable(r);
+    const avoid = [...Object.values(spots), ...Object.values(errandSpots)];
+    const onFoot = kerbSpotOrNull(at, offRoad, minDist, avoid, 0, { avoidR: 8, sight: reach });
+    const anyKerb = kerbSpotOrNull(at, () => true, minDist, avoid, 0, { avoidR: 8, sight: reach });
+    // The footpath if it isn't much further away.
+    const dist = (sp: Spot) => Math.hypot(sp.x - at[0], sp.z - at[1]);
+    const inView = onFoot && (!anyKerb || dist(onFoot) <= dist(anyKerb) + 30) ? onFoot : anyKerb;
     if (inView) return inView;
     console.log(`${city.id}: no kerb with ${spawnMark!.name} in view; spawning at the nearest kerb`);
     return kerbSpot(at, () => true, minDist, [...Object.values(spots), ...Object.values(errandSpots)]);
@@ -1492,14 +1530,16 @@ function compile(city: OsmCity): MapData {
     // Footways count: the approach to a temple complex is often all paths.
     spawnSpot()
   );
-  // Keep the view from the spawn to its landmark open: nothing is built
-  // across it later.
+  // Keep the view from the spawn to its landmark open, and the camera's
+  // place behind the player: nothing is built across either later.
   {
     const L = Math.hypot(spawnMark.x - spawn.x, spawnMark.z - spawn.z);
     const reach = Math.hypot(spawnMark.w, spawnMark.d) / 2;
     if (L > reach) {
       const end: Pt = [spawn.x + ((spawnMark.x - spawn.x) * (L - reach)) / L, spawn.z + ((spawnMark.z - spawn.z) * (L - reach)) / L];
-      grid.stroke([[spawn.x, spawn.z], end], 2, RESERVED);
+      // And behind, where the camera follows.
+      const back: Pt = [spawn.x - ((spawnMark.x - spawn.x) * 10) / L, spawn.z - ((spawnMark.z - spawn.z) * 10) / L];
+      grid.stroke([back, end], 2, RESERVED);
     }
   }
   for (const s of [spawn, ...Object.values(spots), ...Object.values(errandSpots)]) grid.disc(s.x, s.z, 5, RESERVED);

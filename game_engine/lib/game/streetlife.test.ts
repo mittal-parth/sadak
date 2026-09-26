@@ -662,8 +662,10 @@ test("traffic stops short of someone standing in the lane", () => {
   });
   const start = new THREE.Vector3(map.spawn.x, 0, map.spawn.z);
   traffic.prime(start);
-  // Stand 6m ahead of one vehicle, in its lane, and let the street run.
-  const v = traffic.vehicles.find((x) => x.speed >= 0)!;
+  // Stand 6m ahead of one vehicle with a clear run of road before its next
+  // junction, in its lane, and let the street run.
+  const v = traffic.vehicles.find((x) => x.speed >= 0 && polylineLength(map.roads[x.road].pts) - x.p > 30)!;
+  assert.ok(v, "no vehicle with a clear run ahead");
   const ahead = new THREE.Vector3(
     v.mesh.position.x + Math.sin(v.yaw) * (v.halfLength + 6),
     0,
