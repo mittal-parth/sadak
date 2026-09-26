@@ -117,4 +117,18 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("ಮೂವತ್ತು ರೂಪಾಯಿ", "Muvattu rupaayi", "Thirty rupees", "ಇದು, ಧನ್ಯವಾದ", "Idu, dhanyavaada", "Here you go, thank you"),
     ],
   },
+  "majestic-cross-barber": {
+    easy: [
+      s("ಬನ್ನಿ, ಕೂತ್ಕೊಳ್ಳಿ. ಏನು ಮಾಡಬೇಕು?", "Banni, kootkolli. Enu maadabeku?", "Come, sit down. What should I do?", "ಕೂದಲು ಕತ್ತರಿಸಿ", "Koodalu kattarisi", "Please cut my hair"),
+      s("ಸರಿ, ಸ್ವಲ್ಪ ಕಾಯಬೇಕು", "Sari, swalpa kaayabeku", "Okay, you'll have to wait a little", "ಎಷ್ಟು ಹೊತ್ತು ಆಗುತ್ತೆ?", "Eshtu hottu aagutte?", "How long will it take?"),
+    ],
+    medium: [
+      s("ಬನ್ನಿ, ಕೂತ್ಕೊಳ್ಳಿ. ಏನು ಮಾಡಬೇಕು?", "Banni, kootkolli. Enu maadabeku?", "Come, sit down. What should I do?", "ಕೂದಲು ಕತ್ತರಿಸಿ", "Koodalu kattarisi", "Please cut my hair"),
+      s("ಸರಿ, ಸ್ವಲ್ಪ ಕಾಯಬೇಕು", "Sari, swalpa kaayabeku", "Okay, you'll have to wait a little", "ಎಷ್ಟು ಹೊತ್ತು ಆಗುತ್ತೆ?", "Eshtu hottu aagutte?", "How long will it take?"),
+    ],
+    hard: [
+      s("ಬನ್ನಿ, ಕೂತ್ಕೊಳ್ಳಿ. ಏನು ಮಾಡಬೇಕು?", "Banni, kootkolli. Enu maadabeku?", "Come, sit down. What should I do?", "ಕೂದಲು ಕತ್ತರಿಸಿ", "Koodalu kattarisi", "Please cut my hair"),
+      s("ಸರಿ, ಸ್ವಲ್ಪ ಕಾಯಬೇಕು", "Sari, swalpa kaayabeku", "Okay, you'll have to wait a little", "ಎಷ್ಟು ಹೊತ್ತು ಆಗುತ್ತೆ?", "Eshtu hottu aagutte?", "How long will it take?"),
+    ],
+  },
 };

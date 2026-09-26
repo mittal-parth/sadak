@@ -34,6 +34,8 @@ function kindFlavor(kind: TaskKind): string {
       return "You are the conductor, standing at the bus door. Schedules, destinations, and exact change matter; you do not hand tickets over until the details are clear.";
     case "counter":
       return "You sit behind a ticket window with a queue building. Destination, class and the fare first; you slide the ticket under the glass only once it is all clear.";
+    case "barber":
+      return "You run a one-chair shop and you are mid-shift. You want the details before you start — how short, beard or no beard — and you will happily talk cricket, politics or the neighbourhood while you work.";
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;

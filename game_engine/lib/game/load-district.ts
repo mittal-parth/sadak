@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { District } from "@/lib/game/districts";
-import type { DistrictTaskPack, StreetTask } from "@/lib/game/tasks";
+import { barberTaskFor, type DistrictTaskPack, type StreetTask } from "@/lib/game/tasks";
+import { barberTaskId } from "@/lib/game/barber";
 
 export type LoadedDistrict = {
   id: string;
@@ -119,5 +120,10 @@ export function findTaskInLoaded(
   loaded: LoadedDistrict,
   taskId: string,
 ): StreetTask | undefined {
-  return loaded.tasks.find((t) => t.id === taskId);
+  const inPack = loaded.tasks.find((t) => t.id === taskId);
+  if (inPack) return inPack;
+  // The haircut is optional and lives outside the stored pack, so it has to be
+  // derived here or /api/talk and /api/speak would 404 on it.
+  if (taskId === barberTaskId(loaded.id)) return barberTaskFor(loaded.id);
+  return undefined;
 }

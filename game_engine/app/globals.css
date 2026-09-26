@@ -23,6 +23,12 @@
   --chart-5: #7a83ff;
   --chart-active-dot: #000;
 
+  /* Speech grading — kept off the chart palette so the mic/info blue
+     (--chart-2) can't collide with the incorrect-word colour. */
+  --word-correct: #00d696;
+  --word-partial: #ff7a05;
+  --word-incorrect: #fa2c37;
+
   --font-indic: "Noto Sans Devanagari", "Noto Sans Tamil", "Noto Sans Kannada",
     "Noto Sans Bengali", "Noto Sans Telugu", "Noto Sans Malayalam",
     "Noto Sans Gujarati", "Noto Sans Gurmukhi", "Noto Sans Oriya", var(--font-sans),
@@ -44,6 +50,10 @@
   --chart-4: #00bd84;
   --chart-5: #7a83ff;
   --chart-active-dot: #fff;
+
+  --word-correct: #00bd84;
+  --word-partial: #eb6d00;
+  --word-incorrect: #e01b26;
 }
 
 @theme inline {
@@ -60,6 +70,9 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-word-correct: var(--word-correct);
+  --color-word-partial: var(--word-partial);
+  --color-word-incorrect: var(--word-incorrect);
 
   --spacing-boxShadowX: 4px;
   --spacing-boxShadowY: 4px;
@@ -135,16 +148,34 @@
   }
 
   .word-green {
-    @apply font-bold text-chart-4;
+    @apply font-bold text-word-correct;
   }
 
   .word-yellow {
-    @apply font-bold text-chart-3;
+    @apply font-bold text-word-partial;
   }
 
   .word-red {
-    @apply font-bold text-chart-2;
+    @apply font-bold text-word-incorrect;
   }
+}
+
+/* Cutscene backdrop fade. Deliberately additive: the element is visible at
+   opacity 1 by default and this only softens its arrival, so a browser that
+   skips the animation still shows the still rather than a black screen. */
+@keyframes barber-cut-fade {
+  from {
+    opacity: 0;
+    transform: scale(1.03);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.barber-cut-fade {
+  animation: barber-cut-fade 700ms ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {

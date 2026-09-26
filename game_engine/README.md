@@ -78,7 +78,7 @@ sentences you did not know before.
 ## The pipeline
 
 ```
-mic → saaras:v3 (STT) → sarvam-105b (in-character reply) → bulbul:v3 (TTS) → audio + subtitles
+mic → saaras:v4 (STT) → sarvam-105b (in-character reply) → bulbul:v3 (TTS) → audio + subtitles
 ```
 
 There are two ways to run that pipeline, and the game picks at the moment you

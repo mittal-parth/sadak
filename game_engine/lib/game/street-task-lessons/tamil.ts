@@ -117,4 +117,18 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("இருபது ரூபாய்", "Irupathu rupaai", "Twenty rupees", "இதோ, நன்றி", "Itho, nandri", "Here you go, thank you"),
     ],
   },
+  "marina-nagar-barber": {
+    easy: [
+      s("வாங்க, உட்காருங்க. என்ன பண்ணணும்?", "Vaanga, utkaarunga. Enna pannanum?", "Come, sit down. What should I do?", "முடி வெட்டுங்க", "Mudi vettunga", "Please cut my hair"),
+      s("சரி, கொஞ்சம் காத்திருக்கணும்", "Sari, konjam kaathirukkanum", "Okay, you'll have to wait a little", "எவ்வளவு நேரம் ஆகும்?", "Evvalavu neram aagum?", "How long will it take?"),
+    ],
+    medium: [
+      s("வாங்க, உட்காருங்க. என்ன பண்ணணும்?", "Vaanga, utkaarunga. Enna pannanum?", "Come, sit down. What should I do?", "முடி வெட்டுங்க", "Mudi vettunga", "Please cut my hair"),
+      s("சரி, கொஞ்சம் காத்திருக்கணும்", "Sari, konjam kaathirukkanum", "Okay, you'll have to wait a little", "எவ்வளவு நேரம் ஆகும்?", "Evvalavu neram aagum?", "How long will it take?"),
+    ],
+    hard: [
+      s("வாங்க, உட்காருங்க. என்ன பண்ணணும்?", "Vaanga, utkaarunga. Enna pannanum?", "Come, sit down. What should I do?", "முடி வெட்டுங்க", "Mudi vettunga", "Please cut my hair"),
+      s("சரி, கொஞ்சம் காத்திருக்கணும்", "Sari, konjam kaathirukkanum", "Okay, you'll have to wait a little", "எவ்வளவு நேரம் ஆகும்?", "Evvalavu neram aagum?", "How long will it take?"),
+    ],
+  },
 };

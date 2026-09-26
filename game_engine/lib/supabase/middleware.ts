@@ -3,7 +3,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabasePublishableKey, getSupabaseUrl } from "@/lib/supabase/env";
 
 function isPublicPath(pathname: string): boolean {
-  return pathname === "/login" || pathname.startsWith("/auth/");
+  return (
+    pathname === "/login" ||
+    pathname.startsWith("/auth/") ||
+    pathname === "/privacy" ||
+    pathname === "/terms"
+  );
 }
 
 export async function updateSession(request: NextRequest) {

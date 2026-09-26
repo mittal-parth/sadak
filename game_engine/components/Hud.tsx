@@ -36,6 +36,8 @@ function kindColour(kind: TaskKind, done: boolean): string {
       return "#3498db";
     case "counter":
       return "#9b59b6";
+    case "barber":
+      return "#33406b";
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;
@@ -55,6 +57,8 @@ function kindIcon(kind: TaskKind): string {
       return "🚌";
     case "counter":
       return "🎫";
+    case "barber":
+      return "💈";
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;
@@ -125,6 +129,8 @@ function kindLabel(kind: TaskKind): string {
       return "Bus";
     case "counter":
       return "Ticket";
+    case "barber":
+      return "Barber";
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;
@@ -191,11 +197,13 @@ function renderStreetMap(map: MapData): HTMLCanvasElement {
 function Minimap({
   live,
   tasks,
+  barber,
   size,
   map,
 }: {
   live: LiveState | null;
   tasks: TaskSnapshot[];
+  barber?: { x: number; z: number };
   size: number;
   map: MapData;
 }) {
@@ -208,6 +216,8 @@ function Minimap({
   // rebuilt when the (throttled) task list changes.
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
+  const barberRef = useRef(barber);
+  barberRef.current = barber;
   const liveRef = useRef(live);
   liveRef.current = live;
 
@@ -280,6 +290,26 @@ function Minimap({
         ctx.stroke();
       }
 
+      const b = barberRef.current;
+      if (b) {
+        const dotR = 4 * ui;
+        const sx = b.x * scale;
+        const sy = b.z * scale;
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
+        ctx.beginPath();
+        ctx.arc(sx + 1.2 * ui, sy + 1.2 * ui, dotR + 1.5 * ui, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#9b59b6";
+        ctx.beginPath();
+        ctx.arc(sx, sy, dotR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.45)";
+        ctx.lineWidth = Math.max(1, 1.5 * ui);
+        ctx.beginPath();
+        ctx.arc(sx, sy, dotR + 0.5 * ui, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
       ctx.restore();
 
       ctx.fillStyle = "#5ab0ff";
@@ -307,19 +337,21 @@ function Minimap({
 function MinimapPanel({
   live,
   tasks,
+  barber,
   size,
   map,
   onRecenter,
 }: {
   live: LiveState | null;
   tasks: TaskSnapshot[];
+  barber?: { x: number; z: number };
   size: number;
   map: MapData;
   onRecenter: () => void;
 }) {
   return (
     <div className="relative inline-block">
-      <Minimap live={live} tasks={tasks} size={size} map={map} />
+      <Minimap live={live} tasks={tasks} barber={barber} size={size} map={map} />
       {/* ODbL requires the attribution wherever the map data is shown. */}
       <span className="pointer-events-none absolute bottom-0.5 left-1 text-[8px] leading-none text-white/70">
         © OpenStreetMap contributors
@@ -428,6 +460,9 @@ export default function Hud({
   completed,
   errandProgress,
   onOpen,
+  barberNearby = false,
+  barberLabel = "Enter barber shop",
+  onEnterBarber,
   phrasesOpen,
   onTogglePhrases,
   onMenu,
@@ -455,6 +490,9 @@ export default function Hud({
   completed: Set<string>;
   errandProgress: { done: number; total: number };
   onOpen: () => void;
+  barberNearby?: boolean;
+  barberLabel?: string;
+  onEnterBarber?: () => void;
   phrasesOpen: boolean;
   onTogglePhrases: () => void;
   onMenu: () => void;
@@ -534,6 +572,7 @@ export default function Hud({
                     map={map}
                     live={live}
                     tasks={tel.tasks}
+                    barber={tel.barber}
                     size={mapSize}
                     onRecenter={onRecenter}
                   />
@@ -691,6 +730,7 @@ export default function Hud({
                     map={map}
                     live={live}
                     tasks={tel.tasks}
+                    barber={tel.barber}
                     size={mapSize}
                     onRecenter={onRecenter}
                   />
@@ -717,7 +757,7 @@ export default function Hud({
         </Button>
       )}
 
-      {nearbyTask && (
+      {nearbyTask ? (
         <Button
           className={cn(
             mobilePlay
@@ -730,7 +770,21 @@ export default function Hud({
           {!mobilePlay && <kbd>E</kbd>}
           {nearbyTask.interactLabel}
         </Button>
-      )}
+      ) : barberNearby && onEnterBarber ? (
+        <Button
+          className={cn(
+            mobilePlay
+              ? "pointer-events-auto absolute bottom-6 left-4 z-30 max-w-[min(14rem,calc(100vw-8rem))] text-sm"
+              : "absolute bottom-20 left-1/2 -translate-x-1/2"
+          )}
+          size={mobilePlay ? "default" : "lg"}
+          variant="neutral"
+          onClick={onEnterBarber}
+        >
+          {!mobilePlay && <kbd>E</kbd>}
+          {barberLabel}
+        </Button>
+      ) : null}
     </>
   );
 }

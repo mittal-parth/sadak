@@ -261,7 +261,7 @@ function runStt(pcmBuffer, sampleRate) {
   return new Promise((resolve, reject) => {
     const qs = new URLSearchParams({
       "language-code": LANGUAGE,
-      model: "saaras:v3",
+      model: "saaras:v4",
       mode: "transcribe",
       sample_rate: String(sampleRate),
       vad_signals: "true",

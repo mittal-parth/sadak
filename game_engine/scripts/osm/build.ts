@@ -25,6 +25,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { OSM_CITIES, type OsmCity } from "./cities";
 import { planRoute, reachShare } from "../../lib/game/world/route";
+import { BARBER_PLOT } from "../../lib/game/barber";
 import { polylineLength } from "../../lib/game/world/roads";
 import type {
   MapArea,
@@ -1188,7 +1189,83 @@ function compile(city: OsmCity): MapData {
 
   for (const s of [spawn, ...Object.values(spots), ...Object.values(errandSpots)]) grid.disc(s.x, s.z, 5, RESERVED);
 
+  // The barber's lock-up: a gap in a street frontage near the spawn (the
+  // bazaar street first), clear of the task spots, facing the street.
+  const setPiecesClear = [spawn, ...Object.values(spots), ...Object.values(errandSpots)];
+  const barber = frontageGap(BARBER_PLOT.hw * 2, BARBER_PLOT.hd * 2, setPiecesClear);
+  if (!barber) throw new Error(`${city.id}: no frontage gap for the barber near the spawn`);
+  grid.markBox(barber.x, barber.z, barber.yaw, BARBER_PLOT.hw * 2 + 0.6, BARBER_PLOT.hd * 2 + 0.6, BUILT);
+
+  // The tricolour: the nearest park or plaza to the spawn, else open ground.
+  const flag = flagSpot([...setPiecesClear, barber]);
+  grid.disc(flag.x, flag.z, 2.5, RESERVED);
+
   /* ---- frontage fill ---- */
+
+  /** A slot `w` wide and `d` deep against a street, front on the footpath,
+   *  nearest the spawn: the bazaar street if it has room within 150m, else
+   *  any street. Null if nothing fits. */
+  function frontageGap(w: number, d: number, clearOf: Spot[]): Spot | null {
+    const passes = [(r: MapRoad) => city.shopStreet.test(r.name ?? ""), () => true];
+    for (const pass of passes) {
+      let best: { spot: Spot; dist: number } | null = null;
+      for (const r of roads) {
+        if (r.cls === "footway" || r.cls === "steps" || r.cls === "pedestrian" || !pass(r)) continue;
+        const L = polylineLength(r.pts);
+        for (let s = 4; s < L - 4; s += 3) {
+          const n = nearestOnPolyline(r.pts, pointAlong(r.pts, s));
+          for (const side of [1, -1]) {
+            const nx = -n.dir[1] * side;
+            const nz = n.dir[0] * side;
+            const back = r.w / 2 + r.foot + d / 2 + 0.6;
+            const x = n.pt[0] + nx * back;
+            const z = n.pt[1] + nz * back;
+            const dist = Math.hypot(x - spawn.x, z - spawn.z);
+            if (dist > 150 || (best && dist >= best.dist)) continue;
+            if (Math.abs(x) > H - 30 || Math.abs(z) > H - 30) continue;
+            if (clearOf.some((c) => Math.hypot(c.x - x, c.z - z) < 14)) continue;
+            const yaw = Math.atan2(-nx, -nz);
+            if (!grid.boxFree(x, z, yaw, w + 0.6, d + 0.6)) continue;
+            best = { spot: { x: r1(x), z: r1(z), yaw: +yaw.toFixed(3) }, dist };
+          }
+        }
+      }
+      if (best) return best.spot;
+    }
+    return null;
+  }
+
+  /** The flagpole's spot: the middle of the nearest park or plaza (within
+   *  120m) that has open ground there, else open ground near the spawn. */
+  function flagSpot(clearOf: Spot[]): Spot {
+    const open = (x: number, z: number) => {
+      for (let dz = -2; dz <= 2; dz += 1) {
+        for (let dx = -2; dx <= 2; dx += 1) {
+          const v = grid.get(x + dx, z + dz);
+          if (v !== FREE && v !== AREA) return false;
+        }
+      }
+      const wet = areas.some((a) => (a.kind === "water" || a.kind === "sea") && pointInRing(x, z, a.pts));
+      return !wet && Math.abs(x) < H - 20 && Math.abs(z) < H - 20 && !clearOf.some((c) => Math.hypot(c.x - x, c.z - z) < 6);
+    };
+    const greens = areas
+      .filter((a) => a.kind === "park" || a.kind === "plaza")
+      .map((a) => ({ a, c: centroid(a.pts) }))
+      .filter(({ a, c }) => pointInRing(c[0], c[1], a.pts) && open(c[0], c[1]))
+      .map(({ c }) => ({ c, d: Math.hypot(c[0] - spawn.x, c[1] - spawn.z) }))
+      .filter(({ d }) => d < 120)
+      .sort((p, q) => p.d - q.d);
+    if (greens.length) return { x: r1(greens[0].c[0]), z: r1(greens[0].c[1]), yaw: 0 };
+    for (let r = 10; r < 120; r += 2) {
+      for (let k = 0; k < 24; k++) {
+        const a = (k / 24) * Math.PI * 2;
+        const x = spawn.x + Math.cos(a) * r;
+        const z = spawn.z + Math.sin(a) * r;
+        if (open(x, z)) return { x: r1(x), z: r1(z), yaw: 0 };
+      }
+    }
+    throw new Error(`${city.id}: no open ground for the flag near the spawn`);
+  }
 
   const rand = mulberry32(hashString(city.id));
   const plots: Plot[] = [];
@@ -1343,6 +1420,8 @@ function compile(city: OsmCity): MapData {
     spots,
     errandSpots,
     boards,
+    barber,
+    flag,
   };
 }
 

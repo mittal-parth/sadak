@@ -462,7 +462,10 @@ export default function Dialogue({
               <strong>{avgAccuracy}%</strong>
             </p>
             <p className="font-base text-chart-4">
-              +₹{target.reward} · {completionNoteGloss}
+              {/* Optional errands (the haircut) pay XP, not cash — showing
+                  "+₹0" would read as a bug rather than a design choice. */}
+              {target.reward > 0 ? `+₹${target.reward}` : `+${target.xpReward ?? 0} XP`} ·{" "}
+              {completionNoteGloss}
             </p>
             <Button type="button" className="mt-2 w-full max-w-xs" onClick={onClose}>
               {ui("done", baseLang)}

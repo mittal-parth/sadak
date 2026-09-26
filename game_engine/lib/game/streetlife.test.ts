@@ -69,6 +69,8 @@ function tinyMap(): MapData {
     pois: [],
     errandSpots: {},
     boards: [],
+    barber: { x: 0, z: 0, yaw: 0 },
+    flag: { x: 0, z: 0, yaw: 0 },
     spawn: { x: 10, z: 10, yaw: 0 },
     spots: {
       auto: { x: 20, z: 8, yaw: 0 },
@@ -572,6 +574,43 @@ test("real shops carry their own names: Park Street's Mocambo, Trincas, Peter Ca
   assert.ok(total > 150, `${total} real names across the cities`);
   const park = loadMap("park-gully").boards.map((b) => b.name);
   for (const n of ["Mocambo", "Trincas", "Peter Cat"]) assert.ok(park.includes(n), `no ${n} on Park Street`);
+});
+
+test("every district has room for the barber's lock-up and the tricolour near the spawn", () => {
+  for (const d of SEED_DISTRICTS) {
+    const map = loadMap(d.id);
+    const solid = new CollisionWorld();
+    for (const p of map.plots) solid.box(p.x, p.z, p.w / 2, p.d / 2, p.rot);
+    for (const b of map.buildings) if (!b.canopy) solid.add({ kind: "poly", outer: b.pts, holes: b.holes ?? [] });
+    for (const a of map.areas) if (a.kind === "water" || a.kind === "sea") solid.add({ kind: "poly", outer: a.pts, holes: a.holes ?? [] });
+
+    const { barber, flag, spawn } = map;
+    assert.ok(Math.hypot(barber.x - spawn.x, barber.z - spawn.z) <= 150, `${d.id}: barber far from the spawn`);
+    // The lock-up's whole footprint is clear, and its door looks onto a street.
+    const c = Math.cos(barber.yaw);
+    const sn = Math.sin(barber.yaw);
+    for (const [u, v] of [[-3, -2.2], [3, -2.2], [-3, 2.2], [3, 2.2], [0, 0]]) {
+      assert.equal(solid.blocked(barber.x + u * c + v * sn, barber.z - u * sn + v * c, 0.2), false, `${d.id}: barber overlaps a building`);
+    }
+    const door = [barber.x + sn * 6, barber.z + c * 6];
+    const onStreet = map.roads.some((r) =>
+      r.pts.some((p, i) => {
+        if (i === r.pts.length - 1) return false;
+        const [ax, az] = p;
+        const [bx, bz] = r.pts[i + 1];
+        const L2 = (bx - ax) ** 2 + (bz - az) ** 2 || 1e-9;
+        const t = Math.max(0, Math.min(1, ((door[0] - ax) * (bx - ax) + (door[1] - az) * (bz - az)) / L2));
+        return Math.hypot(door[0] - ax - t * (bx - ax), door[1] - az - t * (bz - az)) < r.w / 2 + r.foot + 1;
+      })
+    );
+    assert.ok(onStreet, `${d.id}: the barber's door faces no street`);
+    for (const s of [spawn, ...Object.values(map.spots), ...Object.values(map.errandSpots)]) {
+      assert.ok(Math.hypot(s.x - barber.x, s.z - barber.z) >= 14, `${d.id}: barber on a task spot`);
+    }
+
+    assert.equal(solid.blocked(flag.x, flag.z, 1), false, `${d.id}: the flag stands in a building or the water`);
+    assert.ok(Math.hypot(flag.x - spawn.x, flag.z - spawn.z) <= 120, `${d.id}: the flag is out of sight`);
+  }
 });
 
 test("footpaths stop short of junctions", () => {

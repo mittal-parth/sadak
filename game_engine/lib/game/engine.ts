@@ -6,6 +6,8 @@ import { Rides } from "./rides";
 import { Parts } from "./world/vc";
 import type { MapData, Spot } from "./world/mapData";
 import { makeMissionShopStall, makeStreetMandir } from "./assets/index";
+import { makeBarberShop } from "./assets/barber";
+import { BARBER_ENTER_RADIUS, BARBER_FACING, barberSignFor } from "./barber";
 import {
   makePerson,
   makeIdlePose,
@@ -33,6 +35,10 @@ export type TaskSnapshot = {
 export type Telemetry = {
   /** Task the player can interact with right now, if any. */
   nearby: string | null;
+  /** True when the player is in range of the barber shop (vibes-only landmark). */
+  nearBarber: boolean;
+  /** World position of the barber shop, for the minimap blip. */
+  barber: { x: number; z: number };
   playerX: number;
   playerZ: number;
   /** Camera yaw in radians. The minimap rotates with it. */
@@ -123,6 +129,8 @@ function markerColourForKind(kind: TaskKind): number {
       return 0x3498db;
     case "counter":
       return 0x9b59b6;
+    case "barber":
+      return 0x33406b;
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;
@@ -339,6 +347,8 @@ export class Game {
   public readonly live: LiveState = { x: 0, z: 0, heading: 0, speed: 0 };
   private telemetryAccum = 0;
   private lastNearby: string | null = null;
+  private lastNearBarber = false;
+  private barberWorld = { x: 0, z: 0 };
   private materials!: MaterialLibrary;
   private vehicleMats = createVehicleMaterials();
   /** Vertex-colour material shared by every bus body and two-wheeler. */
@@ -446,7 +456,26 @@ export class Game {
     this.scene.add(this.world.group);
     this.rides = new Rides(this.scene, this.world, this.map, this.district, this.vehicleMats, this.transitMat);
     this.buildTaskSites();
+    this.buildBarberSite();
     this.world.prime(this.playerPos);
+  }
+
+  /** Vibes-only barber shop, in the gap the map compiler left for it in a
+   *  street frontage near the spawn, facing the street. */
+  private buildBarberSite() {
+    const { x, z, yaw } = this.map.barber;
+    this.barberWorld = { x, z };
+
+    const anchor = new THREE.Group();
+    anchor.position.set(x, this.world.height.at(x, z), z);
+    anchor.rotation.y = yaw;
+
+    const shop = makeBarberShop(barberSignFor(this.district.language));
+    shop.rotation.y = BARBER_FACING;
+    anchor.add(shop);
+    this.scene.add(anchor);
+
+    this.world.collide.box(x, z, 2.15, 1.75, yaw);
   }
 
   /** Parked autos, stalls, temple sellers, and bus stops — each is a mission. */
@@ -1092,6 +1121,14 @@ export class Game {
     return nearby;
   }
 
+  private findNearBarber(): boolean {
+    const d = Math.hypot(
+      this.playerPos.x - this.barberWorld.x,
+      this.playerPos.z - this.barberWorld.z
+    );
+    return d < BARBER_ENTER_RADIUS;
+  }
+
   /**
    * Publishes to React. Called at TELEMETRY_HZ, or immediately whenever the
    * nearby task changes so the "press E to talk" prompt still feels instant.
@@ -1103,13 +1140,15 @@ export class Game {
     this.live.speed = this.velocity.length();
 
     const nearby = this.findNearby();
+    const nearBarber = this.findNearBarber();
     this.telemetryAccum += dt;
 
     const due = this.telemetryAccum >= 1 / TELEMETRY_HZ;
-    if (!due && nearby === this.lastNearby) return;
+    if (!due && nearby === this.lastNearby && nearBarber === this.lastNearBarber) return;
 
     this.telemetryAccum = 0;
     this.lastNearby = nearby;
+    this.lastNearBarber = nearBarber;
 
     const tasks: TaskSnapshot[] = this.tasks.map((task) => {
       const anchor = this.taskAnchors.get(task.id)!;
@@ -1124,6 +1163,8 @@ export class Game {
 
     this.onTelemetry({
       nearby,
+      nearBarber,
+      barber: this.barberWorld,
       playerX: this.live.x,
       playerZ: this.live.z,
       heading: this.live.heading,

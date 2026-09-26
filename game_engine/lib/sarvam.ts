@@ -4,7 +4,7 @@
  * Base URL + auth header per https://docs.sarvam.ai/api/getting-started/quickstart.md
  *   chat : POST /v1/chat/completions   (sarvam-105b | sarvam-30b)
  *   tts  : POST /text-to-speech        (bulbul:v3)
- *   stt  : POST /speech-to-text        (saaras:v3, multipart)
+ *   stt  : POST /speech-to-text        (saaras:v4, multipart)
  *
  * The TTS shape here follows the pattern already proven in Kahani.
  */
@@ -184,6 +184,31 @@ export async function sarvamTTS(
 }
 
 /**
+ * Saaras v4 keyterm prompting for graded lesson lines (REST STT only).
+ * Up to 50 terms, ≤64 chars each; omitted for en-IN. Extracted from
+ * street-task-lessons prompt.native place/food names.
+ */
+const SAARAS_KEYTERMS: { readonly [K in LangCode]: readonly string[] } = {
+  "hi-IN": ["नई दिल्ली रेलवे स्टेशन", "चांदनी चौक", "कचौड़ी", "कटिंग चाय"],
+  "ta-IN": ["டி நகர்", "மெரினா", "மசாலா தோசை"],
+  "pa-IN": ["ਸ੍ਰੀ ਹਰਿਮੰਦਰ ਸਾਹਿਬ", "ਹਾਲ ਬਜ਼ਾਰ", "ਲੱਸੀ"],
+  "ml-IN": ["എറണാകുളം South", "Fort Kochi", "പുട്ട്", "puttu"],
+  "bn-IN": ["হাওড়া স্টেশন", "এসপ্ল্যানেড", "শিঙ্গারা", "কচুরি"],
+  "te-IN": ["సికింద్రాబాద్ రైల్వే స్టేషన్", "గోల్కుండ", "మిర్చి బజ్జీలు", "బజ్జీలు"],
+  "mr-IN": ["दादर रेल्वे स्टेशन", "बांद्रा", "वडा पाव", "कटिंग"],
+  "gu-IN": ["કાલુપુર રેલવે સ્ટેશન", "લો ગાર્ડન", "ફાફડા", "જલેબી", "ફાફડા-જલેબી", "છાશ"],
+  "kn-IN": ["ಮೆಜೆಸ್ಟಿಕ್ ಬಸ್ ಸ್ಟ್ಯಾಂಡ್", "ಶಿವಾಜಿನಗರ", "ಇಡ್ಲಿ", "ವಡೆ"],
+  "od-IN": ["ମାଷ୍ଟର କ୍ୟାଣ୍ଟିନ", "KIIT square", "ପଖଳା"],
+  "en-IN": [],
+};
+
+/** Returns the district's keyterms, or undefined when the field should be omitted. */
+export function saarasKeyterms(language: LangCode): readonly string[] | undefined {
+  const terms = SAARAS_KEYTERMS[language];
+  return terms.length > 0 ? terms : undefined;
+}
+
+/**
  * Transcribes a recorded audio blob. `mode` "transcribe" keeps the source script.
  *
  * `opts.retry === false` skips the usual retry-with-backoff wrapper. Used by the
@@ -203,10 +228,24 @@ export async function sarvamSTT(
   // corrupt file to Sarvam ("Failed to read the file") even when the Blob is fine.
   const call = async () => {
     const form = new FormData();
+    const mode = opts.mode ?? "transcribe";
+    const keyterms = opts.language ? saarasKeyterms(opts.language) : undefined;
     form.append("file", audio, "speech.webm");
-    form.append("model", "saaras:v3");
-    form.append("mode", opts.mode ?? "transcribe");
-    if (opts.language) form.append("language_code", opts.language);
+    form.append("model", "saaras:v4");
+    form.append("mode", mode);
+    if (opts.language) {
+      form.append("language_code", opts.language);
+      // Multipart field is a JSON array string per Sarvam REST STT docs.
+      if (keyterms) form.append("keyterms", JSON.stringify(keyterms));
+    }
+
+    console.log("[sarvamSTT] request", {
+      model: "saaras:v4",
+      mode,
+      language: opts.language ?? null,
+      keyterms: keyterms ?? null,
+      bytes: audio.size,
+    });
 
     const res = await fetch(`${BASE}/speech-to-text`, {
       method: "POST",
@@ -215,14 +254,18 @@ export async function sarvamSTT(
     });
 
     if (!res.ok) {
-      const err = new Error(`Sarvam STT ${res.status}: ${await res.text()}`) as Error & {
+      const body = await res.text();
+      console.log("[sarvamSTT] response", { status: res.status, body });
+      const err = new Error(`Sarvam STT ${res.status}: ${body}`) as Error & {
         status: number;
       };
       err.status = res.status;
       throw err;
     }
 
-    return res.json();
+    const json = await res.json();
+    console.log("[sarvamSTT] response", { status: res.status, body: json });
+    return json;
   };
 
   const json = opts.retry === false ? await call() : await withRetry(call, DEFAULT_RETRY_OPTS);

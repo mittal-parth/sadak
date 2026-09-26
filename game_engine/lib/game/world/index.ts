@@ -26,6 +26,7 @@ import { buildBeach } from "./beach";
 import { buildBusYards, STAND_LIVERIES } from "./busyard";
 import { buildBoards } from "./boards";
 import { CITY_TRAFFIC } from "../transit";
+import { makeCityFlag } from "../assets";
 import { CollisionWorld } from "./collide";
 import { HeightField } from "./height";
 import { KERB_H, type MapData } from "./mapData";
@@ -149,6 +150,12 @@ export function buildWorld(map: MapData, district: District, deps: WorldDeps): W
         group.add(frame);
       });
   }
+
+  // Every district flies the tricolour, near where the player starts.
+  const flag = makeCityFlag(deps.mats);
+  flag.position.set(map.flag.x, height.at(map.flag.x, map.flag.z), map.flag.z);
+  group.add(flag);
+  collide.box(map.flag.x, map.flag.z, 0.65, 0.65);
 
   // Buses nosed in along the bus stands' platforms.
   const yards = buildBusYards(map, [CITY_TRAFFIC[theme.landmark].bus, ...(STAND_LIVERIES[theme.landmark] ?? [])], collide);

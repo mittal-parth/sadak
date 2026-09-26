@@ -133,6 +133,12 @@ export type MapData = {
   errandSpots: Record<string, Spot>;
   /** Real shops' own boards on real (OSM) buildings: Mocambo on Park Street. */
   boards: FacadeBoard[];
+  /** The barber's lock-up: a gap in a street frontage near the spawn,
+   *  facing the street along (sin yaw, cos yaw). */
+  barber: Spot;
+  /** The tricolour's flagpole: in a park or plaza near the spawn, or on
+   *  open ground beside it. */
+  flag: Spot;
 };
 
 /** Surface height of raised footpaths. */
