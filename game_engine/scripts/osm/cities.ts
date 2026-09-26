@@ -85,6 +85,8 @@ export type OsmCity = {
   pool?: { water: RegExp; sanctum: RegExp };
   /** The bus stand the bus errand is at, when the district has one. */
   busNear?: RegExp;
+  /** Names for OSM elements mapped without one, by element id. */
+  names?: Record<number, string>;
   /** A tank whose island carries a pavilion (Bindu Sagar's Jalamandira). */
   islandPavilion?: { water: RegExp; name: string };
 };
@@ -194,7 +196,8 @@ export const OSM_CITIES: OsmCity[] = [
       { match: /Madina Masjid/, model: "mosque_small", size: [12, 12] },
     ],
     spawnNear: /Asiatic Society/,
-    shrineOn: /Park Street/,
+    // Park Street's own place of worship (the extract maps no mandir).
+    temple: /^Saint Thomas' Catholic Church$/,
     shopStreet: /Park Street|Mirza Ghalib/,
     errands: [{ id: "park-gully-roll", at: /^Mocambo$/ }],
   },
@@ -259,9 +262,12 @@ export const OSM_CITIES: OsmCity[] = [
       // (Mughli Bibi's tomb stands inside the queens' enclosure.)
       { match: /Rani's Hajira/, model: "hajira" },
       { match: /Khamasa Parsi Agiyari/, model: "agiyari", size: [12, 10] },
+      { match: /^Maneknath Mandir$/, model: "temple", size: SMALL_TEMPLE },
     ],
     spawnNear: /^Jama Masjid$/,
-    shrineOn: /Manek Chowk/,
+    temple: /^Maneknath Mandir$/,
+    // Baba Maneknath's temple in the square named after him, mapped unnamed.
+    names: { 14067711774: "Maneknath Mandir" },
     shopStreet: /Manek Chowk|Gandhi Road/,
     errands: [
       { id: "manek-chowk-kulfi", at: /Open air food market/ },
@@ -285,8 +291,9 @@ export const OSM_CITIES: OsmCity[] = [
     spawnNear: /^Shri Harmandir Sahib$/,
     temple: /^Shri Harmandir Sahib$/,
     pool: { water: /^Amritsaras$/, sanctum: /^Shri Harmandir Sahib$/ },
-    // The bazaars wrap the complex; any lane off the approach will do.
-    shopStreet: /.*/,
+    // The heritage approach and the gate road: the only streets OSM names
+    // here, and bazaars both.
+    shopStreet: /^Golden Temple Road$|^Mahan Singh Gate Road$/,
     errands: [{ id: "hall-bazaar-langar", at: /Langar Ghar/ }],
   },
   {

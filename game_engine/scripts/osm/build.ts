@@ -639,6 +639,10 @@ const FLOOR_BONUS: Partial<Record<RoadClass, number>> = {
 function compile(city: OsmCity): MapData {
   const raw = JSON.parse(readFileSync(join(CACHE, `${city.id}.json`), "utf8")) as { elements: OsmEl[] };
   const els = raw.elements;
+  for (const e of els) {
+    const name = city.names?.[e.id];
+    if (name) e.tags = { ...(e.tags ?? {}), name };
+  }
   const H = city.half;
   const mLat = 111320;
   const mLon = 111320 * Math.cos((city.lat * Math.PI) / 180);
@@ -1362,6 +1366,13 @@ function compile(city: OsmCity): MapData {
       return Array.from({ length: Math.max(1, Math.floor(L / step)) }, (_, k) => pointAlong(r.pts, (k + 0.5) * (L / Math.max(1, Math.floor(L / step)))));
     }).filter(wellIn);
   const farthest = (pts: Pt[]): Pt | null => (pts.length ? pts.reduce((a, b) => (spread(b) > spread(a) ? b : a)) : null);
+  /** The farthest on a named street when that is nearly as good, so the
+   *  location card can say where an errand is. */
+  const farthestNamed = (rs: MapRoad[], step: number): Pt | null => {
+    const all = farthest(alongRoads(rs, step));
+    const named = farthest(alongRoads(rs.filter((r) => r.name), step));
+    return named && all && spread(named) >= spread(all) - 40 ? named : all;
+  };
   const allErrands = () => [templeSpot, ...Object.values(errandSpots)];
 
   const shopAt = farthest(alongRoads(shopRoads, 10));
@@ -1440,6 +1451,7 @@ function compile(city: OsmCity): MapData {
         })
       : []),
     ...byspread(pois.filter((p) => p.kind === "bus_stop").map((p): Pt => [p.x, p.z])).map((p) => () => busStop(p, 0)),
+    ...byspread(alongRoads(roads.filter((r) => major(r) && r.name), 25)).slice(0, 8).map((p) => () => busStop(p, 0)),
     ...byspread(alongRoads(roads.filter(major), 25)).slice(0, 12).map((p) => () => busStop(p, 0)),
     () => busStop([spawn.x - 60, spawn.z + 30], 50),
     () => busStop([spawn.x + 60, spawn.z - 30], 50),
@@ -1463,7 +1475,7 @@ function compile(city: OsmCity): MapData {
   const autoAt: Pt =
     taxiPoi && spread(taxiPoi) > 80
       ? taxiPoi
-      : farthest(alongRoads(roads.filter((r) => drivable(r) && r.w >= 4.2), 15)) ?? [spawn.x + 45, spawn.z - 20];
+      : farthestNamed(roads.filter((r) => drivable(r) && r.w >= 4.2), 15) ?? [spawn.x + 45, spawn.z - 20];
   const byDistance = roads
     .filter((r) => drivable(r) && r.w >= 4.2)
     .map((r) => ({ r, d: nearestOnPolyline(r.pts, autoAt).dist }))

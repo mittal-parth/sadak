@@ -49,7 +49,8 @@ function roleOf(role: string, kind: string): Role {
   if (kind === "counter" || r.includes("clerk")) return "clerk";
   if (r.includes("sevadar")) return "sevadar";
   if (r.includes("caretaker") || r.includes("masjid")) return "caretaker";
-  if (r.includes("flower")) return "flowers";
+  // Sellers at a place of worship's gate: flowers, candles.
+  if (r.includes("flower") || r.includes("candle")) return "flowers";
   if (kind === "temple" || r.includes("prasad") || r.includes("temple")) return "temple";
   if (r.includes("waiter")) return "waiter";
   return "cook";
