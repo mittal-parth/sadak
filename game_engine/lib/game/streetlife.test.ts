@@ -18,6 +18,8 @@ import { createTraffic } from "./world/traffic";
 import { buildLandmark } from "./world/landmarks";
 import { planRoute } from "./world/route";
 import { medians } from "./world/roads";
+import { marketStalls, MAX_STALLS } from "./world/market";
+import { createFlocks, flockCounts, flockSites } from "./world/birds";
 import { OSM_CITIES } from "../../scripts/osm/cities";
 
 const LANDMARKS: Landmark[] = [
@@ -380,6 +382,73 @@ test("a temple mapped as a point stands on its street, not mid-block", () => {
   assert.ok(edge > 0 && edge < 1.5, `front is ${edge.toFixed(1)}m from the street`);
   // One Central Baptist Church, not a second one for its school.
   assert.equal(map.landmarks.filter((l) => /Central Baptist/.test(l.name)).length, 1);
+});
+
+test("market grounds fill with stalls, inside the market and off the road", () => {
+  const counts: Record<string, number> = {};
+  for (const id of ["purani-sadak", "dadar-chowk", "hall-bazaar"]) {
+    const map = loadMap(id);
+    const keep = [map.spawn, ...Object.values(map.spots), ...Object.values(map.errandSpots)];
+    for (const { area, stalls } of marketStalls(map, () => false)) {
+      assert.ok(stalls.length <= MAX_STALLS);
+      counts[`${id}:${area.name ?? "-"}`] = stalls.length;
+      for (const st of stalls) {
+        for (const k of keep) assert.ok(Math.hypot(k.x - st.x, k.z - st.z) >= 5, `${id}: a stall on a task spot`);
+        for (const r of map.roads) {
+          if (r.cls === "footway" || r.cls === "steps" || r.cls === "pedestrian") continue;
+          for (let i = 0; i < r.pts.length - 1; i++) {
+            const [ax, az] = r.pts[i];
+            const [bx, bz] = r.pts[i + 1];
+            const L2 = (bx - ax) ** 2 + (bz - az) ** 2 || 1e-9;
+            const t = Math.max(0, Math.min(1, ((st.x - ax) * (bx - ax) + (st.z - az) * (bz - az)) / L2));
+            const d = Math.hypot(st.x - ax - t * (bx - ax), st.z - az - t * (bz - az));
+            assert.ok(d >= r.w / 2 + r.foot + 1.2, `${id}: a stall on the carriageway`);
+          }
+        }
+      }
+      // Neighbours stand apart: aisles and stall widths, never overlapping.
+      for (let i = 0; i < stalls.length; i++) {
+        for (let j = i + 1; j < stalls.length; j++) {
+          assert.ok(Math.hypot(stalls[i].x - stalls[j].x, stalls[i].z - stalls[j].z) > 1.7, `${id}: stalls overlap`);
+        }
+      }
+    }
+  }
+  assert.ok(counts["purani-sadak:Meena Bazaar"] > 100, "Meena Bazaar under the Jama Masjid is a market");
+  assert.ok(counts["dadar-chowk:MUNCIPAL MARKED"] > 100, "Dadar's mandai is a market");
+  // Everywhere else the plaza stays a plaza.
+  assert.deepEqual(marketStalls(loadMap("park-gully"), () => false), []);
+});
+
+test("pigeons peck at the Kabutar Khana, scatter when walked into, and settle again", () => {
+  const map = loadMap("dadar-chowk");
+  const sites = flockSites(map, [], () => 0);
+  const kk = map.landmarks.find((l) => l.model === "kabutar_khana")!;
+  const site = sites.find((s) => Math.hypot(s.x - kk.x, s.z - kk.z) < 0.1)!;
+  assert.ok(site, "no flock at the Kabutar Khana");
+  assert.equal(site.y, 0.5, "birds stand on the platform, not under it");
+  const flocks = createFlocks(sites);
+  const far = new THREE.Vector3(kk.x + 60, 0, kk.z);
+  flocks.update(0.05, 0, far);
+  const settled = flockCounts(flocks);
+  assert.equal(settled.ground + settled.air, site.count);
+  assert.ok(settled.ground > site.count * 0.7, "most of the flock on the ground");
+  // Walk across the platform: the birds underfoot burst up.
+  let t = 0;
+  for (let k = 0; k < 40; k++, t += 0.05) {
+    const p = new THREE.Vector3(kk.x - 4 + k * 0.2, 0, kk.z);
+    flocks.update(0.05, t, p);
+  }
+  const scattered = flockCounts(flocks);
+  assert.ok(scattered.air > settled.air + 5, `only ${scattered.air - settled.air} birds took off`);
+  // Leave, and give them half a minute: they come back down.
+  for (let k = 0; k < 600; k++, t += 0.05) flocks.update(0.05, t, far);
+  const after = flockCounts(flocks);
+  assert.ok(after.air <= settled.air + 2, `${after.air} still in the air`);
+  // Nobody animates pigeons a street away.
+  flocks.update(0.05, t, new THREE.Vector3(kk.x + 400, 0, kk.z));
+  assert.deepEqual(flockCounts(flocks), { ground: 0, air: 0 });
+  flocks.dispose();
 });
 
 test("footpaths stop short of junctions", () => {
