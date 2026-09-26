@@ -100,8 +100,10 @@ export const OSM_CITIES: OsmCity[] = [
   },
   {
     id: "dadar-chowk",
-    lat: 19.019,
-    lon: 72.843,
+    // Dadar West: the Kabutar Khana and Ranade Road bazaar, with the station
+    // and the rail corridor across the east of the box.
+    lat: 19.01954,
+    lon: 72.84186,
     half: MAP_HALF,
     fill: { width: [8, 16], depth: [10, 18], floors: [3, 7], shop: 0.7, laneWidth: 6, courtyards: 0.25 },
     landmarks: [
