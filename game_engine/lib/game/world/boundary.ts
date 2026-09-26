@@ -34,30 +34,34 @@ const FRAG = /* glsl */ `
   varying vec3 vWorld;
   varying vec2 vUv;
 
-  // Distance to the nearest hexagon edge, for a honeycomb.
+  // Distance from p to the nearest edge of a pointy-top hexagonal grid of
+  // unit cells: 0 on an edge, 0.5 at a cell's centre.
   float hexEdge(vec2 p) {
-    p /= vec2(1.0, 0.8660254);
-    p.x += 0.5 * floor(p.y);
-    vec2 f = fract(p) - 0.5;
-    return 0.5 - max(abs(f.x) * 1.5 + abs(f.y) * 0.866, abs(f.y) * 1.732) * 0.577;
+    const vec2 s = vec2(1.0, 1.7320508);
+    vec4 c = floor(vec4(p, p - vec2(0.5, 1.0)) / s.xyxy) + 0.5;
+    vec4 h = vec4(p - c.xy * s, p - (c.zw + 0.5) * s);
+    vec2 g = dot(h.xy, h.xy) < dot(h.zw, h.zw) ? h.xy : h.zw;
+    vec2 a = abs(g);
+    return 0.5 - max(dot(a, s * 0.5), a.x);
   }
 
   void main() {
-    // A disc on the wall centred where the player is nearest it.
+    // A disc on the wall round the point nearest the player; it grows as
+    // they come closer (r includes how far they stand from the wall).
     vec3 d = vWorld - uPlayer;
     float r = length(d);
-    float bloom = 1.0 - smoothstep(uReach * 0.25, uReach, r);
+    float bloom = 1.0 - smoothstep(uReach * 0.12, uReach * 0.45, r);
     if (bloom <= 0.001) discard;
-    // Along the wall and up it, for the pattern.
-    vec2 q = vec2(vWorld.x + vWorld.z, vWorld.y) * 0.9;
-    float hex = smoothstep(0.08, 0.0, hexEdge(q + vec2(0.0, uTime * 0.35)));
+    // Along the wall and up it: cells about 0.7m across, drifting up.
+    vec2 q = vec2(vWorld.x + vWorld.z, vWorld.y) * 1.4 + vec2(0.0, uTime * 0.25);
+    float line = 1.0 - smoothstep(0.0, 0.05, hexEdge(q));
     // Rings running out from the contact point, faster when pressed.
-    float ring = 0.5 + 0.5 * sin(r * 2.2 - uTime * (3.0 + uPress * 6.0));
-    float core = 1.0 - smoothstep(0.0, uReach * 0.35, r);
-    float a = bloom * (0.10 + 0.45 * hex + 0.12 * ring) + core * (0.08 + 0.35 * uPress);
+    float ring = smoothstep(0.85, 1.0, sin(r * 2.4 - uTime * (2.5 + uPress * 5.0)));
+    float core = 1.0 - smoothstep(0.0, uReach * 0.14, r);
+    float a = bloom * (0.03 + 0.32 * line + 0.1 * ring * line) + core * uPress * 0.25;
     // Fade out up the wall so it reads as a field, not a slab.
-    a *= 1.0 - smoothstep(6.0, 16.0, vWorld.y - uPlayer.y + 1.5);
-    gl_FragColor = vec4(uColour * (0.6 + 0.8 * hex + uPress * 0.6), a);
+    a *= 1.0 - smoothstep(2.5, 7.0, vWorld.y - uPlayer.y + 1.5);
+    gl_FragColor = vec4(uColour * (0.8 + 0.6 * line + uPress * 0.5), a);
   }
 `;
 
