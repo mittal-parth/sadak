@@ -64,6 +64,8 @@ export type BuildingOptions = {
   style?: ArchStyle;
   /** Sign atlas cells to pick from. Without it shops get no lettered faces. */
   signs?: { cells: number; rect(i: number): UvRect };
+  /** A real shop's own board, over the middle bay of the street face. */
+  named?: UvRect;
   /**
    * Only the street face (+z) gets shops, windows and balconies; the back and
    * sides are plain party walls. Terraced plots press against their
@@ -377,7 +379,8 @@ function shopfront(
   w: number,
   bayW: number,
   rand: () => number,
-  atlas: BuildingOptions["signs"]
+  atlas: BuildingOptions["signs"],
+  named?: UvRect
 ) {
   const bayH = SHOP_BAY_H;
   const inset = SHOP_INSET;
@@ -414,7 +417,9 @@ function shopfront(
   signage.push(slab(w + 0.1, 0.75, 0.12, cx, bayH + 0.5, faceZ + facing * 0.06));
   if (atlas) {
     const face = new THREE.PlaneGeometry(w - 0.02, 0.66);
-    const [u0, v0, u1, v1] = atlas.rect(Math.floor(rand() * atlas.cells));
+    // Always draw, so a named board leaves the rest of the street as it was.
+    const pick = atlas.rect(Math.floor(rand() * atlas.cells));
+    const [u0, v0, u1, v1] = named ?? pick;
     const uv = face.attributes.uv as THREE.BufferAttribute;
     for (let i = 0; i < uv.count; i++) {
       uv.setXY(i, u0 + uv.getX(i) * (u1 - u0), v0 + uv.getY(i) * (v1 - v0));
@@ -577,7 +582,8 @@ export function buildBuildingParts(
     if (face.shops) {
       for (let b = 0; b < bays; b++) {
         const cx = -face.span / 2 + bayW * (b + 0.5);
-        shopfront(L, signage, signs, cx, face.faceZ, face.facing, bayW * 0.82, bayW, rand, opts.signs);
+        const named = b === Math.floor(bays / 2) && !face.rotate ? opts.named : undefined;
+        shopfront(L, signage, signs, cx, face.faceZ, face.facing, bayW * 0.82, bayW, rand, opts.signs, named);
       }
     }
 

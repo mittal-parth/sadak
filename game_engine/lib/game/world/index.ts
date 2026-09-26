@@ -24,6 +24,7 @@ import { createFlocks, flockSites } from "./birds";
 import { buildMarkets, marketStalls } from "./market";
 import { buildBeach } from "./beach";
 import { buildBusYards, STAND_LIVERIES } from "./busyard";
+import { buildBoards } from "./boards";
 import { CITY_TRAFFIC } from "../transit";
 import { CollisionWorld } from "./collide";
 import { HeightField } from "./height";
@@ -75,7 +76,8 @@ export function buildWorld(map: MapData, district: District, deps: WorldDeps): W
   for (const f of footpathStrips(map)) height.band(f.pts, f.o0, f.o1, KERB_H);
 
   // Buildings.
-  const atlas = typeof document !== "undefined" ? createSignAtlas(district.language) : null;
+  const shopNames = [...map.plots.flatMap((p) => (p.sign ? [p.sign] : [])), ...map.boards.map((b) => b.name)];
+  const atlas = typeof document !== "undefined" ? createSignAtlas(district.language, 1, shopNames) : null;
   const glass = new THREE.MeshStandardMaterial({
     color: new THREE.Color(theme.sky[1]).lerp(new THREE.Color(0x1b2331), 0.62),
     emissive: new THREE.Color(theme.sky[2]),
@@ -89,6 +91,11 @@ export function buildWorld(map: MapData, district: District, deps: WorldDeps): W
     collide
   );
   group.add(buildings.group);
+
+  // Real shops' boards on the real buildings they are in.
+  const boards =
+    atlas && signs ? buildBoards(map.boards, atlas, signs, deps.toon(new THREE.MeshLambertMaterial({ vertexColors: true }))) : null;
+  if (boards) group.add(boards.group);
 
   const landmarks = placeLandmarks(map.landmarks, theme.landmark, collide, height);
   group.add(landmarks.group);
@@ -305,6 +312,7 @@ export function buildWorld(map: MapData, district: District, deps: WorldDeps): W
       beach.dispose();
       yards.dispose();
       posters?.dispose();
+      boards?.dispose();
       clutter.dispose();
       areas.dispose();
       roads.textures.forEach((t) => t.dispose());

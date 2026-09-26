@@ -396,10 +396,13 @@ export function buildBuildings(
 
   const style = theme.archStyle;
   function bakePlot(p: Plot) {
+    const named = p.sign ? kit.atlas?.named(p.sign) : null;
+    if (p.sign && kit.atlas && !named) throw new Error(`sign atlas is missing "${p.sign}"`);
     const parts = buildBuildingParts(p.w, p.d, p.floors, p.seed, {
       style,
       signs: kit.atlas ?? undefined,
       frontOnly: true,
+      named: named ?? undefined,
     });
     const wall = theme.buildings[p.seed % theme.buildings.length];
     const baked = bakeBuilding(parts, {

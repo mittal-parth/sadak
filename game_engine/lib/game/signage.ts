@@ -154,8 +154,11 @@ export type UvRect = [number, number, number, number];
 
 export type SignAtlas = {
   texture: THREE.CanvasTexture;
+  /** Generic boards (grocer, chemist...) to pick from at random. */
   cells: number;
   rect(i: number): UvRect;
+  /** The board lettered with a real shop's own name, if the atlas has it. */
+  named(name: string): UvRect | null;
   dispose(): void;
 };
 
@@ -206,10 +209,28 @@ function fitFont(ctx: CanvasRenderingContext2D, text: string, start: number, max
   return size;
 }
 
-function paintAtlas(ctx: CanvasRenderingContext2D, signs: ShopSign[], stack: string, seed: number) {
+function paintAtlas(ctx: CanvasRenderingContext2D, signs: ShopSign[], stack: string, seed: number, names: string[] = []) {
   const rand = mulberry32(seed);
   const cells = COLS * ROWS;
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+  // Real names below the generic boards: one line, as big as it fits.
+  names.forEach((name, k) => {
+    const i = cells + k;
+    const [bg, fg] = BOARD_COLOURS[(k * 5 + 2) % BOARD_COLOURS.length];
+    const x = (i % COLS) * CELL_W;
+    const y = Math.floor(i / COLS) * CELL_H;
+    ctx.fillStyle = bg;
+    ctx.fillRect(x, y, CELL_W, CELL_H);
+    ctx.strokeStyle = fg;
+    ctx.lineWidth = 5;
+    ctx.strokeRect(x + 9, y + 9, CELL_W - 18, CELL_H - 18);
+    ctx.fillStyle = fg;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    fitFont(ctx, name, 64, CELL_W - 60, stack);
+    ctx.fillText(name, x + CELL_W / 2, y + CELL_H * 0.52);
+  });
 
   for (let i = 0; i < cells; i++) {
     const sign = signs[i % signs.length];
@@ -242,18 +263,26 @@ function paintAtlas(ctx: CanvasRenderingContext2D, signs: ShopSign[], stack: str
   }
 }
 
-export function createSignAtlas(language: LangCode, seed = 1): SignAtlas {
+export function createSignAtlas(language: LangCode, seed = 1, shopNames: string[] = []): SignAtlas {
   const signs = signsFor(language);
   const family = SCRIPT_FONT[language];
   const stack = family ? `"${family}", ${SYSTEM_STACK}` : SYSTEM_STACK;
+  const names = [...new Set(shopNames)];
 
   const canvas = document.createElement("canvas");
   canvas.width = CELL_W * COLS;
-  canvas.height = CELL_H * ROWS;
+  canvas.height = CELL_H * (ROWS + Math.ceil(names.length / COLS));
   const ctx = canvas.getContext("2d")!;
   const cells = COLS * ROWS;
+  const rows = canvas.height / CELL_H;
+  const cellRect = (c: number): UvRect => {
+    const col = c % COLS;
+    const row = Math.floor(c / COLS);
+    // Canvas rows run top-down; texture v runs bottom-up.
+    return [col / COLS, 1 - (row + 1) / rows, (col + 1) / COLS, 1 - row / rows];
+  };
 
-  paintAtlas(ctx, signs, stack, seed);
+  paintAtlas(ctx, signs, stack, seed, names);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 4;
@@ -272,7 +301,7 @@ export function createSignAtlas(language: LangCode, seed = 1): SignAtlas {
           console.warn(`[signage] "${family}" did not load; signboards use the OS script font`);
           return;
         }
-        paintAtlas(ctx, signs, stack, seed);
+        paintAtlas(ctx, signs, stack, seed, names);
         texture.needsUpdate = true;
       })
       .catch((err: unknown) => {
@@ -284,15 +313,11 @@ export function createSignAtlas(language: LangCode, seed = 1): SignAtlas {
     texture,
     cells,
     rect(i) {
-      const c = ((i % cells) + cells) % cells;
-      const col = c % COLS;
-      const row = Math.floor(c / COLS);
-      // Canvas rows run top-down; texture v runs bottom-up.
-      const u0 = col / COLS;
-      const u1 = (col + 1) / COLS;
-      const v1 = 1 - row / ROWS;
-      const v0 = 1 - (row + 1) / ROWS;
-      return [u0, v0, u1, v1];
+      return cellRect(((i % cells) + cells) % cells);
+    },
+    named(name) {
+      const k = names.indexOf(name);
+      return k < 0 ? null : cellRect(cells + k);
     },
     dispose() {
       disposed = true;
