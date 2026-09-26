@@ -9,7 +9,7 @@ import { createVehicleMaterials, makeCar } from "./vehicles";
 import { SEED_TASK_PACKS } from "./tasks";
 import { SEED_DISTRICTS } from "./districts";
 import type { Landmark } from "./assets";
-import type { MapData } from "./world/mapData";
+import { taskSpot, type MapData } from "./world/mapData";
 import { CollisionWorld, hits } from "./world/collide";
 import { HeightField } from "./world/height";
 import { RoadNet } from "./world/network";
@@ -611,6 +611,51 @@ test("every district has room for the barber's lock-up and the tricolour near th
     assert.equal(solid.blocked(flag.x, flag.z, 1), false, `${d.id}: the flag stands in a building or the water`);
     assert.ok(Math.hypot(flag.x - spawn.x, flag.z - spawn.z) <= 120, `${d.id}: the flag is out of sight`);
   }
+});
+
+test("a task's place comes from the map, whatever position its pack row carries", () => {
+  for (const pack of SEED_TASK_PACKS) {
+    const map = loadMap(pack.districtId);
+    for (const t of pack.tasks) {
+      // A row still holding the old grid's chowk offset.
+      const stale = { ...t, pos: [12, -30] as [number, number] };
+      const s = taskSpot(map, stale);
+      assert.deepEqual([s.x, s.z], [map.errandSpots[t.id]?.x ?? map.spots[t.kind as keyof MapData["spots"]].x, map.errandSpots[t.id]?.z ?? map.spots[t.kind as keyof MapData["spots"]].z]);
+    }
+  }
+  assert.throws(() => taskSpot(loadMap("park-gully"), { id: "park-gully-nowhere", kind: "ferry" }), /no spot for task/);
+});
+
+test("traffic stops short of someone standing in the lane", () => {
+  const map = loadMap("dadar-chowk");
+  const traffic = createTraffic(map, {
+    landmark: "mumbai",
+    autoCanopy: 0xf1c40f,
+    autos: 6,
+    cars: 6,
+    vehicleMats: createVehicleMaterials(),
+    transitMat: createTransitMaterial(),
+  });
+  const start = new THREE.Vector3(map.spawn.x, 0, map.spawn.z);
+  traffic.prime(start);
+  // Stand 6m ahead of one vehicle, in its lane, and let the street run.
+  const v = traffic.vehicles.find((x) => x.speed >= 0)!;
+  const ahead = new THREE.Vector3(
+    v.mesh.position.x + Math.sin(v.yaw) * (v.halfLength + 6),
+    0,
+    v.mesh.position.z + Math.cos(v.yaw) * (v.halfLength + 6)
+  );
+  let closest = Infinity;
+  for (let i = 0; i < 200; i++) {
+    traffic.update(0.05, i * 0.05, ahead);
+    const c = Math.cos(v.yaw);
+    const sn = Math.sin(v.yaw);
+    const dx = ahead.x - v.mesh.position.x;
+    const dz = ahead.z - v.mesh.position.z;
+    if (Math.abs(dx * c - dz * sn) < v.halfWidth + 0.5) closest = Math.min(closest, dx * sn + dz * c - v.halfLength);
+  }
+  assert.ok(closest < 5, `never came up to the player (gap ${closest.toFixed(2)}m)`);
+  assert.ok(closest > 0.3, `drove into the player (gap ${closest.toFixed(2)}m)`);
 });
 
 test("footpaths stop short of junctions", () => {

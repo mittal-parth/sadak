@@ -278,6 +278,21 @@ export function createTraffic(map: MapData, opts: TrafficOpts): Traffic {
           if (gap < 1) target = 0;
         }
 
+        // Someone standing in the lane ahead (the player): slow, then stop
+        // short of them, the way traffic here noses up and leans on the horn.
+        {
+          const c = Math.cos(v.yaw);
+          const sn = Math.sin(v.yaw);
+          const dx = focus.x - v.mesh.position.x;
+          const dz = focus.z - v.mesh.position.z;
+          const across = dx * c - dz * sn;
+          const ahead = dx * sn + dz * c - v.halfLength;
+          if (Math.abs(across) < v.halfWidth + 0.9 && ahead > -0.5) {
+            const room = ahead - 1.5;
+            if (room < 2 + v.speed * 1.2) target = Math.min(target, Math.max(0, room) * 0.8);
+          }
+        }
+
         // Approaching the junction: choose a way, slow down, and wait if the
         // first stretch of it is occupied.
         const toEnd = road.len - v.p;

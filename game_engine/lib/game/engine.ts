@@ -4,7 +4,8 @@ import { makeAuto } from "./props";
 import { buildWorld, type World } from "./world";
 import { Rides } from "./rides";
 import { Parts } from "./world/vc";
-import type { MapData, Spot } from "./world/mapData";
+import { taskSpot, type MapData, type Spot } from "./world/mapData";
+import { knockFrom } from "./knock";
 import { makeMissionShopStall, makeStreetMandir } from "./assets/index";
 import { makeBarberShop } from "./assets/barber";
 import { BARBER_ENTER_RADIUS, BARBER_FACING, barberSignFor } from "./barber";
@@ -348,6 +349,10 @@ export class Game {
   private telemetryAccum = 0;
   private lastNearby: string | null = null;
   private lastNearBarber = false;
+  /** Shove from a vehicle, m/s, decaying; and how long the stumble lasts. */
+  private knock = new THREE.Vector3();
+  private stagger = 0;
+  private knockCooldown = 0;
   private barberWorld = { x: 0, z: 0 };
   private materials!: MaterialLibrary;
   private vehicleMats = createVehicleMaterials();
@@ -373,7 +378,12 @@ export class Game {
     this.lookTarget.set(map.spawn.x, PLAYER_LOOK_H, map.spawn.z);
     this.district = district;
     this.onTelemetry = onTelemetry;
-    this.tasks = tasks;
+    // Tasks stand where the district map puts them. Task packs in the
+    // database may still carry the old grid's chowk offsets.
+    this.tasks = tasks.map((t) => {
+      const s = taskSpot(map, t);
+      return { ...t, pos: [s.x, s.z] as [number, number] };
+    });
 
     const theme = district.theme;
 
@@ -488,10 +498,8 @@ export class Game {
       const z = task.pos[1];
       const anchor = new THREE.Group();
       anchor.position.set(x, this.world.height.at(x, z), z);
-      // Task positions are map spots; turn the set piece the way the spot
-      // faces (toward its temple, its road).
-      const spot = this.map.errandSpots?.[task.id] ?? this.map.spots[task.kind as keyof MapData["spots"]];
-      const yaw = spot && Math.hypot(spot.x - x, spot.z - z) < 1.5 ? spot.yaw : 0;
+      // Turn the set piece the way its spot faces (toward its temple, its road).
+      const yaw = taskSpot(this.map, task).yaw;
       anchor.rotation.y = yaw;
       const c = Math.cos(yaw);
       const sn = Math.sin(yaw);
@@ -903,6 +911,14 @@ export class Game {
     if (this.keys.has("KeyA")) strafe -= 1;
     if (this.keys.has("KeyD")) strafe += 1;
 
+    // Knocked aside by a vehicle: no control until the stumble is over.
+    this.stagger = Math.max(0, this.stagger - dt);
+    this.knockCooldown = Math.max(0, this.knockCooldown - dt);
+    if (this.stagger > 0) {
+      fwd = 0;
+      strafe = 0;
+    }
+
     const mag = Math.hypot(fwd, strafe);
     if (mag > 1) {
       fwd /= mag;
@@ -933,6 +949,19 @@ export class Game {
     const nz = this.playerPos.z + this.velocity.z * dt;
     if (this.blocked(this.playerPos.x, nz)) this.velocity.z = 0;
     else this.playerPos.z = nz;
+
+    // The shove plays out as a slide that stops at walls, bleeding off fast.
+    if (this.knock.lengthSq() > 0.0004) {
+      const kx = this.playerPos.x + this.knock.x * dt;
+      if (this.world.collide.blocked(kx, this.playerPos.z, PLAYER_RADIUS)) this.knock.x = 0;
+      else this.playerPos.x = kx;
+      const kz = this.playerPos.z + this.knock.z * dt;
+      if (this.world.collide.blocked(this.playerPos.x, kz, PLAYER_RADIUS)) this.knock.z = 0;
+      else this.playerPos.z = kz;
+      this.knock.multiplyScalar(Math.exp(-5 * dt));
+    } else {
+      this.knock.set(0, 0, 0);
+    }
 
     // Jump: only off the ground, and only from a fresh keypress.
     const grounded = this.jumpY <= 0 && this.jumpVel <= 0;
@@ -994,30 +1023,32 @@ export class Game {
 
   /**
    * blocked() only stops the player from walking into a vehicle — it does
-   * nothing when a moving vehicle drives into a player who is standing
-   * still. Push the player out to the nearest edge of any vehicle box they
-   * end up inside, along whichever axis needs the smaller nudge.
+   * nothing when a vehicle drives into a player who is standing still. A
+   * moving vehicle knocks them aside: out across its path (never along it,
+   * which carried them off on the bumper), with a shove, a stumble and a
+   * moment before the controls come back. A parked or crawling one just
+   * nudges them out of its box.
    */
   private resolveVehicleOverlap() {
     for (const v of this.world.traffic.vehicles) {
-      const dx = this.playerPos.x - v.mesh.position.x;
-      const dz = this.playerPos.z - v.mesh.position.z;
-      if (dx * dx + dz * dz > (v.halfLength + PLAYER_RADIUS + 1) ** 2) continue;
-      // Into the vehicle's frame: u across, w along its length.
-      const c = Math.cos(v.yaw);
-      const s = Math.sin(v.yaw);
-      const u = dx * c - dz * s;
-      const w = dx * s + dz * c;
-      const hu = v.halfWidth + PLAYER_RADIUS;
-      const hw = v.halfLength + PLAYER_RADIUS;
-      if (Math.abs(u) >= hu || Math.abs(w) >= hw) continue;
-      let nu = u;
-      let nw = w;
-      if (hu - Math.abs(u) < hw - Math.abs(w)) nu = Math.sign(u || 1) * hu;
-      else nw = Math.sign(w || 1) * hw;
-      // Back to world.
-      this.playerPos.x = v.mesh.position.x + nu * c + nw * s;
-      this.playerPos.z = v.mesh.position.z - nu * s + nw * c;
+      const k = knockFrom(
+        { x: v.mesh.position.x, z: v.mesh.position.z, yaw: v.yaw, halfWidth: v.halfWidth, halfLength: v.halfLength, speed: v.speed },
+        this.playerPos.x,
+        this.playerPos.z,
+        PLAYER_RADIUS,
+        (x, z) => this.world.collide.blocked(x, z, PLAYER_RADIUS)
+      );
+      if (!k) continue;
+      this.playerPos.x = k.x;
+      this.playerPos.z = k.z;
+      if (k.shove && this.knockCooldown <= 0) {
+        this.knock.set(k.shove.x, 0, k.shove.z);
+        this.velocity.set(0, 0, 0);
+        this.stagger = 0.45;
+        this.knockCooldown = 0.8;
+        // A stumble off the ground.
+        if (this.jumpY <= 0) this.jumpVel = 2.6;
+      }
     }
     this.player.position.set(this.playerPos.x, this.groundY + PLAYER_BASE_Y + this.jumpY, this.playerPos.z);
   }
