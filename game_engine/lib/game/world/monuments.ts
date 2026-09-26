@@ -616,37 +616,68 @@ export function memorialGarden(w: number, d: number): Monument {
 }
 
 /** A bus terminus: raised bays under long canopies, buses nosed in. */
-export function busStation(w: number, d: number, livery: { body: number; stripe: number; upper: number }): Monument {
+/** Is a local rectangle (centre, half extents) free of other buildings? */
+export type ClearTest = (u: number, v: number, hw: number, hd: number) => boolean;
+
+export function busStation(
+  w: number,
+  d: number,
+  livery: { body: number; stripe: number; upper: number },
+  clear: ClearTest = () => true
+): Monument {
   const P = new Parts();
   const C: LocalBox[] = [];
   const bays = Math.max(2, Math.floor(w / 14));
   const len = Math.min(d * 0.8, 40);
-  for (let b = 0; b < bays; b++) {
-    const x = -w / 2 + (w * (b + 0.5)) / bays;
-    // Platform, columns and canopy.
-    P.box(3, 0.25, len, x, 0.125, 0, 0xcfc9bb);
-    for (let k = 0; k <= 4; k++) {
-      const z = -len / 2 + (len * k) / 4;
-      P.box(0.3, 5, 0.3, x, 2.5, z, 0x6d7076);
-      C.push({ x, z, hw: 0.3, hd: 0.3 });
-    }
-    P.box(9, 0.3, len + 2, x, 5.2, 0, 0xe6e3dc);
-    P.box(9.2, 0.5, 0.3, x, 5.2, len / 2 + 1, livery.body);
-    // A bus in the bay beside the platform.
-    for (const side of [-1, 1]) {
-      if ((b + side) % 3 === 0) continue;
-      const bx = x + side * 3.2;
-      const bl = 11;
-      const bz = -len / 2 + bl / 2 + 1 + ((b * 7) % 5);
-      P.box(2.5, 1.05, bl, bx, 0.95, bz, livery.body);
-      P.box(2.52, 0.22, bl, bx, 1.55, bz, livery.stripe);
-      P.box(2.5, 1.35, bl, bx, 2.35, bz, livery.upper);
-      P.box(2.54, 0.85, bl - 1.4, bx, 2.3, bz, 0x26303c);
-      P.box(2.4, 0.15, bl - 0.4, bx, 3.1, bz, 0xe8e6e0);
-      C.push({ x: bx, z: bz, hw: 1.3, hd: bl / 2 });
+  // Rows of bays down the whole yard, a driving lane between rows.
+  const rows = Math.max(1, Math.floor((d * 0.9) / (len + 12)));
+  for (let row = 0; row < rows; row++) {
+    const z0 = -((rows - 1) * (len + 12)) / 2 + row * (len + 12);
+    for (let b = 0; b < bays; b++) {
+      const x = -w / 2 + (w * (b + 0.5)) / bays;
+      // The real platform blocks OSM maps inside the yard stay; bays go
+      // round them.
+      if (!clear(x, z0, 4.6, len / 2 + 1)) continue;
+      // Platform, columns and canopy.
+      P.box(3, 0.25, len, x, 0.125, z0, 0xcfc9bb);
+      for (let k = 0; k <= 4; k++) {
+        const z = z0 - len / 2 + (len * k) / 4;
+        P.box(0.3, 5, 0.3, x, 2.5, z, 0x6d7076);
+        C.push({ x, z, hw: 0.3, hd: 0.3 });
+      }
+      P.box(9, 0.3, len + 2, x, 5.2, z0, 0xe6e3dc);
+      P.box(9.2, 0.5, 0.3, x, 5.2, z0 + len / 2 + 1, livery.body);
+      // Benches down the platform.
+      for (let k = 0; k < 3; k++) P.box(0.5, 0.45, 3, x, 0.47, z0 - len / 3 + (k * len) / 3, 0x5d6168);
+      // Buses nosed in beside the platform, most bays taken.
+      for (const side of [-1, 1]) {
+        if ((b * 3 + row * 5 + side + 7) % 4 === 0) continue;
+        const bx = x + side * 3.2;
+        const bl = 11;
+        const bz = z0 - len / 2 + bl / 2 + 1 + ((b * 7 + row * 3) % 5);
+        parkedBus(P, bx, bz, bl, livery);
+        C.push({ x: bx, z: bz, hw: 1.3, hd: bl / 2 });
+      }
     }
   }
   return finish(P, C, []);
+}
+
+/** A parked bus, nose to local +z: livery bands, a window strip, windscreen,
+ *  destination board, wheels. */
+export function parkedBus(P: Parts, x: number, z: number, len: number, livery: { body: number; stripe: number; upper: number }) {
+  P.box(2.5, 1.05, len, x, 0.95, z, livery.body);
+  P.box(2.52, 0.22, len, x, 1.55, z, livery.stripe);
+  P.box(2.5, 1.35, len, x, 2.35, z, livery.upper);
+  P.box(2.54, 0.8, len - 1.6, x, 2.3, z - 0.3, 0x26303c);
+  P.box(2.2, 1.0, 0.06, x, 2.25, z + len / 2 + 0.01, 0x2e3a48);
+  P.box(1.8, 0.28, 0.08, x, 2.88, z + len / 2 + 0.02, 0xffb000);
+  P.box(2.4, 0.15, len - 0.4, x, 3.1, z, 0xe8e6e0);
+  for (const wz of [z + len / 2 - 2, z - len / 2 + 2.4]) {
+    for (const sx of [-1.28, 1.28]) {
+      P.add(new THREE.CylinderGeometry(0.5, 0.5, 0.3, 12).rotateZ(Math.PI / 2).translate(x + sx, 0.5, wz), 0x1f1f22);
+    }
+  }
 }
 
 /** A seafront promenade: sea wall, benches and lamps along the long side. */

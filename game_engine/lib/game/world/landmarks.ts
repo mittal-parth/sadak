@@ -40,6 +40,7 @@ import {
   type Monument,
   type MosqueStyle,
   type TempleStyle,
+  type ClearTest,
 } from "./monuments";
 import { CITY_TRAFFIC } from "../transit";
 
@@ -83,7 +84,7 @@ function fit(model: THREE.Group, w: number, d: number, maxScale = 3): Monument {
 }
 
 /** Builds the model for one landmark, in its local frame. */
-export function buildLandmark(l: MapLandmark, city: Landmark): Monument {
+export function buildLandmark(l: MapLandmark, city: Landmark, clear?: ClearTest): Monument {
   const ms = MOSQUE[city] ?? MOSQUE.default;
   const ts = TEMPLE[city] ?? TEMPLE.default;
   const { w, d } = l;
@@ -139,7 +140,7 @@ export function buildLandmark(l: MapLandmark, city: Landmark): Monument {
     case "memorial_garden":
       return memorialGarden(w, d);
     case "bus_station":
-      return busStation(w, d, CITY_TRAFFIC[city].bus);
+      return busStation(w, d, CITY_TRAFFIC[city].bus, clear);
     case "charminar":
       return fit(makeCharminar(), w, d, 4);
     case "cinema":
@@ -183,15 +184,25 @@ export function placeLandmarks(
   group.name = "landmarks";
   const inners: InnerSpot[] = [];
   for (const l of landmarks) {
-    const m = buildLandmark(l, city);
-    m.group.position.set(l.x, 0, l.z);
-    m.group.rotation.y = l.rot;
-    m.group.userData.landmark = l.name;
-    group.add(m.group);
     const c = Math.cos(l.rot);
     const s = Math.sin(l.rot);
     // Local (u, v) -> world: local +x = (cos, -sin), local +z = (sin, cos).
     const world = (u: number, v: number) => [l.x + u * c + v * s, l.z - u * s + v * c] as const;
+    // Nothing already standing there (the buildings go in first).
+    const clear: ClearTest = (u, v, hw, hd) => {
+      for (let du = -hw; du <= hw; du += 3) {
+        for (let dv = -hd; dv <= hd; dv += 3) {
+          const [x, z] = world(u + du, v + dv);
+          if (collide.blocked(x, z, 0.5)) return false;
+        }
+      }
+      return true;
+    };
+    const m = buildLandmark(l, city, clear);
+    m.group.position.set(l.x, 0, l.z);
+    m.group.rotation.y = l.rot;
+    m.group.userData.landmark = l.name;
+    group.add(m.group);
     for (const b of m.colliders) {
       const [x, z] = world(b.x, b.z);
       collide.box(x, z, b.hw, b.hd, l.rot + (b.rot ?? 0));
