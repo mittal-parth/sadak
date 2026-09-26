@@ -456,6 +456,8 @@ const HAS_DOOR = new Set([
 /** Landmark models that stand in or over the carriageway: a fountain or a
  *  pigeon house on a traffic island, a gateway the street runs through. */
 const IN_THE_ROAD = new Set(["fountain", "kabutar_khana", "kaman", "teen_darwaza", "promenade", "fishing_nets"]);
+/** Gateways the road runs through: their arches (local +z) open along it. */
+const GATEWAYS = new Set(["kaman", "teen_darwaza"]);
 
 /* ------------------------------------------------------------------ *
  * Occupancy grid (1m cells)
@@ -994,7 +996,9 @@ function compile(city: OsmCity): MapData {
         x = n.pt[0] + ux * back;
         z = n.pt[1] + uz * back;
       }
-      rot = Math.atan2(n.pt[0] - x, n.pt[1] - z);
+      // A gateway mapped on its road would otherwise face wherever the
+      // rounding put the nearest point, and the road would run into its side.
+      rot = GATEWAYS.has(rule.model) ? Math.atan2(n.dir[0], n.dir[1]) : Math.atan2(n.pt[0] - x, n.pt[1] - z);
     }
     landmarks.push({ model: rule.model, name, x: r1(x), z: r1(z), rot: +rot.toFixed(3), w, d });
     grid.markBox(x, z, rot, w + 2, d + 2, BUILT);

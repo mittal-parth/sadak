@@ -832,3 +832,27 @@ test("walkable monuments: a mosque's stair climbs onto its plinth", () => {
   assert.equal(w.blocked(-wall, zc, 0.4), false, "the north gate is open");
   assert.equal(w.blocked(-wall, zc - 25, 0.4), true, "the side cloister blocks");
 });
+
+test("a gateway mapped on its road stands across it, the road through its arches", () => {
+  for (const [id, name, road] of [["manek-chowk", "Teen Darwaza", "Gandhi Road"]] as const) {
+    const map = loadMap(id);
+    const gate = map.landmarks.find((l) => l.name === name);
+    assert.ok(gate, `${id}: no ${name}`);
+    // The nearest drivable road, and its direction there.
+    let best = { d: Infinity, dir: [0, 0] };
+    for (const r of map.roads) {
+      if (r.name !== road) continue;
+      for (let i = 0; i < r.pts.length - 1; i++) {
+        const [ax, az] = r.pts[i];
+        const [bx, bz] = r.pts[i + 1];
+        const L = Math.hypot(bx - ax, bz - az) || 1;
+        const t = Math.max(0, Math.min(1, ((gate.x - ax) * (bx - ax) + (gate.z - az) * (bz - az)) / (L * L)));
+        const d = Math.hypot(ax + (bx - ax) * t - gate.x, az + (bz - az) * t - gate.z);
+        if (d < best.d) best = { d, dir: [(bx - ax) / L, (bz - az) / L] };
+      }
+    }
+    assert.ok(best.d < 6, `${name} is ${best.d.toFixed(1)}m off its road`);
+    const along = Math.abs(Math.sin(gate.rot) * best.dir[0] + Math.cos(gate.rot) * best.dir[1]);
+    assert.ok(along > 0.95, `${name}'s arches open ${Math.round((Math.acos(along) * 180) / Math.PI)}° off its road`);
+  }
+});
