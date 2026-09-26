@@ -89,7 +89,7 @@ export function createTraffic(map: MapData, opts: TrafficOpts): Traffic {
   const population = opts.population ?? 64;
   const mix: [Kind, number][] = [
     ["bike", city.bikes * 1.6],
-    ["auto", opts.autos * 1.4],
+    ["auto", city.noAutos ? 0 : opts.autos * 1.4],
     ["car", opts.cars * 1.3],
     ["bus", city.buses],
     ["rickshaw", ["delhi", "amritsar", "hyderabad", "kolkata", "bhubaneswar", "ahmedabad"].includes(opts.landmark) ? 4 : 0],

@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { createTransitMaterial } from "./transit";
+import { CITY_TRAFFIC, createTransitMaterial } from "./transit";
 import { autoBodyFor, makeAuto } from "./props";
 import { buildWorld, type World } from "./world";
 import { Rides } from "./rides";
@@ -18,7 +18,9 @@ import {
   makeIdlePose,
   setIdlePhase,
 } from "./people";
-import { createVehicleMaterials } from "./vehicles";
+import { createVehicleMaterials, makeCar } from "./vehicles";
+import { makeAmbassadorTaxi } from "./assets/kolkata";
+import type { Landmark } from "./assets";
 import type { District } from "./districts";
 import { type StreetTask, type TaskKind } from "./tasks";
 import { createMaterialLibrary, type MaterialLibrary } from "./materials";
@@ -408,12 +410,16 @@ export class Game {
       }
 
       if (task.kind === "auto") {
-        const auto = makeAuto(theme.autoCanopy, autoBodyFor(theme.landmark));
-        auto.rotation.y = -Math.PI / 5;
-        auto.position.set(-2.2, 0.02, 0.6);
-        anchor.add(auto);
-        this.taskAutos.set(task.id, auto);
-        collide.box(...at(-2.2, 0.6), 1.2, 2.0, yaw);
+        // Where the city hails a taxi rather than an auto, the driver waits
+        // with his taxi, parked a little further off (it is longer).
+        const taxi = CITY_TRAFFIC[theme.landmark].hire === "taxi";
+        const cab = taxi ? this.makeTaxi(theme.landmark, hashId(task.id)) : makeAuto(theme.autoCanopy, autoBodyFor(theme.landmark));
+        const cx = taxi ? -2.8 : -2.2;
+        cab.rotation.y = -Math.PI / 5;
+        cab.position.set(cx, 0.02, 0.6);
+        anchor.add(cab);
+        this.taskAutos.set(task.id, cab);
+        collide.box(...at(cx, 0.6), taxi ? 1.3 : 1.2, taxi ? 2.4 : 2.0, yaw);
       } else if (task.kind === "shop") {
         const canopy = theme.canopies[hashId(task.id) % theme.canopies.length];
         const stall = makeMissionShopStall(
@@ -1082,6 +1088,14 @@ export class Game {
   /** Jump to the end of the current ride, if any. */
   public skipRide() {
     this.rides.skip();
+  }
+
+  /** The taxi an auto errand's driver waits with: Kolkata's yellow
+   *  Ambassador, else the city's taxi livery. Its back seat rides with it. */
+  private makeTaxi(city: Landmark, seed: number): THREE.Group {
+    const car = city === "kolkata" ? makeAmbassadorTaxi(undefined, seed) : makeCar(this.vehicleMats, { kind: "taxi", seed, taxiStyle: CITY_TRAFFIC[city].taxi });
+    car.userData.seat = new THREE.Vector3(0.4, 0, -0.55);
+    return car;
   }
 
   /** After an auto or bus errand: ride it. */

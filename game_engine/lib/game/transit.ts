@@ -35,19 +35,26 @@ export type CityTraffic = {
   buses: number;
   bus: BusLivery;
   taxi: TaxiStyle;
+  /** What the auto errand's driver drives: an auto, or where you hail a
+   *  taxi instead, the city's taxi (Kolkata's yellow Ambassador, Mumbai's
+   *  kaali-peeli). */
+  hire?: "taxi";
+  /** No autos at all: Mumbai's island city (Dadar is south of Mahim) is
+   *  closed to them. */
+  noAutos?: true;
 };
 
 export const CITY_TRAFFIC: Record<Landmark, CityTraffic> = {
   // DTC low-floor CNG: green with a yellow band.
   delhi: { bikes: 12, buses: 2, taxi: "plain", bus: { body: 0x2e8b4f, stripe: 0xf2c230, upper: 0x2e8b4f, doubleDecker: 0 } },
   // BEST: red with a cream band, half of them double-deckers.
-  mumbai: { bikes: 9, buses: 3, taxi: "kaaliPeeli", bus: { body: 0xc0282d, stripe: 0xf1e3c2, upper: 0xc0282d, doubleDecker: 0.5 } },
+  mumbai: { bikes: 9, buses: 3, taxi: "kaaliPeeli", hire: "taxi", noAutos: true, bus: { body: 0xc0282d, stripe: 0xf1e3c2, upper: 0xc0282d, doubleDecker: 0.5 } },
   // MTC: green lower body, yellow upper.
   chennai: { bikes: 12, buses: 2, taxi: "plain", bus: { body: 0x2f7d4a, stripe: 0xffffff, upper: 0xe7c43a, doubleDecker: 0 } },
   // BMTC Vajra blue.
   bengaluru: { bikes: 16, buses: 2, taxi: "plain", bus: { body: 0x2a5caa, stripe: 0xffffff, upper: 0x2a5caa, doubleDecker: 0 } },
   // Kolkata private buses: yellow and blue, and the yellow Ambassador taxi.
-  kolkata: { bikes: 7, buses: 3, taxi: "yellow", bus: { body: 0x2d5aa8, stripe: 0xf2c230, upper: 0xf2c230, doubleDecker: 0 } },
+  kolkata: { bikes: 7, buses: 3, taxi: "yellow", hire: "taxi", bus: { body: 0x2d5aa8, stripe: 0xf2c230, upper: 0xf2c230, doubleDecker: 0 } },
   // TSRTC city: red with a white band.
   hyderabad: { bikes: 14, buses: 2, taxi: "plain", bus: { body: 0xb3262d, stripe: 0xffffff, upper: 0xb3262d, doubleDecker: 0 } },
   // KSRTC: red with a yellow band.

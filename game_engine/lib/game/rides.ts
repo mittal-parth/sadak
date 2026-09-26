@@ -148,8 +148,8 @@ export class Rides {
       yaw: start.yaw,
       taskId: task.id,
       to: dest.label,
-      // The auto's back seat.
-      seat: new THREE.Vector3(0, 0.45, -0.55),
+      // The auto's back seat, or the taxi's.
+      seat: auto.userData.seat instanceof THREE.Vector3 ? auto.userData.seat.clone() : new THREE.Vector3(0, 0.45, -0.55),
       linger: 0,
     };
     drive(this.ride, 0);
