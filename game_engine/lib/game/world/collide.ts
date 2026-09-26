@@ -9,7 +9,13 @@
 import type { Pt } from "./mapData";
 
 export type BoxCollider = { kind: "box"; x: number; z: number; hw: number; hd: number; rot: number };
-export type PolyCollider = { kind: "poly"; outer: Pt[]; holes: Pt[][] };
+export type PolyCollider = {
+  kind: "poly";
+  outer: Pt[];
+  holes: Pt[][];
+  /** Boxes where the polygon is not in the way: bridges over water. */
+  open?: Omit<BoxCollider, "kind">[];
+};
 export type Collider = BoxCollider | PolyCollider;
 
 const CELL = 8;
@@ -51,6 +57,7 @@ export function hits(c: Collider, x: number, z: number, r: number): boolean {
     const v = dx * sn + dz * cs;
     return Math.abs(u) < c.hw + r && Math.abs(v) < c.hd + r;
   }
+  if (c.open?.some((b) => hits({ kind: "box", ...b }, x, z, 0))) return false;
   const inHole = c.holes.some((h) => pointInRing(x, z, h));
   const inside = pointInRing(x, z, c.outer) && !inHole;
   if (inside) return true;
