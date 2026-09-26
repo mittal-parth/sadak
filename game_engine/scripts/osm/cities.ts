@@ -103,7 +103,8 @@ export const OSM_CITIES: OsmCity[] = [
     landmarks: [
       { match: /^Jama Masjid$/, model: "jama_masjid" },
       { match: /Sunehri Masjid/, model: "mosque_small" },
-      { match: /Sis Ganj/, model: "gurdwara_small" },
+      // Faces Chandni Chowk, to its north.
+      { match: /Sis Ganj/, model: "gurdwara_small", faces: 0 },
       { match: /Gauri Shankar/, model: "temple", size: SMALL_TEMPLE },
       { match: /^Central Baptist Church$/, model: "church_small" },
     ],

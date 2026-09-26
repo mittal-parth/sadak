@@ -11,7 +11,7 @@
  */
 
 import * as THREE from "three";
-import { Parts, archedSlab } from "./vc";
+import { Parts, archedSlab, onion, stripedShaft } from "./vc";
 
 export type LocalBox = { x: number; z: number; hw: number; hd: number; rot?: number };
 /** Height from y0 at the local -z edge to y1 at +z (flat when equal). */
@@ -99,21 +99,6 @@ export function chhatri(P: Parts, x: number, y: number, z: number, s: number, st
   P.dome(0.9 * s, x, y + 1.8 * s, z, domeCol);
 }
 
-function minaret(P: Parts, C: LocalBox[], x: number, z: number, base: number, h: number, stone: number, band: number, domeCol: number) {
-  const r = Math.max(0.8, h * 0.045);
-  const tiers = 3;
-  for (let t = 0; t < tiers; t++) {
-    const y0 = base + (h * t) / tiers;
-    const hh = h / tiers;
-    const r0 = r * (1 - t * 0.14);
-    P.cyl(r0 * 0.9, r0, hh, x, y0 + hh / 2, z, t % 2 ? band : stone, 12);
-    // Balcony.
-    P.cyl(r0 * 1.35, r0 * 1.35, 0.3, x, y0 + hh, z, stone, 12);
-  }
-  chhatri(P, x, base + h, z, r * 0.9, stone, domeCol);
-  C.push({ x, z, hw: r, hd: r });
-}
-
 /* ------------------------------------------------------------------ *
  * Mosque family
  * ------------------------------------------------------------------ */
@@ -143,19 +128,41 @@ export function smallMosque(w: number, d: number, st: MosqueStyle): Monument {
   const hallW = w * 0.78;
   const hallD = pf.depth * 0.62;
   const hz = pf.top + hallD / 2 + 0.6;
+  const hf = hz + hallD / 2;
   const hallH = Math.min(7, 3 + w * 0.25);
   P.box(hallW, hallH, hallD, 0, y + hallH / 2, hz, st.stone);
-  P.box(hallW + 0.3, 0.4, hallD + 0.3, 0, y + hallH + 0.2, hz, st.accent);
-  for (let k = 0; k < 3; k++) {
-    P.box(hallW * 0.18, hallH * 0.6, 0.1, -hallW / 3 + (k * hallW) / 3, y + hallH * 0.32, hz + hallD / 2 + 0.05, DARK);
+  P.box(hallW + 0.3, 0.35, hallD + 0.3, 0, y + hallH - 0.15, hz, st.accent);
+  // Three arched bays in framed recesses, the middle one taller.
+  for (let k = -1; k <= 1; k++) {
+    const x = (k * hallW) / 3;
+    const bw = (hallW / 3) * (k === 0 ? 0.62 : 0.52);
+    const bh = hallH * (k === 0 ? 0.8 : 0.66);
+    P.box(bw + 0.5, bh + 0.5, 0.06, x, y + (bh + 0.5) / 2, hf + 0.03, st.accent);
+    archWindow(P, x, y, hf + 0.07, bw, bh, DARK);
   }
+  for (const k of [-0.5, 0.5]) P.box(0.3, hallH, 0.14, (k * hallW) / 1.5, y + hallH / 2, hf + 0.07, st.accent);
+  // Crenellations along the front.
+  const n = Math.max(4, Math.floor(hallW / 1.1));
+  for (let k = 0; k < n; k++) P.box(0.55, 0.5, 0.22, -hallW / 2 + (k + 0.5) * (hallW / n), y + hallH + 0.25, hf - 0.1, st.stone);
   C.push({ x: 0, z: hz, hw: hallW / 2, hd: hallD / 2 });
-  const r = Math.min(hallW, hallD) * 0.3;
-  P.cyl(r * 0.95, r * 0.95, 1, 0, y + hallH + 0.5, hz, st.stone, 12);
-  P.dome(r, 0, y + hallH + 1, hz, st.dome, 1.2);
+  // Domes: a large one over the middle bay, two smaller either side.
+  const r = Math.min(hallW * 0.18, hallD * 0.34);
+  for (const [x, k] of [[0, 1], [-hallW / 3, 0.66], [hallW / 3, 0.66]] as const) {
+    const rr = r * k;
+    P.cyl(rr * 0.92, rr * 0.95, rr * 0.5, x, y + hallH + rr * 0.25, hz, st.stone, 12);
+    onion(P, rr, x, y + hallH + rr * 0.5, hz, [st.dome]);
+    P.cyl(0.05, 0.05, rr * 0.5, x, y + hallH + rr * 0.5 + rr * 1.55 + rr * 0.25, hz, GOLD, 5);
+  }
+  // Slender minarets at the front corners, banded, with a kiosk on top.
   const mh = hallH * 2.1;
-  for (const s of [-1, 1]) minaret(P, C, s * (hallW / 2 + 0.4), hz + hallD / 2, y, mh, st.stone, st.accent, st.dome);
-  return finish(P, C, Hs, { x: 0, z: Math.min(pf.front - 1, hz + hallD / 2 + 2) });
+  for (const sx of [-1, 1]) {
+    const x = sx * (hallW / 2 + 0.4);
+    stripedShaft(P, 0.42, 0.52, mh, x, y, hf, st.stone, st.accent, 12);
+    for (const f of [0.45, 0.8]) P.cyl(0.8, 0.6, 0.3, x, y + mh * f, hf, st.accent, 12);
+    chhatri(P, x, y + mh, hf, 0.45, st.stone, st.dome);
+    C.push({ x, z: hf, hw: 0.55, hd: 0.55 });
+  }
+  return finish(P, C, Hs, { x: 0, z: Math.min(pf.front - 1, hf + 2) });
 }
 
 /** Tomb: a domed chamber with corner chhatris on a stepped plinth. */
@@ -167,17 +174,57 @@ export function tomb(w: number, d: number, st: MosqueStyle): Monument {
   const y = Math.max(1, st.plinth * 0.6);
   const s = Math.min(w, pf.depth) * 0.62;
   const h = s * 0.7;
-  P.box(s, h, s, 0, y + h / 2, pf.zc, st.stone);
-  for (const f of [1, -1]) {
-    P.box(s * 0.4, h * 0.75, 0.1, 0, y + h * 0.38, pf.zc + f * (s / 2 + 0.05), DARK);
-    P.box(0.1, h * 0.75, s * 0.4, f * (s / 2 + 0.05), y + h * 0.38, pf.zc, DARK);
+  const cz = pf.zc;
+  P.box(s, h, s, 0, y + h / 2, cz, st.stone);
+  // Each face: a tall arch in a raised frame with a stone lattice (jaali)
+  // over it, and a smaller latticed arch either side.
+  for (let k = 0; k < 4; k++) {
+    const rot = (k * Math.PI) / 2;
+    const c = Math.cos(rot);
+    const sn = Math.sin(rot);
+    const at = (u: number, o: number): [number, number] => [u * c + (s / 2 + o) * sn, cz - u * sn + (s / 2 + o) * c];
+    const [fx, fz] = at(0, 0.04);
+    P.box(s * 0.46, h * 0.86, 0.1, fx, y + h * 0.43, fz, st.accent, rot);
+    for (const [u, aw, ah] of [[0, s * 0.3, h * 0.72], [-s * 0.34, s * 0.14, h * 0.45], [s * 0.34, s * 0.14, h * 0.45]] as const) {
+      const [x, z] = at(u, 0.1);
+      archWindow(P, x, y + 0.3, z, aw, ah, DARK, rot);
+      // The lattice: bars across the opening.
+      for (let r = 1; r < 5; r++) {
+        const [bx, bz] = at(u, 0.14);
+        P.box(aw * 0.9, 0.08, 0.06, bx, y + 0.3 + (r * (ah - aw / 2)) / 5, bz, st.stone, rot);
+      }
+      for (const v of [-0.25, 0.25]) {
+        const [bx, bz] = at(u + v * aw, 0.14);
+        P.box(0.08, ah - aw / 2, 0.06, bx, y + 0.3 + (ah - aw / 2) / 2, bz, st.stone, rot);
+      }
+    }
   }
-  P.box(s + 0.4, 0.5, s + 0.4, 0, y + h + 0.25, pf.zc, st.accent);
-  P.cyl(s * 0.32, s * 0.32, 1.5, 0, y + h + 1.2, pf.zc, st.stone, 14);
-  P.dome(s * 0.34, 0, y + h + 1.9, pf.zc, st.dome, 1.15);
-  for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) chhatri(P, a * s * 0.38, y + h + 0.5, pf.zc + b * s * 0.38, s * 0.07, st.stone, st.dome);
-  C.push({ x: 0, z: pf.zc, hw: s / 2, hd: s / 2 });
-  return finish(P, C, Hs, { x: 0, z: Math.min(pf.front - 1, pf.zc + s / 2 + 1.5) });
+  P.box(s + 0.4, 0.45, s + 0.4, 0, y + h + 0.22, cz, st.accent);
+  const n = Math.max(6, Math.floor(s / 1.1));
+  for (const [dx, dz] of [[0, 1], [0, -1], [1, 0], [-1, 0]] as const) {
+    for (let k = 0; k < n; k++) {
+      const u = -s / 2 + (k + 0.5) * (s / n);
+      P.box(dz ? 0.55 : 0.22, 0.5, dz ? 0.22 : 0.55, dx ? (dx * s) / 2 : u, y + h + 0.7, dz ? cz + (dz * s) / 2 : cz + u, st.stone);
+    }
+  }
+  // Turrets at the corners, the drum and the dome.
+  for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    const x = (a * s) / 2;
+    const z = cz + (b * s) / 2;
+    stripedShaft(P, 0.45, 0.55, h + 2.2, x, y, z, st.stone, st.accent, 8);
+    chhatri(P, x, y + h + 2.2, z, 0.5, st.stone, st.dome);
+    chhatri(P, a * s * 0.3, y + h + 0.45, cz + b * s * 0.3, s * 0.06, st.stone, st.dome);
+  }
+  const r = s * 0.32;
+  P.cyl(r * 0.95, r, r * 0.6, 0, y + h + 0.45 + r * 0.3, cz, st.accent, 16);
+  for (let k = 0; k < 8; k++) {
+    const t = (k / 8) * Math.PI * 2;
+    archWindow(P, Math.sin(t) * r, y + h + 0.55, cz + Math.cos(t) * r, r * 0.22, r * 0.45, DARK, t);
+  }
+  onion(P, r, 0, y + h + 0.45 + r * 0.6, cz, [st.dome]);
+  P.cyl(0.08, 0.08, r * 0.6, 0, y + h + 0.45 + r * 0.6 + r * 1.55 + r * 0.3, cz, GOLD, 6);
+  C.push({ x: 0, z: cz, hw: s / 2 + 0.3, hd: s / 2 + 0.3 });
+  return finish(P, C, Hs, { x: 0, z: Math.min(pf.front - 1, cz + s / 2 + 1.5) });
 }
 
 /* ------------------------------------------------------------------ *
@@ -483,10 +530,24 @@ export function gurdwara(w: number, d: number, st: GurdwaraStyle): Monument {
     const col = st.gold && k > 0 ? GOLD : MARBLE;
     P.box(s * shrink, fh, s * shrink, 0, y + fh * (k + 0.5), sz, col);
     P.box(s * shrink + 0.4, 0.3, s * shrink + 0.4, 0, y + fh * (k + 1), sz, st.gold ? GOLD : 0xe8c85a);
-    for (const f of [-1, 1]) {
+    // Arched openings on every face; a jharokha over the middle one upstairs.
+    const half = (s * shrink) / 2;
+    for (let q = 0; q < 4; q++) {
+      const rot = (q * Math.PI) / 2;
+      const c = Math.cos(rot);
+      const sn = Math.sin(rot);
       for (let a = -1; a <= 1; a++) {
-        P.box(s * 0.12, fh * 0.55, 0.1, (a * s * shrink) / 3.4, y + fh * (k + 0.45), sz + f * ((s * shrink) / 2 + 0.05), DARK);
-        P.box(0.1, fh * 0.55, s * 0.12, f * ((s * shrink) / 2 + 0.05), y + fh * (k + 0.45), sz + (a * s * shrink) / 3.4, DARK);
+        const u = (a * s * shrink) / 3.4;
+        const x = u * c + (half + 0.05) * sn;
+        const z = sz - u * sn + (half + 0.05) * c;
+        archWindow(P, x, y + fh * k + 0.5, z, s * 0.13, fh * 0.62, DARK, rot);
+      }
+      if (k > 0) {
+        const x = (half + 0.45) * sn;
+        const z = sz + (half + 0.45) * c;
+        P.box(s * 0.2, 0.15, 0.9, x, y + fh * k + 0.4, z, col, rot);
+        P.box(s * 0.2, 0.15, 0.95, x, y + fh * k + fh * 0.8, z, col, rot);
+        P.dome(s * 0.07, x, y + fh * k + fh * 0.8 + 0.08, z, GOLD, 1.15);
       }
     }
   }
@@ -497,6 +558,16 @@ export function gurdwara(w: number, d: number, st: GurdwaraStyle): Monument {
   P.cyl(0.1, 0.1, r * 0.9, 0, top + 1.2 + r * 1.5 + r * 0.45, sz, GOLD, 6);
   const k = s * 0.38;
   for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) chhatri(P, a * k, top, sz + b * k, s * 0.055, st.gold ? GOLD : MARBLE, GOLD);
+  // Little gilded domes along the parapet between the corners.
+  const ts = s * (1 - (st.storeys - 1) * 0.08);
+  for (const [dx, dz] of [[0, 1], [0, -1], [1, 0], [-1, 0]] as const) {
+    for (const u of [-ts * 0.18, 0, ts * 0.18]) {
+      const x = dx ? (dx * ts) / 2 - dx * 0.3 : u;
+      const z = dz ? sz + (dz * ts) / 2 - dz * 0.3 : sz + u;
+      P.cyl(0.18, 0.2, 0.5, x, top + 0.25, z, st.gold ? GOLD : MARBLE, 8);
+      P.dome(0.3, x, top + 0.5, z, GOLD, 1.15);
+    }
+  }
   C.push({ x: 0, z: sz, hw: s / 2, hd: s / 2 });
   if (st.nishan) {
     const nx = w / 2 - 1.5;
@@ -1024,22 +1095,61 @@ export function promenade(w: number, d: number): Monument {
 
 /** A statue on a stepped plinth, facing +z: a draped standing figure, one
  *  arm raised (Kannagi holds up her anklet). The Marina's row of statues. */
-export function statue(w: number, d: number, figure = 0x3d3530, plinth = 0xe8e0d0): Monument {
+export type StatuePose = "anklet" | "scholar" | "leader";
+
+/**
+ * A bronze on a tiered granite pedestal, in one of the Marina's poses:
+ * Kannagi holding up her anklet, Thiruvalluvar the poet with his palm-leaf
+ * book, a leader in uniform with a raised arm (Subhas Chandra Bose). The
+ * pedestal carries a plaque and a railing round its foot.
+ */
+export function statue(w: number, d: number, pose: StatuePose = "anklet", figure = 0x5a4a3c, plinth = 0xd8d0c0): Monument {
   const P = new Parts();
-  const s = Math.max(2.4, Math.min(w, d));
-  P.box(s, 0.5, s, 0, 0.25, 0, plinth);
-  P.box(s * 0.72, 0.5, s * 0.72, 0, 0.75, 0, plinth);
-  P.box(s * 0.5, 2.2, s * 0.5, 0, 2.1, 0, plinth);
-  P.box(s * 0.56, 0.15, s * 0.56, 0, 3.27, 0, 0xcfc6b4);
-  // Figure: robe, torso, head, one arm down and one raised.
-  const y = 3.35;
-  P.cyl(0.42, 0.62, 2.1, 0, y + 1.05, 0, figure, 10);
-  P.cyl(0.34, 0.4, 0.9, 0, y + 2.5, 0, figure, 10);
-  P.add(new THREE.SphereGeometry(0.26, 10, 8).translate(0, y + 3.2, 0), figure);
-  P.box(0.16, 1.1, 0.16, -0.48, y + 2.2, 0, figure);
-  P.add(new THREE.BoxGeometry(0.16, 1.2, 0.16).rotateZ(-0.5).translate(0.62, y + 3.2, 0), figure);
-  P.add(new THREE.TorusGeometry(0.14, 0.035, 6, 12).translate(0.92, y + 3.8, 0), 0xc9a44a);
-  return finish(P, [{ x: 0, z: 0, hw: s / 2, hd: s / 2 }], []);
+  const s = Math.max(3.2, Math.min(w, d) + 1);
+  // Railing and the tiered pedestal.
+  P.box(s + 1.4, 0.3, s + 1.4, 0, 0.15, 0, 0xc9c1b0);
+  for (let k = 0; k < 16; k++) {
+    const t = -1 + (k / 15) * 2;
+    for (const [x, z] of [[t, 1], [t, -1], [1, t], [-1, t]]) P.box(0.06, 0.8, 0.06, (x * (s + 1.2)) / 2, 0.7, (z * (s + 1.2)) / 2, 0x2e3a33);
+  }
+  for (const [x, z, lw, ld] of [[0, 1, s + 1.2, 0], [0, -1, s + 1.2, 0], [1, 0, 0, s + 1.2], [-1, 0, 0, s + 1.2]] as const) {
+    P.box(lw || 0.08, 0.08, ld || 0.08, (x * (s + 1.2)) / 2, 1.1, (z * (s + 1.2)) / 2, 0x2e3a33);
+  }
+  P.box(s, 0.6, s, 0, 0.6, 0, plinth);
+  P.box(s * 0.78, 0.5, s * 0.78, 0, 1.15, 0, plinth);
+  P.box(s * 0.56, 3, s * 0.56, 0, 2.9, 0, plinth);
+  P.box(s * 0.64, 0.25, s * 0.64, 0, 4.5, 0, 0xc4bba8);
+  P.box(s * 0.34, 0.9, 0.06, 0, 2.9, s * 0.28 + 0.03, 0x6b5a3a);
+  const y = 4.6;
+  const H = 3.6;
+  if (pose === "scholar") {
+    // Seated-standing sage: flowing robe, beard, a book held at the chest.
+    P.cyl(0.55, 0.85, H * 0.62, 0, y + H * 0.31, 0, figure, 12);
+    P.cyl(0.45, 0.55, H * 0.22, 0, y + H * 0.73, 0, figure, 12);
+    P.add(new THREE.SphereGeometry(0.34, 10, 8).translate(0, y + H * 0.93, 0), figure);
+    P.add(new THREE.ConeGeometry(0.22, 0.45, 8).rotateX(Math.PI).translate(0, y + H * 0.8, 0.22), figure);
+    P.box(0.5, 0.36, 0.08, 0, y + H * 0.68, 0.5, 0x8a7550);
+    for (const sx of [-1, 1]) P.add(new THREE.BoxGeometry(0.18, 0.9, 0.18).rotateX(-0.9).translate(sx * 0.35, y + H * 0.68, 0.3), figure);
+  } else if (pose === "leader") {
+    // In uniform: trousers, tunic, cap, one arm raised forward.
+    for (const sx of [-1, 1]) P.box(0.3, H * 0.45, 0.32, sx * 0.2, y + H * 0.225, 0, figure);
+    P.box(0.8, H * 0.35, 0.5, 0, y + H * 0.62, 0, figure);
+    P.box(0.86, 0.1, 0.56, 0, y + H * 0.48, 0, 0x3a2e24);
+    P.add(new THREE.SphereGeometry(0.28, 10, 8).translate(0, y + H * 0.88, 0), figure);
+    P.cyl(0.3, 0.3, 0.16, 0, y + H * 0.96, 0, figure, 10);
+    P.box(0.18, 0.9, 0.18, -0.5, y + H * 0.6, 0, figure);
+    P.add(new THREE.BoxGeometry(0.18, 1.1, 0.18).rotateX(-1.2).translate(0.5, y + H * 0.8, 0.4), figure);
+  } else {
+    // Kannagi: sari to the ankle, hair loose, the anklet raised high.
+    P.cyl(0.36, 0.7, H * 0.66, 0, y + H * 0.33, 0, figure, 12);
+    P.cyl(0.3, 0.36, H * 0.2, 0, y + H * 0.76, 0, figure, 12);
+    P.add(new THREE.SphereGeometry(0.26, 10, 8).translate(0, y + H * 0.93, 0), figure);
+    P.add(new THREE.ConeGeometry(0.3, 1.1, 8).rotateX(Math.PI).translate(0, y + H * 0.78, -0.2), figure);
+    P.box(0.16, 1.1, 0.16, -0.42, y + H * 0.62, 0, figure);
+    P.add(new THREE.BoxGeometry(0.16, 1.3, 0.16).rotateZ(-0.35).translate(0.5, y + H * 0.98, 0), figure);
+    P.add(new THREE.TorusGeometry(0.18, 0.05, 6, 14).translate(0.72, y + H * 1.16, 0), 0xc9a44a);
+  }
+  return finish(P, [{ x: 0, z: 0, hw: (s + 1.4) / 2, hd: (s + 1.4) / 2 }], []);
 }
 
 /**

@@ -22,7 +22,7 @@ import type { HeightField } from "./height";
 import { modelExtent } from "./extent";
 import { charminar, congregationalMosque, hajira } from "./mosque";
 import { deul, jalamandira, lingaraj } from "./odisha";
-import { dravidianTemple } from "./south";
+import { dravidianTemple, smallDravidianTemple } from "./south";
 import {
   busStation,
   church,
@@ -123,7 +123,8 @@ export function buildLandmark(l: MapLandmark, city: Landmark, clear?: ClearTest)
     case "jama_masjid":
       return congregationalMosque(...modelExtent(l.model, w, d), ms);
     case "mosque_small":
-      return smallMosque(...modelExtent(l.model, w, d), ms);
+      // The Sunehri Masjid is named for its gilded domes.
+      return smallMosque(...modelExtent(l.model, w, d), /Sunehri/.test(l.name) ? { ...ms, dome: 0xe0b23a } : ms);
     case "dargah":
       return smallMosque(...modelExtent(l.model, w, d), { ...ms, dome: 0x2e8b57, accent: 0x2e8b57, stone: 0xf2efe6 });
     case "hajira":
@@ -132,7 +133,10 @@ export function buildLandmark(l: MapLandmark, city: Landmark, clear?: ClearTest)
       return tomb(...modelExtent(l.model, w, d), ms);
     case "temple":
     case "shrine":
-      return temple(...modelExtent(l.model, w, d), ts);
+      // Chennai's and Bengaluru's temples are Dravidian.
+      return l.model === "temple" && (city === "chennai" || city === "bengaluru")
+        ? smallDravidianTemple(...modelExtent(l.model, w, d))
+        : temple(...modelExtent(l.model, w, d), ts);
     case "deul_small":
       return deul(...modelExtent(l.model, w, d));
     case "lingaraj":
@@ -145,6 +149,7 @@ export function buildLandmark(l: MapLandmark, city: Landmark, clear?: ClearTest)
       return church(...modelExtent(l.model, w, d), { wall: 0xf4efe4, trim: 0xd9c9a8, roof: 0x9b3b2f, towers: 1 });
     case "church":
       // St Francis, Kochi: India's oldest European church, no tower.
+      if (/St\.? Thomas|Saint Thomas/.test(l.name)) return church(w, d, { wall: 0xf6f2ea, trim: 0xcbb994, roof: 0x7a3a2f, towers: 1, front: "gothic" });
       return /St\.? Francis/.test(l.name)
         ? church(w, d, { wall: 0xf4efe4, trim: 0xcbb994, roof: 0x8a3b2c, towers: 0, front: "stepped" })
         : church(w, d, { wall: 0xf4efe4, trim: 0xd9c9a8, roof: 0x7a3a2f, towers: 1 });
@@ -202,7 +207,7 @@ export function buildLandmark(l: MapLandmark, city: Landmark, clear?: ClearTest)
     case "promenade":
       return promenade(w, Math.max(d, 6));
     case "statue":
-      return statue(w, d);
+      return statue(w, d, /valluvar/i.test(l.name) ? "scholar" : /Bose|Gandhi|Nehru|Patel/i.test(l.name) ? "leader" : "anklet");
     case "temple_car":
       return templeCar(w, d);
     default:

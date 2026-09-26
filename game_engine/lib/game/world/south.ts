@@ -225,3 +225,40 @@ export function dravidianTemple(w: number, d: number): Monument {
   // The priest stands at the hall's steps.
   return finish(P, C, Hs, { x: 0, z: hallZ + hallD / 2 + 2.6 });
 }
+
+/** A neighbourhood Dravidian temple: a small gopuram over the gate when
+ *  there is room, a pillared porch, the vimana over the sanctum. */
+export function smallDravidianTemple(w: number, d: number): Monument {
+  const P = new Parts();
+  const C: LocalBox[] = [];
+  const Hs: LocalRect[] = [];
+  const ph = 0.6;
+  P.box(w, ph, d, 0, ph / 2, 0, STONE);
+  Hs.push({ x: 0, z: 0, hw: w / 2, hd: d / 2, y0: ph, y1: ph });
+  const stairW = Math.min(3, w * 0.4);
+  P.steps(stairW, ph, 0, d / 2 + 1, STONE);
+  Hs.push({ x: 0, z: d / 2 + 0.5, hw: stairW / 2, hd: 0.5, y0: ph, y1: 0 });
+  const vb = Math.min(w * 0.6, d * 0.4, 9);
+  const vz = -d / 2 + vb / 2 + 0.4;
+  vimana(P, C, vb, 0, vz, 2);
+  // The porch before the sanctum door.
+  const pd = Math.min(d * 0.3, 7);
+  const pz = vz + vb / 2 + pd / 2;
+  const pw = vb * 0.9;
+  for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    const x = (a * pw) / 2 - a * 0.3;
+    const z = pz + (b * pd) / 2 - b * 0.3;
+    P.box(0.45, 3.4, 0.45, x, ph + 1.7, z, STONE);
+    C.push({ x, z, hw: 0.25, hd: 0.25 });
+  }
+  P.box(pw + 0.4, 0.4, pd + 0.4, 0, ph + 3.6, pz, STONE);
+  for (let k = 0; k < 5; k++) P.box(0.5, 0.6, 0.3, -pw / 2 + ((k + 0.5) * pw) / 5, ph + 4.1, pz + pd / 2, TIERS[k % TIERS.length]);
+  if (d >= 16) {
+    const gw = Math.min(w * 0.7, 9);
+    // The gopuram, standing on the plinth's front edge (y is its base).
+    const g = new Parts();
+    gopuram(g, C, gw, 4.5, 3, 0, d / 2 - 2.25);
+    for (const geo of g.list) P.list.push(geo.translate(0, ph, 0));
+  }
+  return finish(P, C, Hs, { x: 0, z: pz + pd / 2 + 1 });
+}
