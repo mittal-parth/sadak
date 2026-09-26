@@ -22,7 +22,7 @@ import type { MapLandmark } from "./mapData";
 import type { CollisionWorld } from "./collide";
 import type { HeightField } from "./height";
 import { modelExtent } from "./extent";
-import { congregationalMosque } from "./mosque";
+import { congregationalMosque, hajira } from "./mosque";
 import { deul, jalamandira, lingaraj } from "./odisha";
 import {
   busStation,
@@ -132,6 +132,8 @@ export function buildLandmark(l: MapLandmark, city: Landmark, clear?: ClearTest)
       return smallMosque(...modelExtent(l.model, w, d), ms);
     case "dargah":
       return smallMosque(...modelExtent(l.model, w, d), { ...ms, dome: 0x2e8b57, accent: 0x2e8b57, stone: 0xf2efe6 });
+    case "hajira":
+      return hajira(w, d, ms);
     case "tomb":
       return tomb(...modelExtent(l.model, w, d), ms);
     case "temple":

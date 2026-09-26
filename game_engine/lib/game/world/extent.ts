@@ -17,6 +17,8 @@ export function modelExtent(model: string, w: number, d: number): [number, numbe
       return [Math.min(w, 130), Math.min(d, 130)];
     case "lingaraj":
       return [Math.min(w, 150), Math.min(d, 170)];
+    case "hajira":
+      return [Math.min(w, 36), Math.min(d, 36)];
     case "tomb":
       return [Math.min(w, 40), Math.min(d, 40)];
     case "temple":

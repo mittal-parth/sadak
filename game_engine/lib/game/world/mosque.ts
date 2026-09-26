@@ -392,3 +392,68 @@ export function congregationalMosque(w: number, d: number, st: MosqueStyle): Mon
 
   return finish(P, C, Hs, { x: 0, z: Math.min(court1 - 2, cz + td / 2 + 3) });
 }
+
+/**
+ * Rani no Hajiro: the queens' enclosure beside Ahmad Shah's tomb. No dome:
+ * a court open to the sky behind walls of carved stone screens, an arched
+ * gate, and the queens' marble cenotaphs in rows on a raised floor.
+ */
+export function hajira(w: number, d: number, st: MosqueStyle): Monument {
+  const P = new Parts();
+  const C: LocalBox[] = [];
+  const Hs: LocalRect[] = [];
+  const W = Math.min(w, 36);
+  const D = Math.min(d, 36);
+  const ph = 0.9;
+  P.box(W, ph, D, 0, ph / 2, 0, st.stone);
+  Hs.push({ x: 0, z: 0, hw: W / 2, hd: D / 2, y0: ph, y1: ph });
+  P.steps(4, ph, 0, D / 2 + 1.6, st.stone);
+  Hs.push({ x: 0, z: D / 2 + 0.8, hw: 2, hd: 0.8, y0: ph, y1: 0 });
+  const wh = 5.5;
+  const t = 0.6;
+  const gw = 3;
+  // The screen walls: piers, and between them lattice panels.
+  const run = (len: number, x: number, z: number, rot: number) => {
+    const sub = new Parts();
+    sub.box(len, 0.5, t + 0.2, 0, 0.25, 0, st.accent);
+    sub.box(len, 0.7, t + 0.3, 0, wh - 0.35, 0, st.accent);
+    kanguras(sub, len, wh, 0, st.stone);
+    const n = Math.max(1, Math.round(len / 2.6));
+    const bay = len / n;
+    for (let k = 0; k <= n; k++) sub.box(0.5, wh, t, -len / 2 + k * bay, wh / 2, 0, st.stone);
+    for (let k = 0; k < n; k++) {
+      const u = -len / 2 + (k + 0.5) * bay;
+      // The jaali: a grid of stone bars over the dark of the court.
+      sub.box(bay - 0.5, wh - 1.2, 0.08, u, wh / 2, 0, 0x4a3a2c);
+      for (let r = 1; r < 6; r++) sub.box(bay - 0.5, 0.1, t * 0.9, u, 0.5 + (r * (wh - 1.2)) / 6, 0, st.stone);
+      for (let c = 1; c < 4; c++) sub.box(0.1, wh - 1.2, t * 0.9, u - (bay - 0.5) / 2 + (c * (bay - 0.5)) / 4, wh / 2, 0, st.stone);
+      archWindow(sub, u, wh - 2.2, t / 2 + 0.02, bay * 0.5, 1.4, st.stone);
+    }
+    put(P, sub, x, ph, z, rot);
+    box(C, x, z, rot, 0, 0, len / 2, t / 2);
+  };
+  run(W, 0, -D / 2 + t / 2, 0);
+  for (const s of [-1, 1]) run(D, s * (W / 2 - t / 2), 0, Math.PI / 2);
+  const side = (W - gw) / 2 - 1;
+  for (const s of [-1, 1]) run(side, s * (gw / 2 + 1 + side / 2), D / 2 - t / 2, 0);
+  // The gate: an arch in a raised frame.
+  const g = gate(gw, 2.4, wh + 2.2, st, false);
+  put(P, g.parts, 0, ph, D / 2, Math.PI);
+  for (const b of g.walls) box(C, 0, D / 2, Math.PI, b.x, b.z, b.hw, b.hd);
+  // The cenotaphs on a second step, in rows.
+  const cw = W * 0.6;
+  const cd = D * 0.5;
+  P.box(cw, 0.4, cd, 0, ph + 0.2, -D * 0.08, MARBLE);
+  Hs.push({ x: 0, z: -D * 0.08, hw: cw / 2, hd: cd / 2, y0: ph + 0.4, y1: ph + 0.4 });
+  for (let i = 0; i < 4; i++) {
+    for (let j = 0; j < 2; j++) {
+      const x = -cw / 2 + ((i + 0.5) * cw) / 4;
+      const z = -D * 0.08 - cd / 4 + (j * cd) / 2;
+      P.box(1.1, 0.5, 2.2, x, ph + 0.65, z, MARBLE);
+      P.box(0.8, 0.35, 1.9, x, ph + 1.05, z, MARBLE);
+      P.box(0.3, 0.2, 1.6, x, ph + 1.3, z, 0xe8e0d0);
+      C.push({ x, z, hw: 0.55, hd: 1.1 });
+    }
+  }
+  return finish(P, C, Hs, { x: 0, z: -D * 0.08 + cd / 2 + 1.4 });
+}

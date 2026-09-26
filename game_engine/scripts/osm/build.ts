@@ -422,6 +422,7 @@ const FACE_STREET = new Set([
   "mosque_small",
   "dargah",
   "tomb",
+  "hajira",
   "shrine",
 ]);
 
@@ -447,6 +448,7 @@ const HAS_DOOR = new Set([
   "church_small",
   "basilica",
   "tomb",
+  "hajira",
   "gopuram_temple",
   "shrine",
 ]);

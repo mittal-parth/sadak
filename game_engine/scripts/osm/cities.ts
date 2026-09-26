@@ -255,7 +255,8 @@ export const OSM_CITIES: OsmCity[] = [
       { match: /Teen Darwaza/, model: "teen_darwaza", size: [22, 8] },
       { match: /^Jama Masjid$/, model: "jama_masjid" },
       { match: /Tomb of Ahmad Shah|Tomb of ahmad shah/i, model: "tomb" },
-      { match: /Rani's Hajira|Mughli Bibi/, model: "tomb" },
+      // (Mughli Bibi's tomb stands inside the queens' enclosure.)
+      { match: /Rani's Hajira/, model: "hajira" },
       { match: /Khamasa Parsi Agiyari/, model: "agiyari", size: [12, 10] },
     ],
     spawnNear: /^Jama Masjid$/,
