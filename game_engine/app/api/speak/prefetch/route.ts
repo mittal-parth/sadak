@@ -27,7 +27,7 @@ export async function POST(req: Request) {
   }
 
   const lang = loaded.district.language as LangCode;
-  const entries = collectDistrictLessonTtsEntries(lang, loaded.tasks, comfort, loaded.id);
+  const entries = collectDistrictLessonTtsEntries(lang, loaded.tasks, comfort, loaded.barber);
 
   return NextResponse.json({
     items: entries.map((entry) => ({

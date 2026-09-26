@@ -6,7 +6,6 @@ import { loadMap } from "@/lib/game/world";
 import type { MapData } from "@/lib/game/world/mapData";
 import type { District } from "@/lib/game/districts";
 import {
-  barberTaskFor,
   errandIndexForTask,
   findTaskById,
   resolveTaskLesson,
@@ -69,6 +68,8 @@ export default function GameShell() {
   /** Places found in this district (kept between visits). */
   const { discovery, claim: claimPlace } = useDiscovery(worldMap, district?.id ?? null);
   const [tasks, setTasks] = useState<StreetTask[]>([]);
+  /** The district's haircut, from its stored pack like the errands. */
+  const [barberTask, setBarberTask] = useState<StreetTask | null>(null);
   const [taskFinale, setTaskFinale] = useState<DistrictTaskPack["finale"] | null>(null);
   const [entering, setEntering] = useState(false);
   const [enteringCity, setEnteringCity] = useState<string | undefined>();
@@ -208,6 +209,7 @@ export default function GameShell() {
         setWorldMap(map);
         setDistrict(districtPayload.district);
         setTasks(districtPayload.tasks);
+        setBarberTask(districtPayload.taskPack.barber);
         setTaskFinale(districtPayload.taskPack.finale);
         setLastDistrictId(districtId);
         setComfort(pickedComfort);
@@ -371,8 +373,9 @@ export default function GameShell() {
       district_name: district.name,
       language: district.language,
     });
-    setTalking(barberTaskFor(district.id));
-  }, [district, completed]);
+    if (!barberTask) throw new Error(`[game] ${district.id}: no barber in the loaded task pack`);
+    setTalking(barberTask);
+  }, [district, completed, barberTask]);
 
   const openTalk = useCallback(() => {
     if (!district || talkingRef.current) return;
