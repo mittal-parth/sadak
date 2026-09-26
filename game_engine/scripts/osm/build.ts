@@ -1064,10 +1064,24 @@ function compile(city: OsmCity): MapData {
     const sgn = left >= 0 ? 1 : -1;
     const tx = st.x + q.dir[0] * sgn * 250;
     const tz = st.z + q.dir[1] * sgn * 250;
-    return [7.5, 6, 5].some((w) => {
+    const leaves = [7.5, 6, 5].some((w) => {
       const path = planRoute(routeMap, st.x, st.z, tx, tz, w, 2);
       return !!path && polylineLength(path) >= 150;
     });
+    // And one can get there: as rides.ts brings it in, from a junction a
+    // couple of blocks back, ending at the stop.
+    const arrives = [...nodes.values()]
+      .map((n) => ({ n, d: Math.hypot(n.x - st.x, n.z - st.z) }))
+      .filter((q) => q.d > 90 && q.d < 170)
+      .some(({ n }) =>
+        [7.5, 6, 5].some((w) => {
+          const path = planRoute(routeMap, n.x, n.z, st.x, st.z, w, 2);
+          if (!path) return false;
+          const [ex, ez] = path[path.length - 1];
+          return Math.hypot(ex - st.x, ez - st.z) <= 15 && polylineLength(path) <= 300;
+        })
+      );
+    return leaves && arrives;
   };
   const busCandidates = [
     ...pois
@@ -1181,8 +1195,10 @@ function compile(city: OsmCity): MapData {
   const fillable = (r: MapRoad) => r.cls !== "footway" && r.cls !== "steps" && !noFrontage.has(r);
   const range = ([a, b]: [number, number]) => a + rand() * (b - a);
 
+  const waresOn = (r: MapRoad) => city.streets?.find((rule) => rule.wares && rule.match.test(r.name ?? ""))?.wares;
   for (const r of roads) {
     if (!fillable(r)) continue;
+    const wares = waresOn(r);
     const front = r.w / 2 + r.foot + 0.45;
     for (const side of [1, -1]) {
       // Walk the polyline, dropping plots edge to edge along the frontage.
@@ -1221,8 +1237,9 @@ function compile(city: OsmCity): MapData {
               w: r1(w - 0.15),
               d: r1(d),
               floors,
-              front: rand() < city.fill.shop,
+              front: rand() < city.fill.shop || !!wares,
               seed: Math.floor(rand() * 1e6),
+              ...(wares ? { wares } : {}),
             });
             grid.markBox(px, pz, rot, w, d, BUILT);
             placed = true;

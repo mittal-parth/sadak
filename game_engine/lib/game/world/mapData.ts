@@ -25,7 +25,10 @@ export type RoadClass =
   | "steps";
 
 /** Paving of a pedestrian street, where it is not the city's plain paving. */
-export type RoadSurface = "sandstone";
+export type RoadSurface = "sandstone" | "granite";
+
+/** What a street's shops sell, where the street is known for it. */
+export type Wares = "bangles";
 
 export type MapRoad = {
   cls: RoadClass;
@@ -58,6 +61,8 @@ export type Plot = {
   seed: number;
   /** The real name over the shop, where OSM has one here (Mocambo, Trupti). */
   sign?: string;
+  /** What the shop sells, on a street known for it (Laad Bazaar's bangles). */
+  wares?: Wares;
 };
 
 /** A real building footprint from OSM (outer ring). */

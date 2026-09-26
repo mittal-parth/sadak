@@ -10,7 +10,7 @@
  * colonial mansions on Park Street, low heritage houses in Fort Kochi).
  */
 
-import type { RoadClass, RoadSurface } from "../../lib/game/world/mapData";
+import type { RoadClass, RoadSurface, Wares } from "../../lib/game/world/mapData";
 
 export const MAP_HALF = 360;
 
@@ -24,6 +24,8 @@ export type StreetRule = {
   surface?: RoadSurface;
   /** Width override, metres. */
   w?: number;
+  /** What every shop on the street sells. */
+  wares?: Wares;
 };
 
 export type LandmarkRule = {
@@ -195,6 +197,12 @@ export const OSM_CITIES: OsmCity[] = [
       { match: /Gulzar houz/, model: "fountain", size: [10, 10] },
       { match: /Bhagyalaxmi Temple/, model: "temple", size: [6, 6] },
       { match: /Shahi Maqbara/, model: "tomb" },
+    ],
+    // The Charminar Pedestrianisation Project: granite round the monument,
+    // traffic kept out. Laad Bazaar runs west from it, all bangles.
+    streets: [
+      { match: /^Charminar Circle$/, as: "pedestrian", surface: "granite", w: 14 },
+      { match: /Ladbazar|Lad Bazar|Laad Bazaar/, wares: "bangles" },
     ],
     spawnNear: /^Charminar$/,
     temple: /Bhagyalaxmi Temple/,
