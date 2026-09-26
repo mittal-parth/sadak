@@ -11,7 +11,7 @@
  */
 
 import * as THREE from "three";
-import { Parts } from "./vc";
+import { Parts, archedSlab } from "./vc";
 
 export type LocalBox = { x: number; z: number; hw: number; hd: number; rot?: number };
 /** Height from y0 at the local -z edge to y1 at +z (flat when equal). */
@@ -693,31 +693,45 @@ export function akalTakht(w: number, d: number): Monument {
 export function gateway(w: number, d: number, arches: number, stone: number, accent: number): Monument {
   const P = new Parts();
   const C: LocalBox[] = [];
-  const pier = Math.max(1.6, w * 0.08);
+  const pier = Math.max(1.8, w * 0.1);
   const open = (w - pier * (arches + 1)) / arches;
-  const h = Math.max(9, open * 1.6);
+  const spring = Math.max(5, open * 0.95);
+  const h = spring + open / 2 + 2.6;
   const depth = Math.max(3, d);
   for (let i = 0; i <= arches; i++) {
     const x = -w / 2 + pier / 2 + i * (pier + open);
     P.box(pier, h, depth, x, h / 2, 0, stone);
-    P.box(pier + 0.3, 0.4, depth + 0.3, x, h * 0.55, 0, accent);
+    P.box(pier + 0.3, 0.5, depth + 0.3, x, 0.25, 0, accent);
     C.push({ x, z: 0, hw: pier / 2, hd: depth / 2 });
+    // Buttresses carved in bands, with a little balcony on each face.
+    for (const f of [-1, 1]) {
+      const z = f * (depth / 2 + 0.25);
+      P.box(pier * 0.7, h - 1.6, 0.5, x, (h - 1.6) / 2, z, stone);
+      for (const yy of [spring * 0.35, spring * 0.7]) P.box(pier * 0.8, 0.25, 0.6, x, yy, z, accent);
+      P.box(pier * 0.9, 0.2, 1.1, x, spring + 0.4, f * (depth / 2 + 0.55), accent);
+      for (const sx of [-1, 1]) P.box(0.12, 0.8, 0.12, x + sx * pier * 0.38, spring + 0.9, f * (depth / 2 + 1), accent);
+      P.box(pier * 0.9, 0.12, 0.12, x, spring + 1.3, f * (depth / 2 + 1), accent);
+    }
     if (i < arches) {
-      // Pointed arch head: two sloped slabs meeting over the opening.
       const cx = x + pier / 2 + open / 2;
-      for (const s of [-1, 1]) {
-        const g = new THREE.BoxGeometry(open * 0.62, 0.9, depth);
-        g.rotateZ(s * -0.6);
-        g.translate(cx + s * open * 0.22, h * 0.62, 0);
-        P.add(g, stone);
+      P.add(archedSlab(open, spring, h, depth).translate(cx, 0, 0), stone);
+      for (const f of [-1, 1]) {
+        // The arch's carved rim and a panel of tracery over it.
+        P.add(new THREE.TorusGeometry(open / 2 + 0.1, 0.16, 6, 18, Math.PI).translate(cx, spring, f * (depth / 2 + 0.02)), accent);
+        P.box(open * 0.7, 0.9, 0.08, cx, h - 1.3, f * (depth / 2 + 0.04), accent);
       }
     }
   }
-  P.box(w, h * 0.3, depth, 0, h * 0.85, 0, stone);
-  P.box(w + 0.6, 0.6, depth + 0.6, 0, h + 0.3, 0, accent);
+  // The terrace on top: a band, crenellations, and little domed turrets.
+  P.box(w + 0.6, 0.5, depth + 0.6, 0, h + 0.25, 0, accent);
+  const n = Math.max(2, Math.floor(w / 1.4));
+  for (let k = 0; k < n; k++) {
+    for (const f of [-1, 1]) P.box(0.7, 0.7, 0.3, -w / 2 + (k + 0.5) * (w / n), h + 0.85, f * (depth / 2), stone);
+  }
   for (let i = 0; i <= arches; i++) {
     const x = -w / 2 + pier / 2 + i * (pier + open);
-    P.cone(0.5, 1.4, x, h + 1.3, 0, stone, 8);
+    P.cyl(0.45, 0.5, 1.4, x, h + 1.2, 0, stone, 8);
+    P.dome(0.55, x, h + 1.9, 0, stone, 1.15);
   }
   return finish(P, C, []);
 }
