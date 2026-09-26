@@ -90,26 +90,31 @@ function merged(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
   return g;
 }
 
-/** Leg with its foot, pivoting at the hip. Foot is darker (sandal/shoe). */
+/** Leg with its foot, pivoting at the hip: a tapered thigh and shin, a
+ *  darker sandal or shoe. */
 function legGeometry() {
   return merged([
-    tint(new THREE.BoxGeometry(0.15, 0.84, 0.16).translate(0, -0.42, 0), 1),
-    tint(new THREE.BoxGeometry(0.13, 0.07, 0.25).translate(0, -0.845, 0.045), 0.3),
+    tint(new THREE.CylinderGeometry(0.085, 0.07, 0.44, 8).translate(0, -0.22, 0), 1),
+    tint(new THREE.CylinderGeometry(0.068, 0.052, 0.42, 8).translate(0, -0.63, 0), 1),
+    tint(new THREE.SphereGeometry(0.07, 8, 5).scale(0.95, 0.5, 1.7).translate(0, -0.845, 0.05), 0.3),
   ]);
 }
 
-/** Arm with a hand, pivoting at the shoulder. Hand shares the instance
- *  colour, slightly darker, so a bare arm and a sleeve both read. */
+/** Arm with a hand, pivoting at the shoulder: a tapered sleeve and forearm,
+ *  the hand the instance colour a shade darker, so a bare arm and a sleeve
+ *  both read. */
 function armGeometry() {
   return merged([
-    tint(new THREE.BoxGeometry(0.1, 0.56, 0.11).translate(0, -0.28, 0), 1),
-    tint(new THREE.BoxGeometry(0.09, 0.12, 0.1).translate(0, -0.62, 0), 0.88),
+    tint(new THREE.SphereGeometry(0.06, 8, 5).translate(0, -0.02, 0), 1),
+    tint(new THREE.CylinderGeometry(0.055, 0.045, 0.56, 8).translate(0, -0.28, 0), 1),
+    tint(new THREE.SphereGeometry(0.05, 8, 5).scale(0.8, 1.2, 0.9).translate(0, -0.61, 0), 0.88),
   ]);
 }
 
 function torsoGeometry() {
-  const body = new THREE.CylinderGeometry(0.2, 0.16, 0.6, 8).scale(1, 1, 0.62).translate(0, 1.13, 0);
-  const shoulders = new THREE.BoxGeometry(0.46, 0.1, 0.22).translate(0, 1.4, 0);
+  const body = new THREE.CylinderGeometry(0.2, 0.16, 0.6, 12).scale(1, 1, 0.62).translate(0, 1.13, 0);
+  // Rounded shoulders rather than a plank across the top.
+  const shoulders = new THREE.CapsuleGeometry(0.07, 0.3, 3, 8).rotateZ(Math.PI / 2).scale(1, 1, 1.4).translate(0, 1.39, 0);
   const neck = new THREE.CylinderGeometry(0.05, 0.055, 0.08, 6).translate(0, 1.47, 0);
   return merged([tint(body, 1), tint(shoulders, 1), tint(neck, 0.92)]);
 }
@@ -123,7 +128,7 @@ function skirtGeometry() {
  *  near-black vertex shade, which the skin instance colour multiplies. */
 function headGeometry(long: boolean) {
   const parts = [
-    tint(new THREE.IcosahedronGeometry(0.115, 1).scale(0.92, 1.05, 1).translate(0, 1.6, 0.01), 1),
+    tint(new THREE.IcosahedronGeometry(0.115, 2).scale(0.92, 1.05, 1).translate(0, 1.6, 0.01), 1),
     tint(
       new THREE.SphereGeometry(0.123, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.55)
         .scale(0.95, 1, 1)
