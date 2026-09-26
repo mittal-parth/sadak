@@ -21,6 +21,9 @@ export function modelExtent(model: string, w: number, d: number): [number, numbe
       return [Math.min(w, 36), Math.min(d, 36)];
     case "gopuram_temple":
       return [Math.min(w, 64), Math.min(d, 150)];
+    case "cinema":
+      // A single-screen hall, not the whole block it stands in.
+      return [Math.min(w, 32), Math.min(d, 36)];
     case "tomb":
       return [Math.min(w, 40), Math.min(d, 40)];
     case "temple":

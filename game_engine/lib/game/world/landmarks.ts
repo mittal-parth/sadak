@@ -175,8 +175,14 @@ export function buildLandmark(l: MapLandmark, city: Landmark, clear?: ClearTest)
       return busStation(w, d, CITY_TRAFFIC[city].bus, clear);
     case "charminar":
       return charminar(Math.min(w, d));
-    case "cinema":
-      return fit(makeArtDecoCinema(), w, d, 3, CINEMA_HALL);
+    case "cinema": {
+      // Out at the front of its plot, on the street, the rest a forecourt behind.
+      const [cw, cd] = modelExtent(l.model, w, d);
+      const m = fit(makeArtDecoCinema(), cw, cd, 3, CINEMA_HALL);
+      const dz = (d - cd) / 2;
+      m.group.position.z = dz;
+      return { ...m, colliders: m.colliders.map((c) => ({ ...c, z: c.z + dz })) };
+    }
     case "fishing_nets": {
       // A row of nets along the shore.
       const g = new THREE.Group();

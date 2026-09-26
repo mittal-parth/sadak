@@ -758,9 +758,20 @@ export function kabutarKhana(w: number, d: number): Monument {
     P.box(0.08, 0.9, 0.08, Math.cos(a) * r, 0.95, Math.sin(a) * r, 0x2e5a3a);
   }
   P.add(new THREE.TorusGeometry(r, 0.05, 4, 24).rotateX(Math.PI / 2).translate(0, 1.4, 0), 0x2e5a3a);
-  P.cyl(0.45, 0.55, 7, 0, 3.5, 0, 0xe7e1d4, 10);
-  P.cyl(1.6, 1.6, 0.2, 0, 7, 0, 0x2e5a3a, 12);
-  P.dome(1.5, 0, 7.1, 0, 0x2e5a3a, 1.0);
+  // The pavilion in the middle: a ring of eight columns on a raised grain
+  // platform, a deep eave, the green dome, and the pigeons' perch rails.
+  const pr = Math.min(2.4, r * 0.45);
+  P.cyl(pr + 0.6, pr + 0.8, 1, 0, 0.9, 0, 0xe7e1d4, 8);
+  for (let k = 0; k < 8; k++) {
+    const a = (k / 8) * Math.PI * 2;
+    P.cyl(0.14, 0.18, 4.2, Math.sin(a) * pr, 1.4 + 2.1, Math.cos(a) * pr, 0xe7e1d4, 8);
+  }
+  P.cyl(pr + 0.9, pr + 0.9, 0.25, 0, 5.6, 0, 0xe7e1d4, 8);
+  P.cyl(pr + 1.3, pr + 0.9, 0.5, 0, 5.95, 0, 0x2e5a3a, 8);
+  P.cyl(pr * 0.8, pr * 0.85, 0.8, 0, 6.6, 0, 0xe7e1d4, 8);
+  P.dome(pr * 0.9, 0, 7, 0, 0x2e5a3a, 1.12);
+  P.cyl(0.05, 0.05, 1.2, 0, 7 + pr * 1.35 + 0.6, 0, 0xd4a017, 5);
+  for (const y of [3.2, 4.4]) P.add(new THREE.TorusGeometry(pr, 0.04, 4, 16).rotateX(Math.PI / 2).translate(0, y, 0), 0x2e5a3a);
   // Pigeons on the platform and grain.
   let seed = 3;
   const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
@@ -777,6 +788,8 @@ export function kabutarKhana(w: number, d: number): Monument {
 export function colonialBlock(w: number, d: number, floors: number, wall: number): Monument {
   const P = new Parts();
   const C: LocalBox[] = [];
+  const TRIM = 0xf4efe4;
+  const SHUTTER = 0x2f5e3f;
   const fh = 4;
   const h = floors * fh;
   const bw = w * 0.92;
@@ -784,27 +797,71 @@ export function colonialBlock(w: number, d: number, floors: number, wall: number
   const bz = -d / 2 + bd / 2;
   P.box(bw, h, bd, 0, h / 2, bz, wall);
   C.push({ x: 0, z: bz, hw: bw / 2, hd: bd / 2 });
-  for (let f = 0; f < floors; f++) {
-    P.box(bw + 0.3, 0.3, bd + 0.3, 0, fh * (f + 1), bz, 0xf4efe4);
-    const n = Math.max(3, Math.floor(bw / 3));
+  // Every face, the way Calcutta and Bombay built them: an arcaded ground
+  // floor, tall windows with green louvred shutters and hood mouldings
+  // above, pilasters between the bays, a string course at each floor.
+  const face = (len: number, cx: number, cz: number, rot: number) => {
+    const c = Math.cos(rot);
+    const sn = Math.sin(rot);
+    const at = (u: number, out: number): [number, number] => [cx + u * c + out * sn, cz - u * sn + out * c];
+    const n = Math.max(2, Math.floor(len / 3.4));
+    const bay = len / n;
     for (let k = 0; k < n; k++) {
-      const x = -bw / 2 + (bw * (k + 0.5)) / n;
-      P.box(1.1, 2.2, 0.1, x, fh * f + 2, bz + bd / 2 + 0.05, 0x2f5e3f);
-      P.box(1.4, 0.2, 0.25, x, fh * f + 3.25, bz + bd / 2 + 0.1, 0xf4efe4);
+      const u = -len / 2 + (k + 0.5) * bay;
+      const [gx, gz] = at(u, 0.06);
+      archWindow(P, gx, 0.2, gz, Math.min(2.4, bay * 0.66), fh * 0.78, 0x4a3c30, rot);
+      for (let f = 1; f < floors; f++) {
+        const [x, z] = at(u, 0.05);
+        P.box(1.1, 2.3, 0.08, x, fh * f + 1.9, z, 0x3a3430, rot);
+        for (const s of [-1, 1]) {
+          const [sx, sz] = at(u + s * 0.85, 0.08);
+          P.box(0.55, 2.3, 0.08, sx, fh * f + 1.9, sz, SHUTTER, rot);
+        }
+        const [hx, hz] = at(u, 0.14);
+        P.box(1.7, 0.22, 0.28, hx, fh * f + 3.2, hz, TRIM, rot);
+        P.box(1.4, 0.12, 0.22, hx, fh * f + 0.7, hz, TRIM, rot);
+      }
+      const [px, pz] = at(-len / 2 + k * bay, 0.1);
+      if (k > 0) P.box(0.35, h - 0.4, 0.2, px, h / 2, pz, TRIM, rot);
     }
-  }
-  P.box(bw + 0.6, 0.8, bd + 0.6, 0, h + 0.4, bz, 0xf4efe4);
+    // Quoins at the ends.
+    for (const e of [-1, 1]) {
+      const [qx, qz] = at((e * len) / 2 - e * 0.3, 0.1);
+      P.box(0.6, h, 0.25, qx, h / 2, qz, TRIM, rot);
+    }
+  };
+  face(bw, 0, bz + bd / 2, 0);
+  face(bw, 0, bz - bd / 2, Math.PI);
+  face(bd, bw / 2, bz, Math.PI / 2);
+  face(bd, -bw / 2, bz, -Math.PI / 2);
+  for (let f = 1; f < floors; f++) P.box(bw + 0.3, 0.3, bd + 0.3, 0, fh * f, bz, TRIM);
+  // The cornice and a balustraded parapet.
+  P.box(bw + 0.8, 0.5, bd + 0.8, 0, h + 0.25, bz, TRIM);
+  const rail = (len: number, x: number, z: number, along: "x" | "z") => {
+    const n = Math.max(4, Math.floor(len / 0.5));
+    for (let k = 0; k < n; k++) {
+      const t = -len / 2 + (k + 0.5) * (len / n);
+      P.cyl(0.1, 0.13, 0.8, along === "x" ? x + t : x, h + 0.9, along === "x" ? z : z + t, TRIM, 6);
+    }
+    P.box(along === "x" ? len : 0.35, 0.2, along === "x" ? 0.35 : len, x, h + 1.4, z, TRIM);
+  };
+  rail(bw, 0, bz + bd / 2, "x");
+  rail(bw, 0, bz - bd / 2, "x");
+  rail(bd, bw / 2, bz, "z");
+  rail(bd, -bw / 2, bz, "z");
   // Portico.
   const pw = Math.min(bw * 0.5, 14);
   const pz = bz + bd / 2 + 1.6;
   for (let k = 0; k < 6; k++) {
     const x = -pw / 2 + (pw * k) / 5;
-    P.cyl(0.3, 0.35, fh * 2, x, fh, pz + 1.1, 0xf4efe4, 10);
+    P.cyl(0.3, 0.35, fh * 2, x, fh, pz + 1.1, TRIM, 10);
+    P.box(0.9, 0.3, 0.9, x, 0.15, pz + 1.1, TRIM);
+    P.box(0.85, 0.3, 0.85, x, fh * 2 - 0.15, pz + 1.1, TRIM);
     C.push({ x, z: pz + 1.1, hw: 0.35, hd: 0.35 });
   }
-  P.box(pw + 1, 0.8, 3.4, 0, fh * 2 + 0.4, pz, 0xf4efe4);
+  P.box(pw + 1, 0.8, 3.4, 0, fh * 2 + 0.4, pz, TRIM);
   const tri = new THREE.Shape([new THREE.Vector2(-pw / 2 - 0.5, 0), new THREE.Vector2(pw / 2 + 0.5, 0), new THREE.Vector2(0, 2.4)]);
-  P.add(new THREE.ExtrudeGeometry(tri, { depth: 0.6, bevelEnabled: false }).translate(0, fh * 2 + 0.8, pz + 1.1), 0xf4efe4);
+  P.add(new THREE.ExtrudeGeometry(tri, { depth: 0.6, bevelEnabled: false }).translate(0, fh * 2 + 0.8, pz + 1.1), TRIM);
   return finish(P, C, []);
 }
 
