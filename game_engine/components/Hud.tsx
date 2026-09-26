@@ -17,7 +17,9 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
-import { css, kindColour, kindIcon, kindLabel, renderStreetMap } from "@/components/map/mapKit";
+import { css, kindColour, renderStreetMap, taskLook } from "@/components/map/mapKit";
+import { ErrandIcon } from "@/components/map/errandIcons";
+import type { Landmark } from "@/lib/game/assets";
 import { roadLabels, type RoadLabel } from "@/lib/game/world/mapLabels";
 import { LocationCard } from "@/components/map/LocationCard";
 import { LocateFixed, PanelLeftClose, PanelLeftOpen, Volume2, VolumeX } from "lucide-react";
@@ -336,10 +338,12 @@ function HudCard({
 function ErrandsList({
   tasks,
   completed,
+  city,
   compact,
 }: {
   tasks: StreetTask[];
   completed: Set<string>;
+  city: Landmark;
   compact?: boolean;
 }) {
   return (
@@ -358,7 +362,7 @@ function ErrandsList({
               style={{ borderColor: css(t.colour), borderWidth: 2, background: `${css(t.colour)}33` }}
               aria-hidden
             >
-              {kindIcon(t.kind)}
+              <ErrandIcon id={taskLook(t, city).icon} className={cn("size-3.5", compact && "size-3")} />
             </span>
             <div>
               <strong className={cn("block text-sm", compact && "text-xs")}>{t.title}</strong>
@@ -368,7 +372,7 @@ function ErrandsList({
                   compact && "text-[0.65rem]"
                 )}
               >
-                {kindLabel(t.kind)} · {t.name}
+                {taskLook(t, city).label} · {t.name}
               </em>
             </div>
           </div>
@@ -563,7 +567,7 @@ export default function Hud({
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-3 pt-0">
-                  <ErrandsList tasks={tasks} completed={completed} compact />
+                  <ErrandsList tasks={tasks} completed={completed} city={district.theme.landmark} compact />
                 </CardContent>
               </HudCard>
               <HudCard className="py-2">
@@ -668,7 +672,7 @@ export default function Hud({
               <CardTitle className="text-xs uppercase tracking-widest text-main">Errands</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 px-4 pt-0">
-              <ErrandsList tasks={tasks} completed={completed} />
+              <ErrandsList tasks={tasks} completed={completed} city={district.theme.landmark} />
             </CardContent>
           </HudCard>
 

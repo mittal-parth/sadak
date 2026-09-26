@@ -15,7 +15,8 @@ import type { MapData } from "@/lib/game/world/mapData";
 import { placeLabels, roadLabels } from "@/lib/game/world/mapLabels";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { drawMapBase, kindColour, kindIcon, kindLabel, MAP_STYLE } from "./mapKit";
+import { drawMapBase, kindColour, kindLabel, MAP_STYLE, type ErrandIconId } from "./mapKit";
+import { ErrandIcon } from "./errandIcons";
 
 /** Pixels per metre, limits. */
 const MAX_SCALE = 9;
@@ -30,6 +31,7 @@ export function FullMap({
   barber,
   district,
   titles,
+  icons,
   found,
   onClose,
 }: {
@@ -38,6 +40,8 @@ export function FullMap({
   map: MapData;
   /** Errand titles by task id, for the card over a hovered marker. */
   titles: Record<string, string>;
+  /** Errand icons by task id (taskLook: a taxi, a mosque, a church). */
+  icons: Record<string, ErrandIconId>;
   live: LiveState | null;
   tasks: TaskSnapshot[];
   barber?: { x: number; z: number };
@@ -82,6 +86,31 @@ export function FullMap({
     if (view || !size.w) return;
     setView(clamp({ cx: live?.x ?? 0, cz: live?.z ?? 0, scale: Math.min(size.w, size.h) / 300 }));
   }, [size, view, live, clamp]);
+
+  // The markers' icons, rasterised once for the canvas: each drawn white
+  // into a hidden strip below, read back as SVG and loaded as an image (at
+  // 3x, so it stays crisp on a dense screen).
+  const spriteIds = useMemo(() => [...new Set<ErrandIconId>([...Object.values(icons), "barber", "done"])], [icons]);
+  const spriteRef = useRef<HTMLDivElement | null>(null);
+  const [sprites, setSprites] = useState<Map<ErrandIconId, HTMLImageElement> | null>(null);
+  useEffect(() => {
+    const strip = spriteRef.current;
+    if (!strip) return;
+    let live = true;
+    const loads = spriteIds.map((id) => {
+      const svg = strip.querySelector(`[data-icon="${id}"] svg`);
+      if (!svg) throw new Error(`FullMap: no sprite drawn for icon ${id}`);
+      const img = new Image(48, 48);
+      img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`;
+      return img.decode().then(() => [id, img] as const);
+    });
+    Promise.all(loads).then((pairs) => {
+      if (live) setSprites(new Map(pairs));
+    });
+    return () => {
+      live = false;
+    };
+  }, [spriteIds]);
 
   /* ---- drawing ---- */
 
@@ -180,7 +209,7 @@ export function FullMap({
     }
 
     // Errands and the barber, with their icons.
-    const blip = (x: number, z: number, colour: string, icon: string, ring: boolean, dim = false) => {
+    const blip = (x: number, z: number, colour: string, icon: ErrandIconId, ring: boolean, dim = false) => {
       const px = X(x);
       const py = Z(z);
       ctx.globalAlpha = dim ? 0.5 : 1;
@@ -195,12 +224,13 @@ export function FullMap({
       ctx.strokeStyle = ring ? "#ffffff" : "rgba(255,255,255,0.55)";
       ctx.lineWidth = ring ? 2.5 : 1.5;
       ctx.stroke();
-      ctx.font = "13px system-ui, sans-serif";
-      ctx.fillText(icon, px, py + 1);
+      // (Until the icons have loaded, the marker is its coloured disc.)
+      const img = sprites?.get(icon);
+      if (img) ctx.drawImage(img, px - 7.5, py - 7.5, 15, 15);
       ctx.globalAlpha = 1;
     };
-    for (const t of tasks) blip(t.x, t.z, t.colour, t.done ? "✓" : kindIcon(t.kind), hover?.id === t.id, t.done);
-    if (barber) blip(barber.x, barber.z, kindColour("barber", false), kindIcon("barber"), false);
+    for (const t of tasks) blip(t.x, t.z, t.colour, t.done ? "done" : icons[t.id], hover?.id === t.id, t.done);
+    if (barber) blip(barber.x, barber.z, kindColour("barber", false), "barber", false);
 
     // You: an arrow the way you face.
     if (live) {
@@ -226,7 +256,7 @@ export function FullMap({
       ctx.stroke();
       ctx.restore();
     }
-  }, [view, size, map, roads, places, tasks, barber, live, hover, found]);
+  }, [view, size, map, roads, places, tasks, barber, live, hover, found, icons, sprites]);
 
   /* ---- panning and zooming ---- */
 
@@ -296,15 +326,17 @@ export function FullMap({
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[#15191f] text-white" role="dialog" aria-label="Map">
-      <div className="flex items-center justify-between gap-3 px-4 py-3">
-        <div className="min-w-0">
+      {/* On a narrow screen the buttons take their own row, rather than
+          squeezing the name into a column a word wide. */}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+        <div className="min-w-[12rem] flex-1">
           <div className="font-heading text-xl leading-tight">{district.name}</div>
           <div className="text-sm text-white/60">
             {district.city} · {district.native}
             {found && ` · ${[...found].filter((n) => places.some((p) => p.name === n)).length} of ${places.length} places found`}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <Button variant="neutral" size="icon" aria-label="Zoom out" onClick={() => zoomAt(1 / 1.4, size.w / 2, size.h / 2)}>
             <Minus className="size-4" aria-hidden />
           </Button>
@@ -345,23 +377,35 @@ export function FullMap({
             zoomAt(1.8, e.clientX - r.left, e.clientY - r.top);
           }}
         />
+        <div ref={spriteRef} className="hidden" aria-hidden>
+          {spriteIds.map((id) => (
+            <span key={id} data-icon={id}>
+              <ErrandIcon id={id} size={48} color="#ffffff" strokeWidth={2.25} />
+            </span>
+          ))}
+        </div>
         {hover && (
           <div className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 rounded-md bg-black/75 px-3 py-2 text-sm">
-            {kindIcon(hover.kind)} {titles[hover.id] ?? kindLabel(hover.kind)}
-            {hover.done ? " · done" : ""}
+            <span className="flex items-center gap-2">
+              <ErrandIcon id={icons[hover.id]} className="size-4" />
+              {titles[hover.id] ?? kindLabel(hover.kind)}
+              {hover.done ? " · done" : ""}
+            </span>
           </div>
         )}
         <div className="pointer-events-none absolute bottom-3 left-3 flex flex-col gap-1 rounded-md bg-black/60 px-3 py-2 text-xs lg:hidden">
           {tasks.map((t) => (
             <span key={t.id} className={cn("flex items-center gap-2", t.done && "opacity-50 line-through")}>
               <span className="inline-block size-3 rounded-full" style={{ background: t.colour }} />
-              {kindIcon(t.kind)} {titles[t.id] ?? kindLabel(t.kind)}
+              <ErrandIcon id={icons[t.id]} className="size-3.5" />
+              {titles[t.id] ?? kindLabel(t.kind)}
             </span>
           ))}
           {barber && (
             <span className="flex items-center gap-2">
               <span className="inline-block size-3 rounded-full" style={{ background: kindColour("barber", false) }} />
-              {kindIcon("barber")} {kindLabel("barber")}
+              <ErrandIcon id="barber" className="size-3.5" />
+              {kindLabel("barber")}
             </span>
           )}
           <span className="flex items-center gap-2">
@@ -386,14 +430,15 @@ export function FullMap({
               onClick={() => setView((v) => (v ? clamp({ ...v, cx: t.x, cz: t.z, scale: Math.max(v.scale, 2.5) }) : v))}
             >
               <span className="inline-block size-3 shrink-0 rounded-full" style={{ background: t.colour }} />
-              <span className="shrink-0">{kindIcon(t.kind)}</span>
+              <ErrandIcon id={icons[t.id]} className="size-4 shrink-0" />
               <span className="min-w-0 truncate">{titles[t.id] ?? kindLabel(t.kind)}</span>
             </button>
           ))}
           {barber && (
             <span className="flex items-center gap-2 text-white/85">
               <span className="inline-block size-3 rounded-full" style={{ background: kindColour("barber", false) }} />
-              {kindIcon("barber")} {kindLabel("barber")}
+              <ErrandIcon id="barber" className="size-3.5" />
+              {kindLabel("barber")}
             </span>
           )}
           <span className="flex items-center gap-2 text-white/85">

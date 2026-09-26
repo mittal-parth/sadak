@@ -5,6 +5,8 @@
 
 import type { MapData, MapRoad, Pt } from "@/lib/game/world/mapData";
 import type { TaskKind } from "@/lib/game/tasks";
+import type { Landmark } from "@/lib/game/assets";
+import { CITY_TRAFFIC } from "@/lib/game/transit";
 
 /** A 0xRRGGBB colour as CSS. */
 export const css = (hex: number) => `#${hex.toString(16).padStart(6, "0")}`;
@@ -31,20 +33,33 @@ export function kindColour(kind: TaskKind, done: boolean): string {
   }
 }
 
-export function kindIcon(kind: TaskKind): string {
+/** The icons in components/map/errandIcons.tsx. */
+export type ErrandIconId =
+  | "auto"
+  | "taxi"
+  | "shop"
+  | "langar"
+  | "temple"
+  | "mosque"
+  | "church"
+  | "gurdwara"
+  | "bus"
+  | "ticket"
+  | "train"
+  | "ferry"
+  | "barber"
+  | "done";
+
+export function kindIcon(kind: TaskKind): ErrandIconId {
   switch (kind) {
     case "auto":
-      return "🛺";
     case "shop":
-      return "🏪";
     case "temple":
-      return "🛕";
     case "bus":
-      return "🚌";
-    case "counter":
-      return "🎫";
     case "barber":
-      return "💈";
+      return kind;
+    case "counter":
+      return "ticket";
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;
@@ -274,4 +289,27 @@ export function renderStreetMap(map: MapData): HTMLCanvasElement {
   const X = (v: number) => (v + map.half) * MAP_RES;
   drawMapBase(g, map, X, X, MAP_RES);
   return c;
+}
+
+/**
+ * An errand's icon and label as the player should read them: the kind, told
+ * by what the errand actually is. A taxi where the city hails taxis, the
+ * place of worship the errand is at (a mosque, a church, a gurdwara) rather
+ * than "temple" for all of them, the train or the ferry a ticket is for;
+ * the langar is a meal, not a shop.
+ */
+export function taskLook(t: { kind: TaskKind; role: string; title: string }, city: Landmark): { icon: ErrandIconId; label: string } {
+  const about = `${t.role} ${t.title}`;
+  if (t.kind === "auto" && CITY_TRAFFIC[city].hire === "taxi") return { icon: "taxi", label: "Taxi" };
+  if (t.kind === "temple") {
+    if (/masjid|mosque/i.test(about)) return { icon: "mosque", label: "Mosque" };
+    if (/church|candle|cathedral|basilica/i.test(about)) return { icon: "church", label: "Church" };
+    if (city === "amritsar") return { icon: "gurdwara", label: "Gurdwara" };
+  }
+  if (t.kind === "shop" && /langar|sevadar/i.test(about)) return { icon: "langar", label: "Langar" };
+  if (t.kind === "counter") {
+    if (/ferry|boat/i.test(about)) return { icon: "ferry", label: "Ferry" };
+    if (/train|metro|local/i.test(about)) return { icon: "train", label: /metro/i.test(about) ? "Metro" : "Train" };
+  }
+  return { icon: kindIcon(t.kind), label: kindLabel(t.kind) };
 }

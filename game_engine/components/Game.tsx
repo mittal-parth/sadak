@@ -53,6 +53,7 @@ import {
 } from "@/lib/game/npc-memory";
 import { prefetchTtsUrls, revokeTtsPrefetchMap, type TtsPrefetchMap } from "@/lib/tts/prefetch-client";
 import { useDiscovery } from "@/components/map/useDiscovery";
+import { taskLook } from "@/components/map/mapKit";
 
 /** Minimum time the enter screen stays up, so its controls are readable even
  *  when the district and progress fetches come back instantly. */
@@ -640,6 +641,7 @@ export default function GameShell() {
           barber={tel?.barber}
           district={district}
           titles={Object.fromEntries(tasks.map((t) => [t.id, t.title]))}
+          icons={Object.fromEntries(tasks.map((t) => [t.id, taskLook(t, district.theme.landmark).icon]))}
           found={discovery?.found ?? null}
           onClose={() => setMapOpen(false)}
         />
