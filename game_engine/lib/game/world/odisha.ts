@@ -100,6 +100,44 @@ function pidha(P: Parts, x: number, y: number, z: number, b: number, wh: number,
   }
 }
 
+/** A seated lion (simha) facing +z on a plinth at (x, z): haunches, a
+ *  chest with its front legs straight, a maned head, a curled tail. */
+function simha(P: Parts, x: number, z: number) {
+  const st = 0xb07a55;
+  const dark = SHADOW;
+  P.box(1.5, 0.35, 2.1, x, 0.18, z, SANDSTONE);
+  P.box(1.3, 0.55, 1.9, x, 0.62, z, dark);
+  P.box(1.5, 0.15, 2.1, x, 0.97, z, SANDSTONE);
+  const y = 1.05;
+  // Haunches and body, sloping up to the chest.
+  P.add(new THREE.SphereGeometry(0.5, 12, 8).scale(1.05, 0.8, 1.1).translate(x, y + 0.4, z - 0.35), st);
+  P.add(new THREE.CylinderGeometry(0.42, 0.5, 1.0, 12).rotateX(-0.5).translate(x, y + 0.75, z + 0.05), st);
+  // Front legs, straight, paws forward.
+  for (const sx of [-1, 1]) {
+    P.cyl(0.13, 0.15, 0.9, x + sx * 0.24, y + 0.45, z + 0.45, st, 8);
+    P.box(0.26, 0.12, 0.34, x + sx * 0.24, y + 0.06, z + 0.55, st);
+    // Hind paws either side of the haunch.
+    P.box(0.22, 0.12, 0.4, x + sx * 0.42, y + 0.06, z - 0.3, st);
+  }
+  // The mane: a ruff of lobes round the head.
+  const hy = y + 1.45;
+  const hz = z + 0.42;
+  for (let k = 0; k < 10; k++) {
+    const a = (k / 10) * Math.PI * 2;
+    P.add(new THREE.SphereGeometry(0.17, 8, 6).translate(x + Math.cos(a) * 0.34, hy + Math.sin(a) * 0.34, hz - 0.08), dark);
+  }
+  // Face: brow, muzzle, open jaw.
+  P.add(new THREE.SphereGeometry(0.3, 12, 8).scale(1, 0.95, 0.9).translate(x, hy, hz), st);
+  P.box(0.3, 0.2, 0.28, x, hy - 0.08, hz + 0.26, st);
+  P.box(0.26, 0.07, 0.2, x, hy - 0.22, hz + 0.26, dark);
+  for (const sx of [-1, 1]) {
+    P.add(new THREE.SphereGeometry(0.05, 6, 4).translate(x + sx * 0.12, hy + 0.08, hz + 0.25), DEEP);
+    P.add(new THREE.ConeGeometry(0.07, 0.14, 5).translate(x + sx * 0.2, hy + 0.32, hz - 0.02), st);
+  }
+  // The tail curling up the back.
+  P.add(new THREE.TorusGeometry(0.28, 0.05, 6, 10, Math.PI * 1.3).rotateY(Math.PI / 2).translate(x, y + 0.55, z - 0.8), st);
+}
+
 /**
  * The Lingaraj compound, `w` × `d`, entrance (the Lion Gate) on +z. Its
  * laterite wall, the axis of four halls rising to the great deul, and the
@@ -128,10 +166,8 @@ export function lingaraj(w: number, d: number): Monument {
   for (const s of [-1, 1]) {
     P.box(3, 9, 6, s * (gate / 2 + 1.5), 4.5, D / 2 - 2, SANDSTONE);
     C.push({ x: s * (gate / 2 + 1.5), z: D / 2 - 2, hw: 1.5, hd: 3 });
-    // A lion rampant on an elephant, in the round.
-    P.box(1.2, 1.2, 2, s * (gate / 2 + 1.5), 0.6, D / 2 + 2, SANDSTONE);
-    P.box(0.9, 1.8, 0.9, s * (gate / 2 + 1.5), 2, D / 2 + 1.6, SHADOW);
-    P.add(new THREE.SphereGeometry(0.55, 8, 6).translate(s * (gate / 2 + 1.5), 3.1, D / 2 + 1.7), SHADOW);
+    // The seated simha that gives the gate its name, on a moulded plinth.
+    simha(P, s * (gate / 2 + 1.5), D / 2 + 2);
     C.push({ x: s * (gate / 2 + 1.5), z: D / 2 + 2, hw: 0.8, hd: 1.1 });
   }
   P.box(gate + 6, 3, 6, 0, 10.5, D / 2 - 2, SANDSTONE);

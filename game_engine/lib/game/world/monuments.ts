@@ -380,7 +380,7 @@ export function church(w: number, d: number, st: ChurchStyle): Monument {
       for (const face of [1, -1]) {
         const x = sx * (nw / 2 - t / 2) + sx * face * (t / 2 + 0.03);
         P.box(0.05, nh * 0.42, 1.3, x, y + nh * 0.5, z, k % 2 ? 0x3b6fa8 : 0x9b3b5a);
-        P.add(new THREE.CylinderGeometry(0.65, 0.65, 0.05, 10, 1, false, 0, Math.PI).rotateZ(Math.PI / 2).rotateY(Math.PI / 2).translate(x, y + nh * 0.71, z), k % 2 ? 0x3b6fa8 : 0x9b3b5a);
+        P.add(new THREE.CylinderGeometry(0.65, 0.65, 0.05, 10, 1, false, 0, Math.PI).rotateZ(Math.PI / 2).translate(x, y + nh * 0.71, z), k % 2 ? 0x3b6fa8 : 0x9b3b5a);
       }
     }
   }
