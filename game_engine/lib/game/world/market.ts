@@ -141,9 +141,12 @@ export function marketStalls(
  *  baskets, sacks behind, bamboo poles. The tarp is its own mesh. */
 function stallGeometry(produce: number[], rand: () => number): THREE.BufferGeometry {
   const P = new Parts();
-  // Table on trestles, a plank front.
+  // Table on trestles, boarded in all round (the stall blocks its whole
+  // footprint, so it has to look solid from every side).
   P.box(2.3, 0.08, 1.4, 0, 0.78, 0, 0x8a6a4a);
   P.box(2.3, 0.7, 0.05, 0, 0.4, 0.68, 0x6f5238);
+  P.box(2.3, 0.7, 0.05, 0, 0.4, -0.68, 0x6f5238);
+  for (const u of [-1.13, 1.13]) P.box(0.05, 0.7, 1.4, u, 0.4, 0, 0x6f5238);
   // Produce: a row of heaps in baskets.
   for (let k = 0; k < 4; k++) {
     const u = -0.85 + k * 0.57;
@@ -222,7 +225,7 @@ export function buildMarkets(
     group.add(tarps);
   }
   for (const { s } of all) {
-    collide.box(s.x, s.z, 1.2, 0.8, s.rot);
+    collide.box(s.x, s.z, 1.17, 0.72, s.rot);
     count++;
   }
   return {

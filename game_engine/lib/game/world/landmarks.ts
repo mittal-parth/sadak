@@ -70,8 +70,16 @@ const TEMPLE: Partial<Record<Landmark, TempleStyle>> & { default: TempleStyle } 
   ahmedabad: { stone: 0xf2e8d5, accent: 0xd9642b, plinth: 0.9, kind: "nagara", tower: 1.3 },
 };
 
-/** Fit a hand-built model into a footprint, uniformly, sitting on y=0. */
-function fit(model: THREE.Group, w: number, d: number, maxScale = 3): Monument {
+/** A solid part of a hand-built model, in the model's own x/z (min, max). */
+type Solid = [number, number, number, number];
+
+/**
+ * Fit a hand-built model into a footprint, uniformly, sitting on y=0. By
+ * default the whole bounding box blocks; pass `solids` for a model you can
+ * walk into or through (Charminar's arches, a cinema's forecourt under its
+ * marquee), and only those parts do.
+ */
+function fit(model: THREE.Group, w: number, d: number, maxScale = 3, solids?: Solid[]): Monument {
   const box = new THREE.Box3().setFromObject(model);
   const size = box.getSize(new THREE.Vector3());
   const s = Math.min(maxScale, Math.max(0.4, Math.min(w / Math.max(0.1, size.x), d / Math.max(0.1, size.z))));
@@ -80,8 +88,33 @@ function fit(model: THREE.Group, w: number, d: number, maxScale = 3): Monument {
   model.position.set(-c.x * s, -box.min.y * s, -c.z * s);
   const g = new THREE.Group();
   g.add(model);
-  return { group: g, colliders: [{ x: 0, z: 0, hw: (size.x * s) / 2, hd: (size.z * s) / 2 }], heights: [] };
+  const parts: Solid[] = solids ?? [[box.min.x, box.min.z, box.max.x, box.max.z]];
+  return {
+    group: g,
+    colliders: parts.map(([x0, z0, x1, z1]) => ({
+      x: ((x0 + x1) / 2 - c.x) * s,
+      z: ((z0 + z1) / 2 - c.z) * s,
+      hw: ((x1 - x0) * s) / 2,
+      hd: ((z1 - z0) * s) / 2,
+    })),
+    heights: [],
+  };
 }
+
+/** Charminar's four corner piers (makeCharminar: 2.2m square at +-4.2);
+ *  the great arches between them, and the space under the dome, are open. */
+const CHARMINAR_PIERS: Solid[] = [-1, 1].flatMap((sx) =>
+  [-1, 1].map((sz): Solid => [sx * 4.2 - 1.1, sz * 4.2 - 1.1, sx * 4.2 + 1.1, sz * 4.2 + 1.1])
+);
+
+/** The cinema's hall (makeArtDecoCinema: a 9 x 6m block and the 3m-radius
+ *  Deco curve at its west end, stepped in two boxes inside the curve); the
+ *  forecourt under the marquee, out to its front posts, is open. */
+const CINEMA_HALL: Solid[] = [
+  [-4.5, -3.0, 4.5, 3.2],
+  [-7.4, -1.5, -4.5, 1.5],
+  [-6.8, -2.6, -4.5, 2.6],
+];
 
 /** Builds the model for one landmark, in its local frame. */
 export function buildLandmark(l: MapLandmark, city: Landmark, clear?: ClearTest): Monument {
@@ -142,9 +175,9 @@ export function buildLandmark(l: MapLandmark, city: Landmark, clear?: ClearTest)
     case "bus_station":
       return busStation(w, d, CITY_TRAFFIC[city].bus, clear);
     case "charminar":
-      return fit(makeCharminar(), w, d, 4);
+      return fit(makeCharminar(), w, d, 4, CHARMINAR_PIERS);
     case "cinema":
-      return fit(makeArtDecoCinema(), w, d);
+      return fit(makeArtDecoCinema(), w, d, 3, CINEMA_HALL);
     case "fishing_nets": {
       // A row of nets along the shore.
       const g = new THREE.Group();

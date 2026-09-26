@@ -15,7 +15,7 @@ import { HeightField } from "./world/height";
 import { RoadNet } from "./world/network";
 import { offsetPolyline, trimPolyline, polylineLength, footpathStrips, isDrivable } from "./world/roads";
 import { createTraffic } from "./world/traffic";
-import { buildLandmark } from "./world/landmarks";
+import { buildLandmark, placeLandmarks } from "./world/landmarks";
 import { planRoute } from "./world/route";
 import { medians } from "./world/roads";
 import { marketStalls, MAX_STALLS } from "./world/market";
@@ -656,6 +656,31 @@ test("traffic stops short of someone standing in the lane", () => {
   }
   assert.ok(closest < 5, `never came up to the player (gap ${closest.toFixed(2)}m)`);
   assert.ok(closest > 0.3, `drove into the player (gap ${closest.toFixed(2)}m)`);
+});
+
+test("you can walk under Charminar's arches and into a cinema's forecourt, not through their walls", () => {
+  const hyd = loadMap("charminar-lane");
+  const cm = hyd.landmarks.find((l) => l.model === "charminar")!;
+  const world = new CollisionWorld();
+  placeLandmarks([cm], "hyderabad", world, new HeightField(hyd.half));
+  const at = (l: typeof cm, u: number, v: number): [number, number] => [
+    l.x + u * Math.cos(l.rot) + v * Math.sin(l.rot),
+    l.z - u * Math.sin(l.rot) + v * Math.cos(l.rot),
+  ];
+  const half = Math.min(cm.w, cm.d) / 2;
+  assert.equal(world.blocked(...at(cm, 0, 0), 0.35), false, "under the dome is blocked");
+  for (const [u, v] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+    assert.equal(world.blocked(...at(cm, u * half * 0.8, v * half * 0.8), 0.35), false, "an arch is walled up");
+  }
+  assert.equal(world.blocked(...at(cm, half * 0.7, half * 0.7), 0.1), true, "a pier is not solid");
+
+  const blr = loadMap("majestic-cross");
+  const cinema = blr.landmarks.find((l) => l.model === "cinema")!;
+  const cw = new CollisionWorld();
+  placeLandmarks([cinema], "bengaluru", cw, new HeightField(blr.half));
+  // Just inside the front edge of the footprint: under the marquee.
+  assert.equal(cw.blocked(...at(cinema, 0, cinema.d / 2 - 1.5), 0.35), false, "the forecourt is walled off");
+  assert.equal(cw.blocked(...at(cinema, 0, 0), 0.1), true, "the hall is not solid");
 });
 
 test("footpaths stop short of junctions", () => {
