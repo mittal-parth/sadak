@@ -3,6 +3,7 @@ import { createTransitMaterial } from "./transit";
 import { makeAuto } from "./props";
 import { buildWorld, type World } from "./world";
 import { Rides } from "./rides";
+import { Parts } from "./world/vc";
 import type { MapData, Spot } from "./world/mapData";
 import { makeMissionShopStall, makeStreetMandir } from "./assets/index";
 import {
@@ -120,6 +121,8 @@ function markerColourForKind(kind: TaskKind): number {
       return 0xe74c3c;
     case "bus":
       return 0x3498db;
+    case "counter":
+      return 0x9b59b6;
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;
@@ -221,6 +224,24 @@ function makeTaskBlip(color: number): THREE.Group {
   g.userData.coronaOuter = coronaOuter;
   g.userData.blipRing = ring;
   g.userData.blipCore = core;
+  return g;
+}
+
+/** A ticket window: a kiosk with a counter, an open window (the clerk shows
+ *  through it), a roof and a sign band. */
+function makeTicketBooth(colour: number): THREE.Group {
+  const P = new Parts();
+  P.box(3.2, 1.1, 1.8, 0, 0.55, 0, 0xd9d2c3);
+  P.box(3.4, 0.08, 0.5, 0, 1.12, 0.85, 0x8a6a4a);
+  for (const x of [-1.55, -0.52, 0.52, 1.55]) P.box(0.1, 1.4, 0.1, x, 1.8, 0.62, 0x5d6168);
+  P.box(3.2, 0.1, 0.1, 0, 2.45, 0.62, 0x5d6168);
+  for (const x of [-1.55, 1.55]) P.box(0.08, 1.4, 1.5, x, 1.8, -0.1, 0xd9d2c3);
+  P.box(3.2, 1.4, 0.08, 0, 1.8, -0.9, 0xd9d2c3);
+  P.box(3.6, 0.15, 2.3, 0, 2.6, 0, 0x5d6168);
+  P.box(3.2, 0.45, 0.08, 0, 2.9, 0.9, colour);
+  const g = new THREE.Group();
+  const m = P.mesh(new THREE.MeshLambertMaterial({ vertexColors: true }));
+  if (m) g.add(m);
   return g;
 }
 
@@ -440,7 +461,7 @@ export class Game {
       anchor.position.set(x, this.world.height.at(x, z), z);
       // Task positions are map spots; turn the set piece the way the spot
       // faces (toward its temple, its road).
-      const spot = this.map.spots[task.kind];
+      const spot = this.map.errandSpots?.[task.id] ?? this.map.spots[task.kind as keyof MapData["spots"]];
       const yaw = spot && Math.hypot(spot.x - x, spot.z - z) < 1.5 ? spot.yaw : 0;
       anchor.rotation.y = yaw;
       const c = Math.cos(yaw);
@@ -500,6 +521,16 @@ export class Game {
         // The stop's shelter is part of the street (world/street.ts); the
         // conductor arrives on the bus (see rides.ts).
         host.visible = false;
+      } else if (task.kind === "counter") {
+        // A ticket window backed onto the station or jetty (local +z), its
+        // glass to the pavement: the clerk stands behind it, the queue in front.
+        const booth = makeTicketBooth(task.colour);
+        booth.rotation.y = Math.PI;
+        booth.position.set(0, 0, 1.4);
+        anchor.add(booth);
+        host.position.set(0, PLAYER_BASE_Y, 1.5);
+        host.rotation.y = Math.PI;
+        collide.box(...at(0, 1.4), 1.6, 0.9, yaw);
       }
 
       this.scene.add(anchor);

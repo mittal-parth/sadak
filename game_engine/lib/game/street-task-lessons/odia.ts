@@ -94,4 +94,27 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("ନିଅ, ଟିକେଟ", "Nian, ticket", "Here, your ticket", "ଧନ୍ୟବାଦ", "Dhanyabaad", "Thank you"),
     ],
   },
+  "lingaraj-lane-chhena": {
+    easy: [
+      s("କଣ ନେବେ?", "Kana nebe?", "What will you have?", "ଛେନା ପୋଡ଼", "Chhena poda", "Chhena poda"),
+      s("ଗରମ ଗରମ ଅଛି", "Garama garama achhi", "It's fresh and warm", "ବାଃ, ଦିଅ", "Baah, dia", "Great, give it"),
+      s("ଷାଠିଏ ଟଙ୍କା", "Shaathie tanka", "Sixty rupees", "ନିଅ, ଧନ୍ୟବାଦ", "Nian, dhanyabaad", "Here you go, thank you"),
+    ],
+    medium: [
+      s("କଣ ନେବେ?", "Kana nebe?", "What will you have?", "ଛେନା ପୋଡ଼", "Chhena poda", "Chhena poda"),
+      s("କେତେ ନେବେ?", "Kete nebe?", "How much will you take?", "ଅଢ଼େଇ ଶହ ଗ୍ରାମ", "Adhei saha gram", "Two hundred and fifty grams"),
+      s("ଗରମ ଗରମ ଅଛି", "Garama garama achhi", "It's fresh and warm", "ବାଃ, ଦିଅ", "Baah, dia", "Great, give it"),
+      s("କୁହନ୍ତୁ", "Kuhantu", "Tell me", "କେତେ ହେଲା?", "Kete hela?", "What do I owe you?"),
+      s("ଷାଠିଏ ଟଙ୍କା", "Shaathie tanka", "Sixty rupees", "ନିଅ, ଧନ୍ୟବାଦ", "Nian, dhanyabaad", "Here you go, thank you"),
+    ],
+    hard: [
+      s("କଣ ନେବେ?", "Kana nebe?", "What will you have?", "ଛେନା ପୋଡ଼", "Chhena poda", "Chhena poda"),
+      s("କେତେ ନେବେ?", "Kete nebe?", "How much will you take?", "ଅଢ଼େଇ ଶହ ଗ୍ରାମ", "Adhei saha gram", "Two hundred and fifty grams"),
+      s("ଗରମ ଗରମ ଅଛି", "Garama garama achhi", "It's fresh and warm", "ବାଃ, ଦିଅ", "Baah, dia", "Great, give it"),
+      s("ରସଗୋଲା ବି ନେବେ?", "Rasagola bi nebe?", "Will you take rasagola too?", "ହଁ, ଦୁଇଟା", "Hum, duita", "Yes, two"),
+      s("ଆଉ କିଛି?", "Au kichhi?", "Anything else?", "ନାହିଁ, ଏତିକି", "Nahin, etiki", "No, that's all"),
+      s("କୁହନ୍ତୁ", "Kuhantu", "Tell me", "କେତେ ହେଲା?", "Kete hela?", "What do I owe you?"),
+      s("ଅଶୀ ଟଙ୍କା", "Ashi tanka", "Eighty rupees", "ନିଅ, ଧନ୍ୟବାଦ", "Nian, dhanyabaad", "Here you go, thank you"),
+    ],
+  },
 };

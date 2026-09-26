@@ -16,6 +16,7 @@ import { RoadNet } from "./world/network";
 import { offsetPolyline, trimPolyline, polylineLength, footpathStrips, isDrivable } from "./world/roads";
 import { createTraffic } from "./world/traffic";
 import { buildLandmark } from "./world/landmarks";
+import { planRoute } from "./world/route";
 
 const LANDMARKS: Landmark[] = [
   "delhi", "chennai", "bengaluru", "kolkata", "hyderabad",
@@ -59,6 +60,7 @@ function tinyMap(): MapData {
     areas: [],
     rails: [],
     pois: [],
+    errandSpots: {},
     spawn: { x: 10, z: 10, yaw: 0 },
     spots: {
       auto: { x: 20, z: 8, yaw: 0 },
@@ -265,10 +267,42 @@ test("seeded task positions are their map spots (see migration 012)", () => {
   for (const pack of SEED_TASK_PACKS) {
     const map = loadMap(pack.districtId);
     for (const t of pack.tasks) {
-      const s = map.spots[t.kind];
+      const s = map.errandSpots[t.id] ?? map.spots[t.kind as keyof MapData["spots"]];
       assert.ok(Math.abs(t.pos[0] - s.x) < 0.11 && Math.abs(t.pos[1] - s.z) < 0.11, `${t.id} is not on its ${t.kind} spot`);
     }
   }
+});
+
+test("every district has one city errand, on dry open ground an auto can reach", () => {
+  for (const pack of SEED_TASK_PACKS) {
+    const map = loadMap(pack.districtId);
+    const errands = pack.tasks.filter((t) => map.errandSpots[t.id]);
+    assert.equal(errands.length, 1, `${pack.districtId}: ${errands.length} city errands`);
+    assert.equal(pack.tasks.length, 5, `${pack.districtId}: ${pack.tasks.length} tasks`);
+    // The city errand comes last, after auto, shop, temple and bus.
+    assert.equal(pack.tasks[4].id, errands[0].id);
+    const e = map.errandSpots[errands[0].id];
+
+    const solid = new CollisionWorld();
+    for (const p of map.plots) solid.box(p.x, p.z, p.w / 2, p.d / 2, p.rot);
+    for (const b of map.buildings) solid.add({ kind: "poly", outer: b.pts, holes: b.holes ?? [] });
+    assert.equal(solid.blocked(e.x, e.z, 0.5), false, `${pack.districtId}: errand inside a building`);
+    const wet = new CollisionWorld();
+    for (const a of map.areas) if (a.kind === "water" || a.kind === "sea") wet.add({ kind: "poly", outer: a.pts, holes: a.holes ?? [] });
+    assert.equal(wet.blocked(e.x, e.z, 0.1), false, `${pack.districtId}: errand in the water`);
+
+    assert.ok(Math.abs(e.x) < map.half - 20 && Math.abs(e.z) < map.half - 20, `${pack.districtId}: errand at the map edge`);
+    for (const [kind, s] of Object.entries(map.spots)) {
+      assert.ok(Math.hypot(e.x - s.x, e.z - s.z) > 5, `${pack.districtId}: errand on the ${kind} spot`);
+    }
+    const path = planRoute(map, map.spots.auto.x, map.spots.auto.z, e.x, e.z, 4.2, 1.6);
+    assert.ok(path && path.length >= 2, `${pack.districtId}: no auto route to the errand`);
+  }
+});
+
+test("city errands use the kinds the game knows", () => {
+  const counters = SEED_TASK_PACKS.flatMap((p) => p.tasks).filter((t) => t.kind === "counter").map((t) => t.id).sort();
+  assert.deepEqual(counters, ["dadar-chowk-local", "fort-kochi-ferry", "majestic-cross-metro"]);
 });
 
 test("footpaths stop short of junctions", () => {

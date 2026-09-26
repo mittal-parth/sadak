@@ -7,13 +7,15 @@ import {
   type LessonTier,
 } from "@/lib/game/levels";
 
-export type TaskKind = "auto" | "shop" | "temple" | "bus";
+/** "counter": a ticket window (a local train, the metro, a ferry). */
+export type TaskKind = "auto" | "shop" | "temple" | "bus" | "counter";
 
 export type StreetTask = {
   id: string;
   districtId: string;
   kind: TaskKind;
-  /** Offset from the chowk centre, same as NPC positions. */
+  /** Map coordinates, metres from the district map's centre (+x east,
+   *  +z south): the spot the map compiler reserved for this errand. */
   pos: [number, number];
   title: string;
   brief: string;
@@ -158,6 +160,22 @@ const puraniSadak: DistrictTaskPack = {
       completionNote: "Ticket punched — next stop Chandni Chowk.",
       lessons: streetLessonsFor("purani-sadak-bus"),
     },
+    {
+      id: "purani-sadak-paranthe",
+      districtId: "purani-sadak",
+      kind: "shop",
+      pos: [-281, -288.3],
+      title: "Paranthe in the gali",
+      brief: "Order stuffed paranthe in Paranthe Wali Gali. Ask for chutney and settle the bill.",
+      reward: 230,
+      interactLabel: "Order paranthe",
+      name: "Mohan",
+      role: "Paratha Wallah",
+      speaker: "vijay",
+      colour: 0xd35400,
+      completionNote: "Aloo paranthe, fried in ghee, in the lane that has made them since the Mughals.",
+      lessons: streetLessonsFor("purani-sadak-paranthe"),
+    },
   ],
 };
 
@@ -231,6 +249,22 @@ const marinaNagar: DistrictTaskPack = {
       colour: 0x2980b9,
       completionNote: "Ticket to Marina Beach — keep it for checking.",
       lessons: streetLessonsFor("marina-nagar-bus"),
+    },
+    {
+      id: "marina-nagar-sundal",
+      districtId: "marina-nagar",
+      kind: "shop",
+      pos: [229.3, 313.4],
+      title: "Sundal on Marina Beach",
+      brief: "Buy a packet of sundal from the beach seller. Ask for raw mango on top.",
+      reward: 210,
+      interactLabel: "Buy sundal",
+      name: "Valli",
+      role: "Sundal Seller",
+      speaker: "kavitha",
+      colour: 0xf39c12,
+      completionNote: "Hot sundal with raw mango, eaten with the sea wind.",
+      lessons: streetLessonsFor("marina-nagar-sundal"),
     },
   ],
 };
@@ -306,6 +340,22 @@ const majesticCross: DistrictTaskPack = {
       completionNote: "BMTC ticket to Shivajinagar.",
       lessons: streetLessonsFor("majestic-cross-bus"),
     },
+    {
+      id: "majestic-cross-metro",
+      districtId: "majestic-cross",
+      kind: "counter",
+      pos: [-90.2, 41.5],
+      title: "Metro token at Majestic",
+      brief: "Buy a Namma Metro token to MG Road. Token, not card.",
+      reward: 240,
+      interactLabel: "Buy metro token",
+      name: "Ravi",
+      role: "Ticket Clerk",
+      speaker: "dev",
+      colour: 0x6a2c91,
+      completionNote: "Token for MG Road — Purple Line, downstairs.",
+      lessons: streetLessonsFor("majestic-cross-metro"),
+    },
   ],
 };
 
@@ -379,6 +429,22 @@ const parkGully: DistrictTaskPack = {
       colour: 0x16a085,
       completionNote: "Tram ticket to Esplanade — validate before boarding.",
       lessons: streetLessonsFor("park-gully-bus"),
+    },
+    {
+      id: "park-gully-roll",
+      districtId: "park-gully",
+      kind: "shop",
+      pos: [35.4, -37.1],
+      title: "Kathi roll on Park Street",
+      brief: "Order an egg roll from the Park Street roll counter. Onion and chilli, your call.",
+      reward: 220,
+      interactLabel: "Order a roll",
+      name: "Babu",
+      role: "Roll Wallah",
+      speaker: "rohan",
+      colour: 0xc0392b,
+      completionNote: "Egg roll, extra onion — the Park Street way.",
+      lessons: streetLessonsFor("park-gully-roll"),
     },
   ],
 };

@@ -94,4 +94,27 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("ഇതാ, ticket", "Ithaa, ticket", "Here, your ticket", "നന്ദി", "Nandi", "Thank you"),
     ],
   },
+  "fort-kochi-ferry": {
+    easy: [
+      s("എവിടെ പോകണം?", "Evide pokanam?", "Where do you want to go?", "വൈപ്പിൻ", "Vypin", "Vypin"),
+      s("ബോട്ട് ഇപ്പോൾ വരും", "Boat ippol varum", "The boat is coming now", "ശരി, ടിക്കറ്റ് തരൂ", "Shari, ticket tharoo", "Okay, give me a ticket"),
+      s("ആറ് രൂപ", "Aaru roopa", "Six rupees", "ഇതാ, നന്ദി", "Ithaa, nandi", "Here you go, thank you"),
+    ],
+    medium: [
+      s("എവിടെ പോകണം?", "Evide pokanam?", "Where do you want to go?", "വൈപ്പിൻ", "Vypin", "Vypin"),
+      s("എത്ര പേർ?", "Ethra per?", "How many people?", "ഒരാൾ", "Oraal", "One person"),
+      s("ബോട്ട് ഇപ്പോൾ വരും", "Boat ippol varum", "The boat is coming now", "ശരി, ടിക്കറ്റ് തരൂ", "Shari, ticket tharoo", "Okay, give me a ticket"),
+      s("ശരി", "Shari", "Okay", "എത്ര ആയി?", "Ethra aayi?", "What do I owe you?"),
+      s("ആറ് രൂപ", "Aaru roopa", "Six rupees", "ഇതാ, നന്ദി", "Ithaa, nandi", "Here you go, thank you"),
+    ],
+    hard: [
+      s("എവിടെ പോകണം?", "Evide pokanam?", "Where do you want to go?", "വൈപ്പിൻ", "Vypin", "Vypin"),
+      s("എത്ര പേർ?", "Ethra per?", "How many people?", "ഒരാൾ", "Oraal", "One person"),
+      s("ചില്ലറ ഉണ്ടോ?", "Chillara undo?", "Do you have change?", "ഉണ്ട്, ഇതാ", "Undu, ithaa", "Yes, here"),
+      s("ബോട്ട് ഇപ്പോൾ വരും", "Boat ippol varum", "The boat is coming now", "ശരി, ടിക്കറ്റ് തരൂ", "Shari, ticket tharoo", "Okay, give me a ticket"),
+      s("വേഗം, ബോട്ട് പോകുന്നു!", "Vegam, boat pokunnu!", "Hurry, the boat is leaving!", "ശരി, നന്ദി", "Shari, nandi", "Okay, thank you"),
+      s("ശരി", "Shari", "Okay", "എത്ര ആയി?", "Ethra aayi?", "What do I owe you?"),
+      s("ആറ് രൂപ", "Aaru roopa", "Six rupees", "ഇതാ, നന്ദി", "Ithaa, nandi", "Here you go, thank you"),
+    ],
+  },
 };

@@ -94,4 +94,27 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("ఇదigo, ticket", "Idigo, ticket", "Here, your ticket", "ధన్యవాదాలు", "Dhanyavaadalu", "Thank you"),
     ],
   },
+  "charminar-lane-chai": {
+    easy: [
+      s("ఏమి కావాలి?", "Emi kaavali?", "What do you want?", "ఒక ఇరానీ చాయ్", "Oka Irani chai", "One Irani chai"),
+      s("కూర్చోండి, తెస్తాను", "Koorchondi, testaanu", "Sit down, I'll bring it", "సరే, ధన్యవాదాలు", "Sare, dhanyavaadalu", "Okay, thank you"),
+      s("ఇరవై రూపాయలు", "Iravai roopaayalu", "Twenty rupees", "ఇదిగో, ధన్యవాదాలు", "Idigo, dhanyavaadalu", "Here you go, thank you"),
+    ],
+    medium: [
+      s("ఏమి కావాలి?", "Emi kaavali?", "What do you want?", "ఒక ఇరానీ చాయ్", "Oka Irani chai", "One Irani chai"),
+      s("బిస్కెట్ కూడా?", "Biscuit koodaa?", "Biscuits as well?", "అవును, ఉస్మానియా బిస్కెట్", "Avunu, Osmania biscuit", "Yes, Osmania biscuits"),
+      s("కూర్చోండి, తెస్తాను", "Koorchondi, testaanu", "Sit down, I'll bring it", "సరే, ధన్యవాదాలు", "Sare, dhanyavaadalu", "Okay, thank you"),
+      s("సరే", "Sare", "Okay", "ఎంత అయింది?", "Enta ayindi?", "What do I owe you?"),
+      s("నలభై రూపాయలు", "Nalabhai roopaayalu", "Forty rupees", "ఇదిగో, ధన్యవాదాలు", "Idigo, dhanyavaadalu", "Here you go, thank you"),
+    ],
+    hard: [
+      s("ఏమి కావాలి?", "Emi kaavali?", "What do you want?", "ఒక ఇరానీ చాయ్", "Oka Irani chai", "One Irani chai"),
+      s("బిస్కెట్ కూడా?", "Biscuit koodaa?", "Biscuits as well?", "అవును, ఉస్మానియా బిస్కెట్", "Avunu, Osmania biscuit", "Yes, Osmania biscuits"),
+      s("చాయ్ వేడిగా ఉంది, జాగ్రత్త", "Chai vedigaa undi, jaagratta", "The chai is hot, careful", "సరే, నెమ్మదిగా తాగుతాను", "Sare, nemmadigaa taagutaanu", "Okay, I'll drink slowly"),
+      s("కూర్చోండి, తెస్తాను", "Koorchondi, testaanu", "Sit down, I'll bring it", "సరే, ధన్యవాదాలు", "Sare, dhanyavaadalu", "Okay, thank you"),
+      s("ఇంకేమైనా?", "Inkenainaa?", "Anything else?", "లేదు, అంతే", "Ledu, anthe", "No, that's all"),
+      s("సరే", "Sare", "Okay", "ఎంత అయింది?", "Enta ayindi?", "What do I owe you?"),
+      s("నలభై రూపాయలు", "Nalabhai roopaayalu", "Forty rupees", "ఇదిగో, ధన్యవాదాలు", "Idigo, dhanyavaadalu", "Here you go, thank you"),
+    ],
+  },
 };

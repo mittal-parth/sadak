@@ -34,6 +34,8 @@ function kindColour(kind: TaskKind, done: boolean): string {
       return "#e74c3c";
     case "bus":
       return "#3498db";
+    case "counter":
+      return "#9b59b6";
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;
@@ -51,6 +53,8 @@ function kindIcon(kind: TaskKind): string {
       return "🛕";
     case "bus":
       return "🚌";
+    case "counter":
+      return "🎫";
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;
@@ -119,6 +123,8 @@ function kindLabel(kind: TaskKind): string {
       return "Temple";
     case "bus":
       return "Bus";
+    case "counter":
+      return "Ticket";
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;

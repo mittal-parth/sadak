@@ -94,4 +94,27 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("போங்க", "Ponga", "Go ahead", "நன்றி", "Nandri", "Thank you"),
     ],
   },
+  "marina-nagar-sundal": {
+    easy: [
+      s("சுண்டல் வேணுமா?", "Sundal venumaa?", "Do you want sundal?", "ஆம், ஒரு பொட்டலம்", "Aam, oru pottalam", "Yes, one packet"),
+      s("மாங்காய் போடவா?", "Maangaai podavaa?", "Shall I add raw mango?", "ஆம், போடுங்க", "Aam, podunga", "Yes, add it"),
+      s("இருபது ரூபாய்", "Irupathu rupaai", "Twenty rupees", "இதோ, நன்றி", "Itho, nandri", "Here you go, thank you"),
+    ],
+    medium: [
+      s("சுண்டல் வேணுமா?", "Sundal venumaa?", "Do you want sundal?", "ஆம், ஒரு பொட்டலம்", "Aam, oru pottalam", "Yes, one packet"),
+      s("காரமா வேணுமா?", "Kaaramaa venumaa?", "Do you want it spicy?", "கொஞ்சம் காரம்", "Konjam kaaram", "A little spicy"),
+      s("மாங்காய் போடவா?", "Maangaai podavaa?", "Shall I add raw mango?", "ஆம், போடுங்க", "Aam, podunga", "Yes, add it"),
+      s("சரி", "Sari", "Okay", "எவ்வளவு?", "Evvalavu?", "How much?"),
+      s("இருபது ரூபாய்", "Irupathu rupaai", "Twenty rupees", "இதோ, நன்றி", "Itho, nandri", "Here you go, thank you"),
+    ],
+    hard: [
+      s("சுண்டல் வேணுமா?", "Sundal venumaa?", "Do you want sundal?", "ஆம், ஒரு பொட்டலம்", "Aam, oru pottalam", "Yes, one packet"),
+      s("காரமா வேணுமா?", "Kaaramaa venumaa?", "Do you want it spicy?", "கொஞ்சம் காரம்", "Konjam kaaram", "A little spicy"),
+      s("அலை பெரிசா வருது!", "Alai perisaa varudhu!", "The waves are coming in big!", "ஆமா, பார்த்துக்கறேன்", "Aamaa, paarthukkaren", "Yes, I'll be careful"),
+      s("மாங்காய் போடவா?", "Maangaai podavaa?", "Shall I add raw mango?", "ஆம், போடுங்க", "Aam, podunga", "Yes, add it"),
+      s("வேற ஏதாவது?", "Vera edhaavadhu?", "Anything else?", "இல்லை, போதும்", "Illai, podhum", "No, that's enough"),
+      s("சரி", "Sari", "Okay", "எவ்வளவு?", "Evvalavu?", "How much?"),
+      s("இருபது ரூபாய்", "Irupathu rupaai", "Twenty rupees", "இதோ, நன்றி", "Itho, nandri", "Here you go, thank you"),
+    ],
+  },
 };

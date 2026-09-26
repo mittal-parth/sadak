@@ -238,13 +238,16 @@ the game never calls the OSM API. To rebuild them:
 ```bash
 npx tsx scripts/osm/fetch.ts            # download extracts (needs network)
 npx tsx scripts/osm/build.ts            # compile public/maps/*.json
-npx tsx scripts/osm/write-task-positions.ts   # move tasks onto the map spots
+npx tsx scripts/osm/write-task-positions.ts   # move tasks onto the map spots, write the re-seed
 ```
 
 `scripts/osm/cities.ts` holds each district's centre, building grain,
-landmark rules and task anchors. Moving a task spot changes task positions:
-re-run the last script and apply the migration it writes
-(`supabase/migrations/012_osm_task_positions.sql`).
+landmark rules, task anchors and its city errand (the fifth task: paranthe in
+Chandni Chowk, a local train ticket at Dadar, langar at the Golden Temple, and
+so on — `errands` names the OSM place it happens at). Moving a task spot
+changes task positions: re-run the last script and apply the migration it
+writes (`supabase/migrations/012_osm_task_packs.sql`), which re-seeds every
+district's task pack.
 
 ### Tests
 

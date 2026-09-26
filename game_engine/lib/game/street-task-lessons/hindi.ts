@@ -94,4 +94,27 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("लो, टिकट", "Lo, ticket", "Here, your ticket", "धन्यवाद", "Dhanyavaad", "Thank you"),
     ],
   },
+  "purani-sadak-paranthe": {
+    easy: [
+      s("कौन सा पराँठा?", "Kaun sa paraantha?", "Which paratha?", "एक आलू पराँठा", "Ek aaloo paraantha", "One aloo paratha"),
+      s("चटनी साथ में?", "Chatni saath mein?", "Chutney with it?", "हाँ, चटनी दीजिए", "Haan, chatni dijiye", "Yes, chutney please"),
+      s("साठ रुपये", "Saath rupaye", "Sixty rupees", "ये लीजिए, धन्यवाद", "Ye lijiye, dhanyavaad", "Here you go, thank you"),
+    ],
+    medium: [
+      s("कौन सा पराँठा?", "Kaun sa paraantha?", "Which paratha?", "एक आलू पराँठा", "Ek aaloo paraantha", "One aloo paratha"),
+      s("एक ही?", "Ek hi?", "Just one?", "नहीं, दो दीजिए", "Nahin, do dijiye", "No, give me two"),
+      s("चटनी साथ में?", "Chatni saath mein?", "Chutney with it?", "हाँ, चटनी दीजिए", "Haan, chatni dijiye", "Yes, chutney please"),
+      s("बताइए", "Bataiye", "Tell me", "कितने पैसे हुए?", "Kitne paise hue?", "What do I owe you?"),
+      s("एक सौ बीस रुपये", "Ek sau bees rupaye", "A hundred and twenty rupees", "ये लीजिए, धन्यवाद", "Ye lijiye, dhanyavaad", "Here you go, thank you"),
+    ],
+    hard: [
+      s("कौन सा पराँठा?", "Kaun sa paraantha?", "Which paratha?", "एक आलू पराँठा", "Ek aaloo paraantha", "One aloo paratha"),
+      s("एक ही?", "Ek hi?", "Just one?", "नहीं, दो दीजिए", "Nahin, do dijiye", "No, give me two"),
+      s("गरम गरम, घी वाला", "Garam garam, ghee wala", "Piping hot, with ghee", "वाह, बहुत बढ़िया", "Waah, bahut badhiya", "Wow, excellent"),
+      s("चटनी साथ में?", "Chatni saath mein?", "Chutney with it?", "हाँ, चटनी दीजिए", "Haan, chatni dijiye", "Yes, chutney please"),
+      s("और कुछ?", "Aur kuch?", "Anything else?", "नहीं, बस", "Nahin, bas", "No, that's all"),
+      s("बताइए", "Bataiye", "Tell me", "कितने पैसे हुए?", "Kitne paise hue?", "What do I owe you?"),
+      s("एक सौ बीस रुपये", "Ek sau bees rupaye", "A hundred and twenty rupees", "ये लीजिए, धन्यवाद", "Ye lijiye, dhanyavaad", "Here you go, thank you"),
+    ],
+  },
 };

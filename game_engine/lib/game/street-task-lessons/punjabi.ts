@@ -94,4 +94,27 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("ਲੋ, ਟਿਕਟ", "Lo, ticket", "Here, your ticket", "ਧੰਨਵਾਦ", "Dhannvaad", "Thank you"),
     ],
   },
+  "hall-bazaar-langar": {
+    easy: [
+      s("ਸਿਰ ਢੱਕ ਲਓ ਜੀ", "Sir dhakk lao ji", "Please cover your head", "ਹਾਂ ਜੀ, ਢੱਕ ਲਿਆ", "Haan ji, dhakk liya", "Yes, I've covered it"),
+      s("ਪ੍ਰਸ਼ਾਦਾ ਲਓ ਜੀ", "Parshada lao ji", "Please take the roti", "ਹਾਂ ਜੀ, ਦੋ ਪ੍ਰਸ਼ਾਦੇ", "Haan ji, do parshade", "Yes, two rotis please"),
+      s("ਵਾਹਿਗੁਰੂ ਜੀ ਕਾ ਖਾਲਸਾ", "Waheguru ji ka Khalsa", "Waheguru ji ka Khalsa", "ਵਾਹਿਗੁਰੂ ਜੀ ਕੀ ਫ਼ਤਿਹ", "Waheguru ji ki Fateh", "Waheguru ji ki Fateh"),
+    ],
+    medium: [
+      s("ਸਿਰ ਢੱਕ ਲਓ ਜੀ", "Sir dhakk lao ji", "Please cover your head", "ਹਾਂ ਜੀ, ਢੱਕ ਲਿਆ", "Haan ji, dhakk liya", "Yes, I've covered it"),
+      s("ਪੰਗਤ ਵਿੱਚ ਬੈਠੋ ਜੀ", "Pangat vich baitho ji", "Please sit in the row", "ਠੀਕ ਹੈ ਜੀ", "Theek hai ji", "Okay"),
+      s("ਪ੍ਰਸ਼ਾਦਾ ਲਓ ਜੀ", "Parshada lao ji", "Please take the roti", "ਹਾਂ ਜੀ, ਦੋ ਪ੍ਰਸ਼ਾਦੇ", "Haan ji, do parshade", "Yes, two rotis please"),
+      s("ਦਾਲ ਹੋਰ?", "Daal hor?", "More dal?", "ਹਾਂ ਜੀ, ਥੋੜੀ ਜਿਹੀ", "Haan ji, thodi jihi", "Yes, just a little"),
+      s("ਵਾਹਿਗੁਰੂ ਜੀ ਕਾ ਖਾਲਸਾ", "Waheguru ji ka Khalsa", "Waheguru ji ka Khalsa", "ਵਾਹਿਗੁਰੂ ਜੀ ਕੀ ਫ਼ਤਿਹ", "Waheguru ji ki Fateh", "Waheguru ji ki Fateh"),
+    ],
+    hard: [
+      s("ਸਿਰ ਢੱਕ ਲਓ ਜੀ", "Sir dhakk lao ji", "Please cover your head", "ਹਾਂ ਜੀ, ਢੱਕ ਲਿਆ", "Haan ji, dhakk liya", "Yes, I've covered it"),
+      s("ਪੰਗਤ ਵਿੱਚ ਬੈਠੋ ਜੀ", "Pangat vich baitho ji", "Please sit in the row", "ਠੀਕ ਹੈ ਜੀ", "Theek hai ji", "Okay"),
+      s("ਪ੍ਰਸ਼ਾਦਾ ਲਓ ਜੀ", "Parshada lao ji", "Please take the roti", "ਹਾਂ ਜੀ, ਦੋ ਪ੍ਰਸ਼ਾਦੇ", "Haan ji, do parshade", "Yes, two rotis please"),
+      s("ਖੀਰ ਵੀ ਲਓ", "Kheer vi lao", "Have some kheer too", "ਹਾਂ ਜੀ, ਧੰਨਵਾਦ", "Haan ji, dhannvaad", "Yes, thank you"),
+      s("ਦਾਲ ਹੋਰ?", "Daal hor?", "More dal?", "ਹਾਂ ਜੀ, ਥੋੜੀ ਜਿਹੀ", "Haan ji, thodi jihi", "Yes, just a little"),
+      s("ਹੋਰ ਕੁਝ?", "Hor kujh?", "Anything else?", "ਨਹੀਂ ਜੀ, ਬਸ", "Nahin ji, bas", "No, that's all"),
+      s("ਵਾਹਿਗੁਰੂ ਜੀ ਕਾ ਖਾਲਸਾ", "Waheguru ji ka Khalsa", "Waheguru ji ka Khalsa", "ਵਾਹਿਗੁਰੂ ਜੀ ਕੀ ਫ਼ਤਿਹ", "Waheguru ji ki Fateh", "Waheguru ji ki Fateh"),
+    ],
+  },
 };

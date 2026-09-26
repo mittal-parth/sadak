@@ -94,4 +94,27 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("ಹೋಗಿ", "Hogi", "Go", "ಧನ್ಯವಾದ", "Dhanyavaada", "Thank you"),
     ],
   },
+  "majestic-cross-metro": {
+    easy: [
+      s("ಎಲ್ಲಿಗೆ?", "Ellige?", "Where to?", "ಎಂ.ಜಿ. ರೋಡ್", "M.G. Road", "MG Road"),
+      s("ಟೋಕನ್ ಅಥವಾ ಕಾರ್ಡ್?", "Token athava card?", "Token or card?", "ಟೋಕನ್ ಕೊಡಿ", "Token kodi", "A token, please"),
+      s("ಮೂವತ್ತು ರೂಪಾಯಿ", "Muvattu rupaayi", "Thirty rupees", "ಇದು, ಧನ್ಯವಾದ", "Idu, dhanyavaada", "Here you go, thank you"),
+    ],
+    medium: [
+      s("ಎಲ್ಲಿಗೆ?", "Ellige?", "Where to?", "ಎಂ.ಜಿ. ರೋಡ್", "M.G. Road", "MG Road"),
+      s("ಎಷ್ಟು ಜನ?", "Eshtu jana?", "How many people?", "ಒಬ್ಬರು", "Obbaru", "One person"),
+      s("ಟೋಕನ್ ಅಥವಾ ಕಾರ್ಡ್?", "Token athava card?", "Token or card?", "ಟೋಕನ್ ಕೊಡಿ", "Token kodi", "A token, please"),
+      s("ಸರಿ", "Sari", "Okay", "ಎಷ್ಟು?", "Eshtu?", "How much?"),
+      s("ಮೂವತ್ತು ರೂಪಾಯಿ", "Muvattu rupaayi", "Thirty rupees", "ಇದು, ಧನ್ಯವಾದ", "Idu, dhanyavaada", "Here you go, thank you"),
+    ],
+    hard: [
+      s("ಎಲ್ಲಿಗೆ?", "Ellige?", "Where to?", "ಎಂ.ಜಿ. ರೋಡ್", "M.G. Road", "MG Road"),
+      s("ಎಷ್ಟು ಜನ?", "Eshtu jana?", "How many people?", "ಒಬ್ಬರು", "Obbaru", "One person"),
+      s("ಚಿಲ್ಲರೆ ಇದೆಯಾ?", "Chillare ideyaa?", "Do you have change?", "ಹೌದು, ಇದೆ", "Haudu, ide", "Yes, I do"),
+      s("ಟೋಕನ್ ಅಥವಾ ಕಾರ್ಡ್?", "Token athava card?", "Token or card?", "ಟೋಕನ್ ಕೊಡಿ", "Token kodi", "A token, please"),
+      s("ಪರ್ಪಲ್ ಲೈನ್, ಕೆಳಗೆ ಹೋಗಿ", "Purple line, kelage hogi", "Purple line, go downstairs", "ಸರಿ, ಧನ್ಯವಾದ", "Sari, dhanyavaada", "Okay, thank you"),
+      s("ಸರಿ", "Sari", "Okay", "ಎಷ್ಟು?", "Eshtu?", "How much?"),
+      s("ಮೂವತ್ತು ರೂಪಾಯಿ", "Muvattu rupaayi", "Thirty rupees", "ಇದು, ಧನ್ಯವಾದ", "Idu, dhanyavaada", "Here you go, thank you"),
+    ],
+  },
 };

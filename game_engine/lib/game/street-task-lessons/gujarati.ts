@@ -94,4 +94,27 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("લો, ટિકિટ", "Lo, ticket", "Here, your ticket", "આભાર", "Aabhaar", "Thank you"),
     ],
   },
+  "manek-chowk-kulfi": {
+    easy: [
+      s("શું લેશ?", "Shu lesh?", "What will you have?", "એક કુલ્ફી", "Ek kulfi", "One kulfi"),
+      s("પ્લેટમાં કે સ્ટિકમાં?", "Platemaan ke stickmaan?", "On a plate or on a stick?", "સ્ટિકમાં", "Stickmaan", "On a stick"),
+      s("ચાલીસ રૂપિયા", "Chaalis rupiya", "Forty rupees", "લો, આભાર", "Lo, aabhaar", "Here you go, thank you"),
+    ],
+    medium: [
+      s("શું લેશ?", "Shu lesh?", "What will you have?", "એક કુલ્ફી", "Ek kulfi", "One kulfi"),
+      s("કેસર કે મલાઈ?", "Kesar ke malai?", "Saffron or cream?", "કેસર આપો", "Kesar aapo", "Saffron, please"),
+      s("પ્લેટમાં કે સ્ટિકમાં?", "Platemaan ke stickmaan?", "On a plate or on a stick?", "સ્ટિકમાં", "Stickmaan", "On a stick"),
+      s("કહો", "Kaho", "Tell me", "કેટલા થયા?", "Ketlaa thaya?", "What do I owe you?"),
+      s("ચાલીસ રૂપિયા", "Chaalis rupiya", "Forty rupees", "લો, આભાર", "Lo, aabhaar", "Here you go, thank you"),
+    ],
+    hard: [
+      s("શું લેશ?", "Shu lesh?", "What will you have?", "એક કુલ્ફી", "Ek kulfi", "One kulfi"),
+      s("કેસર કે મલાઈ?", "Kesar ke malai?", "Saffron or cream?", "કેસર આપો", "Kesar aapo", "Saffron, please"),
+      s("રાત્રે અહીં બહુ ભીડ હોય છે", "Raatre ahin bahu bheed hoy che", "It gets very crowded here at night", "હા, બહુ મજા છે", "Haa, bahu majaa che", "Yes, it's great fun"),
+      s("પ્લેટમાં કે સ્ટિકમાં?", "Platemaan ke stickmaan?", "On a plate or on a stick?", "સ્ટિકમાં", "Stickmaan", "On a stick"),
+      s("બીજું કંઈ?", "Bijun kain?", "Anything else?", "ના, એટલું જ", "Naa, etlu j", "No, that's all"),
+      s("કહો", "Kaho", "Tell me", "કેટલા થયા?", "Ketlaa thaya?", "What do I owe you?"),
+      s("ચાલીસ રૂપિયા", "Chaalis rupiya", "Forty rupees", "લો, આભાર", "Lo, aabhaar", "Here you go, thank you"),
+    ],
+  },
 };

@@ -94,4 +94,27 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("घ्या, टिकिट", "Ghya, ticket", "Here, your ticket", "धन्यवाद", "Dhanyavaad", "Thank you"),
     ],
   },
+  "dadar-chowk-local": {
+    easy: [
+      s("कुठे जायचे?", "Kuthe jaayche?", "Where to?", "चर्चगेट", "Churchgate", "Churchgate"),
+      s("फर्स्ट क्लास की सेकंड?", "First class ki second?", "First class or second?", "सेकंड क्लास", "Second class", "Second class"),
+      s("दहा रुपये", "Daha rupaye", "Ten rupees", "घ्या, धन्यवाद", "Ghya, dhanyavaad", "Here you go, thank you"),
+    ],
+    medium: [
+      s("कुठे जायचे?", "Kuthe jaayche?", "Where to?", "चर्चगेट", "Churchgate", "Churchgate"),
+      s("सिंगल की रिटर्न?", "Single ki return?", "Single or return?", "रिटर्न", "Return", "Return"),
+      s("फर्स्ट क्लास की सेकंड?", "First class ki second?", "First class or second?", "सेकंड क्लास", "Second class", "Second class"),
+      s("सांग", "Saang", "Tell me", "किती झाले?", "Kiti jhaale?", "What do I owe you?"),
+      s("वीस रुपये", "Vees rupaye", "Twenty rupees", "घ्या, धन्यवाद", "Ghya, dhanyavaad", "Here you go, thank you"),
+    ],
+    hard: [
+      s("कुठे जायचे?", "Kuthe jaayche?", "Where to?", "चर्चगेट", "Churchgate", "Churchgate"),
+      s("सिंगल की रिटर्न?", "Single ki return?", "Single or return?", "रिटर्न", "Return", "Return"),
+      s("सुट्टे पैसे द्या", "Sutte paise dya", "Give me exact change", "हो, हे घ्या", "Ho, he ghya", "Yes, here you are"),
+      s("फर्स्ट क्लास की सेकंड?", "First class ki second?", "First class or second?", "सेकंड क्लास", "Second class", "Second class"),
+      s("पुढची गाडी फास्ट आहे", "Pudhchi gaadi fast aahe", "The next train is a fast", "ठीक, धन्यवाद", "Theek, dhanyavaad", "Okay, thank you"),
+      s("सांग", "Saang", "Tell me", "किती झाले?", "Kiti jhaale?", "What do I owe you?"),
+      s("वीस रुपये", "Vees rupaye", "Twenty rupees", "घ्या, धन्यवाद", "Ghya, dhanyavaad", "Here you go, thank you"),
+    ],
+  },
 };

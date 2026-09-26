@@ -94,4 +94,27 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("যান", "Jan", "Go", "ধন্যবাদ", "Dhonnobad", "Thank you"),
     ],
   },
+  "park-gully-roll": {
+    easy: [
+      s("কী রোল দেব?", "Ki roll debo?", "Which roll shall I make?", "একটা এগ রোল", "Ekta egg roll", "One egg roll"),
+      s("পেঁয়াজ লঙ্কা দেব?", "Peyaj lonka debo?", "Onion and chilli?", "হ্যাঁ, একটু দিন", "Hyaa, ektu din", "Yes, a little"),
+      s("ষাট টাকা", "Shaat taka", "Sixty rupees", "নিন, ধন্যবাদ", "Nin, dhonnobad", "Take it, thank you"),
+    ],
+    medium: [
+      s("কী রোল দেব?", "Ki roll debo?", "Which roll shall I make?", "একটা এগ রোল", "Ekta egg roll", "One egg roll"),
+      s("ডবল ডিম?", "Double dim?", "Double egg?", "হ্যাঁ, ডবল ডিম", "Hyaa, double dim", "Yes, double egg"),
+      s("পেঁয়াজ লঙ্কা দেব?", "Peyaj lonka debo?", "Onion and chilli?", "হ্যাঁ, একটু দিন", "Hyaa, ektu din", "Yes, a little"),
+      s("ঠিক আছে", "Thik ache", "Okay", "কত?", "Koto?", "How much?"),
+      s("আশি টাকা", "Aashi taka", "Eighty rupees", "নিন, ধন্যবাদ", "Nin, dhonnobad", "Take it, thank you"),
+    ],
+    hard: [
+      s("কী রোল দেব?", "Ki roll debo?", "Which roll shall I make?", "একটা এগ রোল", "Ekta egg roll", "One egg roll"),
+      s("ডবল ডিম?", "Double dim?", "Double egg?", "হ্যাঁ, ডবল ডিম", "Hyaa, double dim", "Yes, double egg"),
+      s("একটু দাঁড়ান, ভিড় আছে", "Ektu daran, bhir ache", "Wait a bit, it's crowded", "ঠিক আছে, অপেক্ষা করছি", "Thik ache, opekkha korchi", "Okay, I'm waiting"),
+      s("পেঁয়াজ লঙ্কা দেব?", "Peyaj lonka debo?", "Onion and chilli?", "হ্যাঁ, একটু দিন", "Hyaa, ektu din", "Yes, a little"),
+      s("আর কিছু?", "Ar kichu?", "Anything else?", "না, এটুকুই", "Na, etukui", "No, that's all"),
+      s("ঠিক আছে", "Thik ache", "Okay", "কত?", "Koto?", "How much?"),
+      s("আশি টাকা", "Aashi taka", "Eighty rupees", "নিন, ধন্যবাদ", "Nin, dhonnobad", "Take it, thank you"),
+    ],
+  },
 };
