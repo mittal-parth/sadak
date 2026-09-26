@@ -380,6 +380,22 @@ export function buildRoads(map: MapData, theme: Theme, mats?: MaterialLibrary): 
   group.name = "roads";
   const textures: THREE.Texture[] = [];
   const { atNode, trimAt } = junctionTrims(map);
+  // Within a precinct's outer ring (and so on its marble), by its midpoint.
+  const onPrecinct = (r: MapRoad) => {
+    const ring = map.precinct?.outer;
+    if (!ring) return false;
+    const [x, z] = r.pts[Math.floor(r.pts.length / 2)];
+    const [x0, z0] = r.pts[0];
+    const mx = (x + x0) / 2;
+    const mz = (z + z0) / 2;
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [xi, zi] = ring[i];
+      const [xj, zj] = ring[j];
+      if (zi > mz !== zj > mz && mx < ((xj - xi) * (mz - zi)) / (zj - zi) + xi) inside = !inside;
+    }
+    return inside;
+  };
 
   const tarmac: THREE.BufferGeometry[] = [];
   const paving: THREE.BufferGeometry[] = [];
@@ -404,6 +420,9 @@ export function buildRoads(map: MapData, theme: Theme, mats?: MaterialLibrary): 
       continue;
     }
     if (PAVED.has(r.cls)) {
+      // A footpath across a temple precinct's marble (the parikrama, the
+      // causeway) is the marble itself: no strip of street paving over it.
+      if (r.cls !== "pedestrian" && onPrecinct(r)) continue;
       paving.push(ribbon(r.pts, -r.w / 2, r.w / 2, r.cls === "pedestrian" ? Y.paving : Y.footway, 2.6));
       continue;
     }
