@@ -10,7 +10,7 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
     ],
     medium: [
       s("ਕਿੱਥੇ ਜਾਣਾ ਹੈ?", "Kitthe jaanaa hai?", "Where do you want to go?", "ਸ੍ਰੀ ਹਰਿਮੰਦਰ ਸਾਹਿਬ", "Sri Harmandir Sahib", "Golden Temple"),
-      s("ਤਿੰਨ ਸੌ! ਪੈਟਰੋਲ ਮਹਿੰਗਾ ਹੈ ਭਾਈ", "Teen sau! Petrol mehnga hai bhai", "Three hundred! Petrol is expensive, brother", "ਹਾਂ ਸਮਝਿਆ, ਥੋੜਾ ਘਟਾਓ", "Haan samjha, thoda ghata karo", "I understand, but please reduce it a bit"),
+      s("ਤਿੰਨ ਸੌ! ਪੈਟਰੋਲ ਮਹਿੰਗਾ ਹੈ ਭਾਈ", "Teen sau! Petrol mehnga hai bhai", "Three hundred! Petrol is expensive, brother", "ਸਮਝ ਗਿਆ, ਪਰ ਥੋੜਾ ਘਟਾਓ", "Samajh gaya, par thoda ghatao", "I understand, but please reduce it a bit"),
       s("ਠੀਕ ਹੈ, ਦੱਸੋ", "Theek hai, daso", "Fine, tell me", "ਕਿੰਨੇ ਦਾ ਹੈ?", "Kinne da hai?", "How much is it?"),
       s("ਠੀਕ ਹੈ, ਕਿੰਨੇ ਦਿਓਗੇ?", "Theek hai, kinne dioge?", "Fine, what will you pay?", "ਡੇਢ ਸੌ?", "Dedh sau?", "Will you go for 150?"),
       s("ਚਲੋ, ਬੈਠ ਜਾਓ", "Chalo, baith jao", "Come on, get in", "ਧੰਨਵਾਦ, ਚਲੀਏ", "Dhannvaad, chalie", "Thank you, let's go"),
@@ -18,7 +18,7 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
     hard: [
       s("ਕਿੱਥੇ ਜਾਣਾ ਹੈ?", "Kitthe jaanaa hai?", "Where do you want to go?", "ਸ੍ਰੀ ਹਰਿਮੰਦਰ ਸਾਹਿਬ", "Sri Harmandir Sahib", "Golden Temple"),
       s("ਅੱਜ ਭੀੜ ਬਹੁਤ ਹੈ", "Ajj bheer bahut hai", "It's very crowded today", "ਹਾਂ, ਜਲਦੀ ਹੈ", "Haan, jaldi hai", "Yes, I'm in a hurry"),
-      s("ਤਿੰਨ ਸੌ! ਪੈਟਰੋਲ ਮਹਿੰਗਾ ਹੈ ਭਾਈ", "Teen sau! Petrol mehnga hai bhai", "Three hundred! Petrol is expensive, brother", "ਹਾਂ ਸਮਝਿਆ, ਥੋੜਾ ਘਟਾਓ", "Haan samjha, thoda ghata karo", "I understand, but please reduce it a bit"),
+      s("ਤਿੰਨ ਸੌ! ਪੈਟਰੋਲ ਮਹਿੰਗਾ ਹੈ ਭਾਈ", "Teen sau! Petrol mehnga hai bhai", "Three hundred! Petrol is expensive, brother", "ਸਮਝ ਗਿਆ, ਪਰ ਥੋੜਾ ਘਟਾਓ", "Samajh gaya, par thoda ghatao", "I understand, but please reduce it a bit"),
       s("ਠੀਕ ਹੈ, ਦੱਸੋ", "Theek hai, daso", "Fine, tell me", "ਕਿੰਨੇ ਦਾ ਹੈ?", "Kinne da hai?", "How much is it?"),
       s("ਠੀਕ ਹੈ, ਕਿੰਨੇ ਦਿਓਗੇ?", "Theek hai, kinne dioge?", "Fine, what will you pay?", "ਡੇਢ ਸੌ?", "Dedh sau?", "Will you go for 150?"),
       s("ਮੀਟਰ ਨਾਲ?", "Meter naal?", "Will you go by meter?", "ਨਹੀਂ, ਪੱਕਾ ਕਿਰਾਇਆ", "Nahin, pakka kiraya", "No, fixed fare"),
@@ -51,7 +51,7 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
   "hall-bazaar-temple": {
     easy: [
       s("ਕੜਾਹ ਪ੍ਰਸਾਦ?", "Karah prasad?", "Karah prasad?", "ਹਾਂ, ਇੱਕ ਪਾਉ", "Haan, ik pau", "Yes, one portion please"),
-      s("ਚਾਲੀ ਵਿੱਚ ਲੇ ਲੋ", "Chaali vich lelo", "Take it for forty", "ਧੰਨਵਾਦ, ਲੋ", "Dhannvaad, lo", "Thank you, here you go"),
+      s("ਚਾਲੀ ਵਿੱਚ ਲੈ ਲਓ", "Chaali vich lai lao", "Take it for forty", "ਧੰਨਵਾਦ, ਲੋ", "Dhannvaad, lo", "Thank you, here you go"),
       s("ਜਾਓ, ਲੰਗਰ", "Jao, langar", "Go, to langar", "ਧੰਨਵਾਦ", "Dhannvaad", "Thank you"),
     ],
     medium: [
@@ -59,7 +59,7 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("ਜਲਦੀ, ਸੰਗਤ ਆ ਰਹੀ ਹੈ", "Jaldi, sangat aa rahi hai", "Hurry, the congregation is coming", "ਹਾਂ ਜਲਦੀ", "Haan jaldi", "Yes, quickly"),
       s("ਦੱਸੋ", "Daso", "Tell me", "ਕਿੰਨੇ ਦਾ ਹੈ?", "Kinne da hai?", "How much is it?"),
       s("ਪੰਜਾਹ ਰੁਪਏ", "Panjaah rupaye", "Fifty rupees", "ਚਾਲੀ ਵਿੱਚ ਦਿਓ", "Chaali vich dio", "Give it for forty"),
-      s("ਚਾਲੀ ਵਿੱਚ ਲੇ ਲੋ", "Chaali vich lelo", "Take it for forty", "ਧੰਨਵਾਦ, ਲੋ", "Dhannvaad, lo", "Thank you, here you go"),
+      s("ਚਾਲੀ ਵਿੱਚ ਲੈ ਲਓ", "Chaali vich lai lao", "Take it for forty", "ਧੰਨਵਾਦ, ਲੋ", "Dhannvaad, lo", "Thank you, here you go"),
     ],
     hard: [
       s("ਕੜਾਹ ਪ੍ਰਸਾਦ?", "Karah prasad?", "Karah prasad?", "ਹਾਂ, ਇੱਕ ਪਾਉ", "Haan, ik pau", "Yes, one portion please"),
@@ -67,7 +67,7 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("ਦੱਸੋ", "Daso", "Tell me", "ਕਿੰਨੇ ਦਾ ਹੈ?", "Kinne da hai?", "How much is it?"),
       s("ਪੰਜਾਹ ਰੁਪਏ", "Panjaah rupaye", "Fifty rupees", "ਚਾਲੀ ਵਿੱਚ ਦਿਓ", "Chaali vich dio", "Give it for forty"),
       s("ਹੋਰ ਚਾਹੀਦਾ?", "Hor chaahida?", "Need anything else?", "ਨਹੀਂ, ਬਸ ਇਤਨਾ", "Nahin, bas itna", "No, just this"),
-      s("ਚਾਲੀ ਵਿੱਚ ਲੇ ਲੋ", "Chaali vich lelo", "Take it for forty", "ਧੰਨਵਾਦ, ਲੋ", "Dhannvaad, lo", "Thank you, here you go"),
+      s("ਚਾਲੀ ਵਿੱਚ ਲੈ ਲਓ", "Chaali vich lai lao", "Take it for forty", "ਧੰਨਵਾਦ, ਲੋ", "Dhannvaad, lo", "Thank you, here you go"),
       s("ਜਾਓ", "Jao", "Go", "ਧੰਨਵਾਦ", "Dhannvaad", "Thank you"),
     ],
   },
