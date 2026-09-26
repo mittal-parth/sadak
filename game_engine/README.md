@@ -268,10 +268,12 @@ district.
 | `W` `A` `S` `D` | Move |
 | `←` `→` | Turn the camera (mouse also works, click to capture, or drag) |
 | `Shift` | Run |
-| `E` | Talk to a nearby NPC |
-| `Space` *(held)* | Speak, release to send — push-to-talk only |
+| `Space` | Jump (hold for a higher jump) |
+| `E` | Talk to a nearby NPC; skip a ride |
+| `M` | Full map of the district (or tap the minimap): drag to pan, scroll or pinch to zoom |
+| `Space` *(held, in a conversation)* | Speak, release to send — push-to-talk only |
 | `P` | Phrasebook for this district |
-| `Esc` | Back out: conversation, then pause menu (resume or leave district) |
+| `Esc` | Back out: conversation, map, then pause menu (resume or leave district) |
 
 In a live conversation the mic is already open, so there is nothing to hold:
 just talk, and use the mic button to mute yourself. On the push-to-talk

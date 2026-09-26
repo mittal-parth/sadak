@@ -6,6 +6,8 @@ import { Rides } from "./rides";
 import { Parts } from "./world/vc";
 import { taskSpot, type MapData, type Spot } from "./world/mapData";
 import { knockFrom } from "./knock";
+import { makeHero, HeroAnimator, type HeroRig } from "./hero";
+import { newBody, stepBody, SPRINT_SPEED } from "./movement";
 import { makeMissionShopStall, makeStreetMandir } from "./assets/index";
 import { makeBarberShop } from "./assets/barber";
 import { BARBER_ENTER_RADIUS, BARBER_FACING, barberSignFor } from "./barber";
@@ -13,7 +15,6 @@ import {
   makePerson,
   makeIdlePose,
   setIdlePhase,
-  setWalkPhase,
   type PersonPreset,
 } from "./people";
 import { createVehicleMaterials } from "./vehicles";
@@ -75,22 +76,10 @@ const TALK_RADIUS = 4.5;
 const PLAYER_RADIUS = 0.55;
 const TURN_SPEED = 2.1; // radians/sec for keyboard camera turn
 
-/**
- * Movement feel. Walk was 5.2 m/s, which at a 9m camera distance is a sprint
- * that reads as twitchy — a real walk is nearer 1.4 m/s and a game walk that
- * still feels responsive sits around 3.5.
- */
-const WALK_SPEED = 4.6;
-const SPRINT_SPEED = 9.5;
 /** Height on the player the camera aims at. */
 const PLAYER_LOOK_H = 2.3;
 /** Feet sit this far above the walkable surface. */
 const PLAYER_BASE_Y = 0.03;
-
-// Jump. Tuned as a hop rather than a leap — this is a street, not a platformer,
-// and a big arc fights the shallow chase camera.
-const JUMP_SPEED = 5.4;
-const GRAVITY = 16;
 
 
 /** Shortest-arc angular damp. Without the wrap, turning past ±π spins the
@@ -283,24 +272,21 @@ export class Game {
   // bottom half of the frame with empty road — and crops the tops off the
   // landmarks the player is meant to be looking at.
   private pitch = 0.16;
-  private walkPhase = 0;
-  /** Facing, damped toward the direction of travel rather than snapped. */
+  /** Facing of the body, from the movement model (movement.ts). */
   private facing = 0;
-  /**
-   * 0 = standing, 1 = walking, 2 = running. Damped, and used to crossfade the
-   * gait in people.ts so stopping is a blend rather than a pop.
-   */
-  private gait = 0;
-  /** Forward lean, driven by acceleration so the body reads as having mass. */
-  private lean = 0;
+  /** The player's body: speed, heading, jump (movement.ts). */
+  private body = newBody();
+  /** Drives the hero's rig (hero.ts). */
+  private heroAnim!: HeroAnimator;
+  /** 0..1 stumble blend while knocked aside. */
+  private stumble = 0;
   /** Mouse deltas accumulated between frames — see onMouseMove. */
   private pendingYaw = 0;
   private pendingPitch = 0;
   /** Damped keyboard/virtual turn rate, so arrow-turns ease in and out. */
   private turnRate = 0;
-  /** Height above PLAYER_BASE_Y, and its velocity. 0 means grounded. */
+  /** Height of the feet above the ground (mirrors body.y for the camera). */
   private jumpY = 0;
-  private jumpVel = 0;
   /** Set by the Space keydown, consumed on the next tick. */
   private jumpQueued = false;
   /** 0 grounded, 1 fully airborne — blends the tucked-legs pose. */
@@ -375,6 +361,7 @@ export class Game {
     this.playerPos.set(map.spawn.x, 0, map.spawn.z);
     this.yaw = map.spawn.yaw;
     this.facing = map.spawn.yaw;
+    this.body = newBody(map.spawn.yaw);
     this.lookTarget.set(map.spawn.x, PLAYER_LOOK_H, map.spawn.z);
     this.district = district;
     this.onTelemetry = onTelemetry;
@@ -582,19 +569,28 @@ export class Game {
   }
 
   private buildPlayer() {
-    this.player = makePerson(
-      {
-        preset: "shirt_trousers",
-        seed: 4242,
-        cloth1: 0x2980b9,
-        skin: 0xa0673b,
-        carryProp: false,
-      },
-      this.materials
-    );
-    makeIdlePose(this.player);
+    this.player = makeHero();
+    this.heroAnim = new HeroAnimator(this.player.userData.hero as HeroRig);
+    this.poseHero(0, { sit: 0 });
     this.player.position.copy(this.playerPos);
     this.scene.add(this.player);
+  }
+
+  /** Standing (or sitting) still, for when the body isn't being driven. */
+  private poseHero(dt: number, opts: { sit: number }) {
+    this.heroAnim.update({
+      dt,
+      t: this.clock.elapsedTime,
+      speed: 0,
+      accel: 0,
+      turn: 0,
+      air: 0,
+      vy: 0,
+      crouch: 0,
+      stumble: 0,
+      look: 0,
+      sit: opts.sit,
+    });
   }
 
   private bindInput() {
@@ -792,6 +788,7 @@ export class Game {
       // Stepped off: back on foot at the kerb.
       this.playerPos.set(ride.x, 0, ride.z);
       this.velocity.set(0, 0, 0);
+      this.body = newBody(ride.yaw);
       this.player.visible = true;
       this.facing = ride.yaw;
       this.groundY = this.world.height.at(ride.x, ride.z);
@@ -805,7 +802,7 @@ export class Game {
       if (ride.seat) {
         this.player.position.copy(ride.seat);
         this.player.rotation.y = ride.yaw;
-        makeIdlePose(this.player);
+        this.poseHero(dt, { sit: 1 });
       }
     }
 
@@ -902,7 +899,6 @@ export class Game {
 
   private updatePlayer(dt: number) {
     const sprint = this.keys.has("ShiftLeft") || this.keys.has("ShiftRight");
-    const speed = sprint ? SPRINT_SPEED : WALK_SPEED;
 
     let fwd = this.virtualFwd;
     let strafe = this.virtualStrafe;
@@ -914,41 +910,42 @@ export class Game {
     // Knocked aside by a vehicle: no control until the stumble is over.
     this.stagger = Math.max(0, this.stagger - dt);
     this.knockCooldown = Math.max(0, this.knockCooldown - dt);
-    if (this.stagger > 0) {
-      fwd = 0;
-      strafe = 0;
-    }
 
     const mag = Math.hypot(fwd, strafe);
     if (mag > 1) {
       fwd /= mag;
       strafe /= mag;
     }
-
     // forward = (sin yaw, 0, cos yaw); right = cross(forward, up) = (-cos yaw, 0, sin yaw).
-    const dir = this.tmpDir.set(
-      Math.sin(this.yaw) * fwd - Math.cos(this.yaw) * strafe,
-      0,
-      Math.cos(this.yaw) * fwd + Math.sin(this.yaw) * strafe
+    const dx = Math.sin(this.yaw) * fwd - Math.cos(this.yaw) * strafe;
+    const dz = Math.cos(this.yaw) * fwd + Math.sin(this.yaw) * strafe;
+
+    const b = this.body;
+    const move = stepBody(
+      b,
+      {
+        dx,
+        dz,
+        sprint,
+        jumpPressed: this.jumpQueued,
+        jumpHeld: this.keys.has("Space"),
+        control: this.stagger > 0 ? 0 : 1,
+      },
+      dt
     );
-
-    const moving = dir.lengthSq() > 0.0001;
-    if (moving) dir.normalize();
-
-    const prevSpeed = this.velocity.length();
-    this.velocity.lerp(dir.multiplyScalar(speed), 1 - Math.exp(-12 * dt));
+    this.jumpQueued = false;
 
     // Resolve each axis separately so we slide along walls instead of sticking.
     // Zeroing the blocked component matters as much as the position clamp: if
     // velocity keeps its full magnitude while pressed into a wall, the stride
-    // driver below keeps advancing and the character foot-slides on the spot.
-    const nx = this.playerPos.x + this.velocity.x * dt;
-    if (this.blocked(nx, this.playerPos.z)) this.velocity.x = 0;
+    // driver keeps advancing and the character foot-slides on the spot.
+    const nx = this.playerPos.x + b.vx * dt;
+    if (this.blocked(nx, this.playerPos.z)) b.vx = 0;
     else this.playerPos.x = nx;
-
-    const nz = this.playerPos.z + this.velocity.z * dt;
-    if (this.blocked(this.playerPos.x, nz)) this.velocity.z = 0;
+    const nz = this.playerPos.z + b.vz * dt;
+    if (this.blocked(this.playerPos.x, nz)) b.vz = 0;
     else this.playerPos.z = nz;
+    this.velocity.set(b.vx, 0, b.vz);
 
     // The shove plays out as a slide that stops at walls, bleeding off fast.
     if (this.knock.lengthSq() > 0.0004) {
@@ -963,62 +960,48 @@ export class Game {
       this.knock.set(0, 0, 0);
     }
 
-    // Jump: only off the ground, and only from a fresh keypress.
-    const grounded = this.jumpY <= 0 && this.jumpVel <= 0;
-    if (this.jumpQueued && grounded) this.jumpVel = JUMP_SPEED;
-    this.jumpQueued = false;
-
-    if (this.jumpY > 0 || this.jumpVel > 0) {
-      this.jumpVel -= GRAVITY * dt;
-      this.jumpY += this.jumpVel * dt;
-      if (this.jumpY <= 0) {
-        this.jumpY = 0;
-        this.jumpVel = 0;
-      }
-    }
+    this.jumpY = b.y;
     // Ramp in fast on takeoff, ease out on landing so the tuck unfolds.
-    this.air = damp(this.air, this.jumpY > 0.02 ? 1 : 0, this.jumpY > 0.02 ? 18 : 9, dt);
+    this.air = damp(this.air, b.y > 0.02 ? 1 : 0, b.y > 0.02 ? 18 : 9, dt);
+    this.stumble = damp(this.stumble, this.stagger > 0 ? 1 : 0, this.stagger > 0 ? 20 : 5, dt);
 
     // Climb kerbs and steps smoothly rather than popping up them.
     this.groundY = damp(this.groundY, this.world.height.at(this.playerPos.x, this.playerPos.z), 14, dt);
     this.player.position.set(this.playerPos.x, this.groundY + PLAYER_BASE_Y + this.jumpY, this.playerPos.z);
-
-    const groundSpeed = this.velocity.length();
-
-    // Facing follows the direction of travel, damped. Snapping it straight to
-    // atan2 spun the mesh instantly on every strafe-to-forward transition.
-    if (groundSpeed > 0.15) {
-      const target = Math.atan2(this.velocity.x, this.velocity.z);
-      this.facing = dampAngle(this.facing, target, 12, dt);
-    }
+    this.facing = b.facing;
     this.player.rotation.y = this.facing;
 
-    // Gait blend: 0 idle, 1 walk, 2 run. Damped, so stopping crossfades into
-    // the idle pose instead of popping to it the frame velocity hits zero.
-    const targetGait =
-      groundSpeed < 0.2 ? 0 : 1 + THREE.MathUtils.clamp(
-        (groundSpeed - WALK_SPEED) / (SPRINT_SPEED - WALK_SPEED),
-        0,
-        1
-      );
-    this.gait = damp(this.gait, targetGait, 8, dt);
+    this.heroAnim.update({
+      dt,
+      t: this.clock.elapsedTime,
+      speed: Math.hypot(b.vx, b.vz),
+      accel: move.accel,
+      turn: move.turn,
+      air: this.air,
+      vy: b.vy,
+      crouch: move.crouch,
+      stumble: this.stumble,
+      look: this.lookAtNearby(),
+    });
+  }
 
-    // Lean into acceleration. Cheap, and most of what makes a body read as
-    // having weight rather than sliding around on a plane.
-    const accel = (groundSpeed - prevSpeed) / Math.max(dt, 1e-4);
-    this.lean = damp(this.lean, THREE.MathUtils.clamp(accel * 0.012, -0.16, 0.16), 6, dt);
-
-    // Stride rate follows actual ground speed, so a sprint does not look like
-    // a walk played fast.
-    this.walkPhase += dt * (groundSpeed * 1.7 + 1.2);
-    setWalkPhase(
-      this.player,
-      this.walkPhase,
-      this.gait,
-      this.lean,
-      this.clock.elapsedTime,
-      this.air
-    );
+  /** Head turn toward the nearest errand host or the barber, if close and
+   *  roughly ahead; 0 otherwise. */
+  private lookAtNearby(): number {
+    let best = 7;
+    let yaw = 0;
+    const consider = (x: number, z: number) => {
+      const d = Math.hypot(x - this.playerPos.x, z - this.playerPos.z);
+      if (d > best || d < 0.8) return;
+      const bearing = Math.atan2(x - this.playerPos.x, z - this.playerPos.z) - this.facing;
+      const rel = Math.atan2(Math.sin(bearing), Math.cos(bearing));
+      if (Math.abs(rel) > 1.6) return;
+      best = d;
+      yaw = Math.max(-1.1, Math.min(1.1, rel));
+    };
+    for (const t of this.tasks) if (!this.done.has(t.id)) consider(t.pos[0], t.pos[1]);
+    consider(this.barberWorld.x, this.barberWorld.z);
+    return yaw;
   }
 
   /**
@@ -1047,7 +1030,10 @@ export class Game {
         this.stagger = 0.45;
         this.knockCooldown = 0.8;
         // A stumble off the ground.
-        if (this.jumpY <= 0) this.jumpVel = 2.6;
+        if (this.body.y <= 0) {
+          this.body.vy = 2.6;
+          this.body.y = 1e-4;
+        }
       }
     }
     this.player.position.set(this.playerPos.x, this.groundY + PLAYER_BASE_Y + this.jumpY, this.playerPos.z);
@@ -1245,12 +1231,10 @@ export class Game {
     this.pendingPitch = 0;
     this.turnRate = 0;
     this.jumpY = 0;
-    this.jumpVel = 0;
     this.jumpQueued = false;
     this.air = 0;
-    this.walkPhase = 0;
-    this.gait = 0;
-    this.lean = 0;
+    this.body = newBody(sp.yaw);
+    this.stumble = 0;
     this.setVirtualMove(0, 0);
 
     this.groundY = this.world.height.at(sp.x, sp.z);
