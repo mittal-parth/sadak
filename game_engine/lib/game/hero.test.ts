@@ -44,11 +44,33 @@ test("walking swings the legs in opposition, the arms against them, feet near th
   assert.ok(steps > 20 && opposite === steps, "legs swing together");
 });
 
-test("the stride keeps pace with the ground: a step per half cycle, as long as the leg makes it", () => {
-  const walk = HeroAnimator.stepLength(0);
-  const jog = HeroAnimator.stepLength(1);
-  assert.ok(walk > 0.4 && walk < 0.8, `walk step ${walk.toFixed(2)}m`);
-  assert.ok(jog > walk, "a jog's step is no longer than a walk's");
+test("a human cadence: about 2 steps a second walking, never more than 4.5", () => {
+  for (const speed of [1.4, 3, 4.6, 7, 9.5]) {
+    const stepsPerSecond = speed / HeroAnimator.stepLength(speed);
+    assert.ok(stepsPerSecond > 1.5 && stepsPerSecond < 4.6, `${stepsPerSecond.toFixed(1)} steps/s at ${speed} m/s`);
+  }
+});
+
+test("one knee lifts while the other leg carries the body, never both at once", () => {
+  for (const speed of [1.4, 4.6, 9.5]) {
+    const rig = makeHero().userData.hero as HeroRig;
+    const anim = new HeroAnimator(rig);
+    let lifted = 0;
+    for (let i = 0; i < 240; i++) {
+      anim.update({ ...still, t: i / 60, speed });
+      const l = rig.kneeL.rotation.x;
+      const r = rig.kneeR.rotation.x;
+      assert.ok(Math.min(l, r) < 0.45, `both knees bent (${l.toFixed(2)}, ${r.toFixed(2)}) at ${speed} m/s`);
+      if (Math.max(l, r) > 0.5) lifted++;
+      // The standing foot stays about level.
+      const standing = l < r ? rig.ankleL : rig.ankleR;
+      const hip = l < r ? rig.hipL : rig.hipR;
+      const knee = l < r ? rig.kneeL : rig.kneeR;
+      const pitch = hip.rotation.x + knee.rotation.x + standing.rotation.x;
+      assert.ok(Math.abs(pitch) < 0.45, `standing foot pitched ${pitch.toFixed(2)} at ${speed} m/s`);
+    }
+    assert.ok(lifted > 60, `the knees barely lift at ${speed} m/s`);
+  }
 });
 
 test("a crouch lowers the hips, a stumble throws the arms up, sitting folds the legs", () => {

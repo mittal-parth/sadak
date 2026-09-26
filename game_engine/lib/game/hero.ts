@@ -367,10 +367,11 @@ export class HeroAnimator {
 
   constructor(private rig: HeroRig) {}
 
-  /** How far each step carries the body at a given run blend, metres. */
-  static stepLength(run: number): number {
-    const swing = lerp(0.5, 0.82, run);
-    return 2 * (THIGH + SHIN) * Math.sin(swing) * 0.62;
+  /** How far each step carries the body at a given speed, metres: about
+   *  0.9m at a stroll, 1.9m at a jog, 2.1m flat out, so the cadence stays
+   *  human (2 to 4.5 steps a second) at every speed. */
+  static stepLength(speed: number): number {
+    return Math.min(2.1, Math.max(0.6, 0.5 + 0.3 * speed));
   }
 
   update(m: HeroMotion): void {
@@ -380,28 +381,29 @@ export class HeroAnimator {
     const moving = smooth(0.12, 0.9, m.speed);
     const run = smooth(2.2, 4.6, m.speed);
     const sprint = smooth(5.5, 9.5, m.speed);
-    this.phase += (Math.PI * m.speed) / HeroAnimator.stepLength(run) * dt;
+    this.phase += ((Math.PI * m.speed) / HeroAnimator.stepLength(m.speed)) * dt;
     const ph = this.phase;
     const s = Math.sin(ph);
     const c = Math.cos(ph);
 
     /* ---- legs ---- */
-    const stride = lerp(0.5, 0.82, run) + sprint * 0.1;
-    const kneeLift = lerp(1.0, 1.55, run) + sprint * 0.25;
+    // The left leg is forward at sin = 1 and swings through (knee bent,
+    // foot clear of the ground) while cos > 0; the right leg is half a cycle
+    // behind. So one knee is up while the other leg carries the body, never
+    // both at once.
+    const stride = lerp(0.38, 0.55, run) + sprint * 0.12;
+    const kneeLift = lerp(0.65, 1.1, run) + sprint * 0.35;
+    const swingL = Math.max(0, c) ** 1.5;
+    const swingR = Math.max(0, -c) ** 1.5;
     const idleShift = Math.sin(m.t * 0.55);
-    const walkHipL = s * stride;
-    const walkHipR = -s * stride;
-    const walkKneeL = pos(-s) * kneeLift + 0.06 + run * 0.1;
-    const walkKneeR = pos(s) * kneeLift + 0.06 + run * 0.1;
-    // Heel strike as the leg comes forward, toe-off as it trails.
-    const walkAnkleL = -Math.max(0, s) * 0.25 + Math.max(0, -c) * pos(-s) * 0.5;
-    const walkAnkleR = -Math.max(0, -s) * 0.25 + Math.max(0, c) * pos(s) * 0.5;
-    let hipL = lerp(idleShift * 0.03, walkHipL, moving);
-    let hipR = lerp(-idleShift * 0.03, walkHipR, moving);
-    let kneeL = lerp(0.04 + Math.max(0, idleShift) * 0.06, walkKneeL, moving);
-    let kneeR = lerp(0.04 + Math.max(0, -idleShift) * 0.06, walkKneeR, moving);
-    let ankleL = lerp(0, walkAnkleL, moving);
-    let ankleR = lerp(0, walkAnkleR, moving);
+    let hipL = lerp(idleShift * 0.03, s * stride, moving);
+    let hipR = lerp(-idleShift * 0.03, -s * stride, moving);
+    let kneeL = lerp(0.04 + Math.max(0, idleShift) * 0.06, 0.08 + run * 0.12 + swingL * kneeLift, moving);
+    let kneeR = lerp(0.04 + Math.max(0, -idleShift) * 0.06, 0.08 + run * 0.12 + swingR * kneeLift, moving);
+    // On top of keeping the foot level: toes down through the swing, heel
+    // first as the leg lands in front, a push off the toes as it trails.
+    let ankleL = moving * (swingL * 0.3 - Math.max(0, s) * (1 - swingL) * 0.18 + Math.max(0, -s) * (1 - swingL) * 0.3);
+    let ankleR = moving * (swingR * 0.3 - Math.max(0, -s) * (1 - swingR) * 0.18 + Math.max(0, s) * (1 - swingR) * 0.3);
 
     /* ---- arms ---- */
     const armSwing = lerp(0.35, 0.8, run) + sprint * 0.15;
@@ -414,7 +416,8 @@ export class HeroAnimator {
     let armOut = 0.08;
 
     /* ---- trunk ---- */
-    const bob = lerp(breath * 0.006, Math.abs(Math.sin(ph)) * lerp(0.03, 0.06, run) - 0.01 * run, moving);
+    // Lowest as a foot lands (legs spread), highest as they pass.
+    const bob = lerp(breath * 0.006, (1 - Math.abs(s)) * lerp(0.025, 0.05, run) - 0.02, moving);
     let pelvisY = HIP_Y + bob - run * 0.03;
     let pelvisTwist = lerp(idleShift * 0.02, s * lerp(0.08, 0.14, run), moving);
     let pelvisRoll = lerp(idleShift * 0.035, s * lerp(0.03, 0.05, run), moving);
@@ -451,8 +454,6 @@ export class HeroAnimator {
       hipR += 0.75 * k;
       kneeL += 1.3 * k;
       kneeR += 1.3 * k;
-      ankleL -= 0.5 * k;
-      ankleR -= 0.5 * k;
       spineX += 0.35 * k;
       headX -= 0.3 * k;
       // Arms drawn back, ready to swing up.
@@ -500,8 +501,10 @@ export class HeroAnimator {
     r.hipR.rotation.set(-hipR - lean * 0.4, 0, -0.02);
     r.kneeL.rotation.x = kneeL;
     r.kneeR.rotation.x = kneeR;
-    r.ankleL.rotation.x = -kneeL * 0.35 + hipL * 0.2 + ankleL;
-    r.ankleR.rotation.x = -kneeR * 0.35 + hipR * 0.2 + ankleR;
+    // Level the foot against the thigh and shin (foot pitch = -hip + knee +
+    // ankle), then add the toe-and-heel play above.
+    r.ankleL.rotation.x = hipL - kneeL + ankleL;
+    r.ankleR.rotation.x = hipR - kneeR + ankleR;
     r.spine.rotation.set(spineX, -pelvisTwist * 0.5, -pelvisRoll * 0.6);
     r.chest.rotation.set(chestX, chestTwist, -pelvisRoll * 0.4 - bank * 0.5);
     r.neck.rotation.set(0, -chestTwist * 0.6 + this.headYaw * 0.4, 0);
