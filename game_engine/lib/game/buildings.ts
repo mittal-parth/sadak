@@ -257,6 +257,18 @@ const INTERIOR = 0x2c211c;
 const SHELF = 0x7a5537;
 
 /** Back wall, three shelves and rows of stock, seen through an open shutter. */
+type ShopKind = "grocer" | "cloth" | "steel" | "sweets" | "general";
+const SHOP_KINDS: readonly ShopKind[] = ["grocer", "cloth", "steel", "sweets", "general", "general"];
+const CLOTH = [0xc2185b, 0xf5a623, 0x1f6f5c, 0x3b4ba8, 0xe8364f, 0x7b2d8b, 0xf2efe6, 0x2f9e44];
+const GRAIN = [0xe8c36a, 0xd9a441, 0xb5651d, 0xc0392b, 0xf2d27a, 0x8b5a2b, 0xf4e6c4];
+const STEEL = 0xc9ced3;
+
+/**
+ * An open shop seen from the street: the dark interior, shelves up the back,
+ * and stock that says what the shop is: a grocer's jars and open sacks, a
+ * cloth shop's stacked bolts and hanging saris, a steel shop's gleaming
+ * pots, a sweet shop's trays on its counter, or a general store's packets.
+ */
 function shopInterior(
   decor: THREE.BufferGeometry[],
   cx: number,
@@ -266,17 +278,81 @@ function shopInterior(
   h: number,
   rand: () => number
 ) {
+  const kind = pick(SHOP_KINDS, rand);
+  const zs = zBack + facing * 0.17;
   decor.push(box(w, h, 0.04, cx, h / 2, zBack + facing * 0.02, INTERIOR));
   for (let i = 0; i < 3; i++) {
     const y = 0.7 + i * 0.62;
-    decor.push(box(w - 0.1, 0.05, 0.3, cx, y, zBack + facing * 0.17, SHELF));
-    // Stock: a run of small coloured boxes of varying height on each shelf.
+    decor.push(box(w - 0.1, 0.05, 0.3, cx, y, zs, SHELF));
     let x = cx - w / 2 + 0.12;
     while (x < cx + w / 2 - 0.2) {
-      const bw = 0.12 + rand() * 0.14;
-      const bh = 0.16 + rand() * 0.24;
-      decor.push(box(bw, bh, 0.2, x + bw / 2, y + 0.025 + bh / 2, zBack + facing * 0.17, pick(PACKET_COLOURS, rand)));
-      x += bw + 0.03 + rand() * 0.06;
+      if (kind === "grocer") {
+        // Jars with red or blue lids.
+        const r = 0.06 + rand() * 0.03;
+        const jh = 0.2 + rand() * 0.08;
+        decor.push(cyl(r, r, jh, x + r, y + 0.025 + jh / 2, zs, pick(GRAIN, rand), 8));
+        decor.push(cyl(r * 1.05, r * 1.05, 0.04, x + r, y + 0.045 + jh, zs, rand() < 0.5 ? 0xd62828 : 0x2266c4, 8));
+        x += r * 2 + 0.04;
+      } else if (kind === "cloth") {
+        // Bolts of cloth stacked on their sides.
+        const bw = 0.26 + rand() * 0.08;
+        const n = 2 + Math.floor(rand() * 3);
+        for (let k = 0; k < n; k++) decor.push(box(bw, 0.1, 0.24, x + bw / 2, y + 0.075 + k * 0.105, zs, pick(CLOTH, rand)));
+        x += bw + 0.04;
+      } else if (kind === "steel") {
+        // Pots and tumblers, and plates on edge.
+        if (rand() < 0.3) {
+          const pr = 0.12 + rand() * 0.05;
+          decor.push(paint(new THREE.CylinderGeometry(pr, pr, 0.02, 12).rotateX(Math.PI / 2).translate(x + pr, y + 0.03 + pr, zs - facing * 0.06), STEEL));
+          x += pr * 2 + 0.03;
+        } else {
+          const r = 0.06 + rand() * 0.06;
+          const ph = 0.1 + rand() * 0.16;
+          decor.push(cyl(r * 0.9, r, ph, x + r, y + 0.025 + ph / 2, zs, STEEL, 10));
+          x += r * 2 + 0.03;
+        }
+      } else {
+        // Boxes and packets of varying height (and a sweet shop's boxes).
+        const bw = 0.12 + rand() * 0.14;
+        const bh = kind === "sweets" ? 0.1 + rand() * 0.06 : 0.16 + rand() * 0.24;
+        decor.push(box(bw, bh, 0.2, x + bw / 2, y + 0.025 + bh / 2, zs, kind === "sweets" ? pick([0xf4efe4, 0xe8364f, 0xf5a623], rand) : pick(PACKET_COLOURS, rand)));
+        x += bw + 0.03 + rand() * 0.06;
+      }
+    }
+  }
+  const zf = zBack + facing * 0.75;
+  if (kind === "cloth") {
+    // Saris hanging from a rod across the opening.
+    decor.push(paint(new THREE.CylinderGeometry(0.015, 0.015, w - 0.2, 5).rotateZ(Math.PI / 2).translate(cx, h - 0.25, zf), 0x8a6a4a));
+    const n = Math.max(2, Math.floor(w / 0.5));
+    for (let k = 0; k < n; k++) {
+      const x = cx - w / 2 + 0.3 + (k * (w - 0.6)) / Math.max(1, n - 1);
+      decor.push(box(0.34, 1.2 + rand() * 0.4, 0.02, x, h - 0.9, zf, pick(CLOTH, rand)));
+    }
+  } else if (kind === "grocer") {
+    // Open sacks of grain and spices on the step, each heaped.
+    const n = Math.max(2, Math.floor(w / 0.55));
+    for (let k = 0; k < n; k++) {
+      const x = cx - w / 2 + 0.3 + (k * (w - 0.6)) / Math.max(1, n - 1);
+      decor.push(cyl(0.2, 0.22, 0.4, x, 0.2, zf, 0xd8c8a0, 10));
+      decor.push(paint(new THREE.ConeGeometry(0.2, 0.14, 10).translate(x, 0.47, zf), pick(GRAIN, rand)));
+    }
+  } else if (kind === "sweets") {
+    // The counter with its glass front and trays of mithai on top.
+    decor.push(box(w - 0.2, 0.85, 0.5, cx, 0.43, zf, 0x8a6a4a));
+    decor.push(box(w - 0.3, 0.5, 0.02, cx, 0.5, zf + facing * 0.26, 0x9fc6d4));
+    const n = Math.max(2, Math.floor(w / 0.45));
+    for (let k = 0; k < n; k++) {
+      const x = cx - w / 2 + 0.3 + (k * (w - 0.6)) / Math.max(1, n - 1);
+      decor.push(box(0.36, 0.04, 0.34, x, 0.88, zf, STEEL));
+      decor.push(box(0.3, 0.06, 0.28, x, 0.93, zf, pick([0xf5a623, 0xf4efe4, 0xe8702a, 0xffd23f, 0x8b5a2b], rand)));
+    }
+  } else if (kind === "steel") {
+    // A pyramid of pots at the front.
+    for (let k = 0; k < 3; k++) {
+      for (let j = 0; j < 3 - k; j++) {
+        decor.push(cyl(0.16, 0.18, 0.2, cx - 0.35 + j * 0.36 + k * 0.18, 0.1 + k * 0.2, zf, STEEL, 12));
+      }
     }
   }
 }
