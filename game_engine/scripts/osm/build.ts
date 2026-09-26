@@ -302,13 +302,15 @@ function nearestOnPolyline(pts: Pt[], p: Pt): { pt: Pt; dist: number; dir: Pt; a
 
 /** Turn an oriented box by quarter turns so its local +z (the entrance)
  *  points closest to a compass bearing, swapping width and depth as it goes. */
-function facing<B extends { rot: number; w: number; d: number }>(box: B, bearing: number): B {
+function facing<B extends { rot: number; w: number; d: number }>(box: B, bearing: number, longways = false): B {
   // Bearing to a direction in this frame: north is -z, east is +x.
   const b = (bearing * Math.PI) / 180;
   const want: Pt = [Math.sin(b), -Math.cos(b)];
   let best = box;
   let score = -Infinity;
   for (let k = 0; k < 4; k++) {
+    // A church's nave runs the long way: its front is a short side.
+    if (longways && (k % 2 ? box.w < box.d : box.d < box.w)) continue;
     const rot = box.rot + (k * Math.PI) / 2;
     const s = Math.sin(rot) * want[0] + Math.cos(rot) * want[1];
     if (s > score) {
@@ -422,6 +424,9 @@ const FACE_STREET = new Set([
   "tomb",
   "shrine",
 ]);
+
+/** Big churches: the door at the end of a nave that runs the long way. */
+const CHURCHES = new Set(["church", "basilica"]);
 
 /** Where the great gates really are: India's congregational mosques pray
  *  west and open east; Lingaraj's Lion Gate faces east. (The Akal Takht
@@ -889,7 +894,7 @@ function compile(city: OsmCity): MapData {
     .sort((a, b) => Math.abs(polygonArea(b.outer)) - Math.abs(polygonArea(a.outer)));
 
   /** Turn a civic front (cinema marquee, church door) to its nearest street. */
-  const towardStreet = <B extends { x: number; z: number; rot: number; w: number; d: number }>(box: B): B => {
+  const towardStreet = <B extends { x: number; z: number; rot: number; w: number; d: number }>(box: B, longways = false): B => {
     let best: ReturnType<typeof nearestOnPolyline> | null = null;
     for (const r of roads) {
       if (r.cls === "footway" || r.cls === "steps") continue;
@@ -898,6 +903,17 @@ function compile(city: OsmCity): MapData {
     }
     if (!best) return box;
     const bearing = (Math.atan2(best.pt[0] - box.x, -(best.pt[1] - box.z)) * 180) / Math.PI;
+    if (!longways) return facing(box, bearing);
+    // Longways, if a street runs past the door that way (Santa Cruz opens
+    // on its junction); else toward the nearest street as anything else.
+    for (const k of [0, 1, 2, 3]) {
+      const rot = box.rot + (k * Math.PI) / 2;
+      const [w, d] = k % 2 ? [box.d, box.w] : [box.w, box.d];
+      if (d < w) continue;
+      const door: Pt = [box.x + Math.sin(rot) * (d / 2 + 6), box.z + Math.cos(rot) * (d / 2 + 6)];
+      const street = roads.some((r) => r.cls !== "footway" && r.cls !== "steps" && nearestOnPolyline(r.pts, door).dist < r.w / 2 + r.foot + 6);
+      if (street) return { ...box, rot, w, d };
+    }
     return facing(box, bearing);
   };
 
@@ -914,7 +930,7 @@ function compile(city: OsmCity): MapData {
         faces !== undefined
           ? facing(orientedBox(ring), faces)
           : FACE_STREET.has(rule.model)
-            ? towardStreet(orientedBox(ring))
+            ? towardStreet(orientedBox(ring), CHURCHES.has(rule.model))
             : orientedBox(ring);
       landmarks.push({ model: rule.model, name, x: r1(box.x), z: r1(box.z), rot: +box.rot.toFixed(3), w: r1(box.w), d: r1(box.d) });
       grid.markBox(box.x, box.z, box.rot, box.w + 2, box.d + 2, BUILT);

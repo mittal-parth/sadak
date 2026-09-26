@@ -154,10 +154,13 @@ export function buildLandmark(l: MapLandmark, city: Landmark, clear?: ClearTest)
     case "church_small":
       return church(...modelExtent(l.model, w, d), { wall: 0xf4efe4, trim: 0xd9c9a8, roof: 0x9b3b2f, towers: 1 });
     case "church":
-      return church(w, d, { wall: 0xf4efe4, trim: 0xd9c9a8, roof: 0x7a3a2f, towers: 1 });
+      // St Francis, Kochi: India's oldest European church, no tower.
+      return /St\.? Francis/.test(l.name)
+        ? church(w, d, { wall: 0xf4efe4, trim: 0xcbb994, roof: 0x8a3b2c, towers: 0, front: "stepped" })
+        : church(w, d, { wall: 0xf4efe4, trim: 0xd9c9a8, roof: 0x7a3a2f, towers: 1 });
     case "basilica":
       // Santa Cruz: pale with twin spires.
-      return church(w, d, { wall: 0xf6f2ea, trim: 0xb9a57c, roof: 0x5c6f8f, towers: 2 });
+      return church(w, d, { wall: 0xf6f2ea, trim: 0xb9a57c, roof: 0x5c6f8f, towers: 2, front: "gothic" });
     case "gurdwara_small":
       return gurdwara(...modelExtent(l.model, w, d), { storeys: 2, gold: false, nishan: true });
     case "harmandir_sahib":
@@ -188,10 +191,13 @@ export function buildLandmark(l: MapLandmark, city: Landmark, clear?: ClearTest)
       // A row of nets along the shore.
       const g = new THREE.Group();
       const colliders: Monument["colliders"] = [];
-      const n = Math.max(2, Math.floor(w / 16));
+      // Each net's boom reaches out some twenty metres over the water.
+      const n = Math.max(2, Math.floor(w / 20));
       for (let i = 0; i < n; i++) {
-        const net = fit(makeChineseFishingNet(undefined, 40 + i), 14, 12, 2);
+        const net = fit(makeChineseFishingNet(undefined, 40 + i), 20, 20, 2);
         net.group.position.x = -w / 2 + (w * (i + 0.5)) / n;
+        // The boom and net reach out over the water, off the landmark's back.
+        net.group.rotation.y = Math.PI;
         g.add(net.group);
         colliders.push({ ...net.colliders[0], x: net.group.position.x });
       }

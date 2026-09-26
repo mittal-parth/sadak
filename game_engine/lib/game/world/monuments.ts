@@ -295,7 +295,15 @@ export function temple(w: number, d: number, st: TempleStyle): Monument {
  * Churches
  * ------------------------------------------------------------------ */
 
-export type ChurchStyle = { wall: number; trim: number; roof: number; towers: 0 | 1 | 2 };
+export type ChurchStyle = {
+  wall: number;
+  trim: number;
+  roof: number;
+  towers: 0 | 1 | 2;
+  /** The west front: a plain gable, the stepped Portuguese gable of St
+   *  Francis, or Gothic with spires and pinnacles (Santa Cruz). */
+  front?: "gable" | "stepped" | "gothic";
+};
 
 export function church(w: number, d: number, st: ChurchStyle): Monument {
   const P = new Parts();
@@ -377,14 +385,54 @@ export function church(w: number, d: number, st: ChurchStyle): Monument {
     }
   }
 
-  // Façade over the door: gable, rose window, pilasters, cross.
-  P.box(nw + 0.4, 0.5, 0.6, 0, y + nh + 0.2, fz, st.trim);
-  const tri = new THREE.Shape([new THREE.Vector2(-nw / 2, 0), new THREE.Vector2(nw / 2, 0), new THREE.Vector2(0, nw * 0.32)]);
-  P.add(new THREE.ExtrudeGeometry(tri, { depth: 0.5, bevelEnabled: false }).translate(0, y + nh + 0.4, fz - 0.3), st.wall);
-  P.add(new THREE.CylinderGeometry(nw * 0.1, nw * 0.1, 0.1, 14).rotateX(Math.PI / 2).translate(0, y + nh * 0.72, fz + 0.06), 0x3b4f7a);
+  // Façade over the door: pilasters, then the gable of its kind.
   for (const px of [-nw / 2 + 0.3, -doorW / 2 - 0.4, doorW / 2 + 0.4, nw / 2 - 0.3]) P.box(0.5, nh, 0.3, px, y + nh / 2, fz + 0.1, st.trim);
-  P.box(0.15, 1.4, 0.15, 0, y + nh + nw * 0.32 + 1.1, fz - 0.05, st.trim);
-  P.box(0.8, 0.15, 0.15, 0, y + nh + nw * 0.32 + 1.4, fz - 0.05, st.trim);
+  P.box(nw + 0.4, 0.5, 0.6, 0, y + nh + 0.2, fz, st.trim);
+  let crossY: number;
+  if (st.front === "stepped") {
+    // St Francis: the front rises in steps above the roof, each with a
+    // scrolled shoulder, three small windows across, a niche at the top.
+    let yy = y + nh + 0.4;
+    let fw = nw;
+    for (const [k, h] of [[0.84, 2.2], [0.62, 2], [0.38, 1.8]] as const) {
+      const nwk = nw * k;
+      P.box(nwk, h, 0.6, 0, yy + h / 2, fz - 0.05, st.wall);
+      P.box(nwk + 0.3, 0.25, 0.7, 0, yy + h, fz - 0.05, st.trim);
+      for (const sx of [-1, 1]) {
+        // The scroll: a quarter-round on the step's shoulder.
+        const r = (fw - nwk) / 2;
+        const q = new THREE.CylinderGeometry(r, r, 0.6, 10, 1, false, 0, Math.PI / 2).rotateX(Math.PI / 2).rotateZ(sx > 0 ? 0 : Math.PI / 2);
+        P.add(q.translate(sx * (nwk / 2), yy, fz - 0.05), st.wall);
+      }
+      yy += h;
+      fw = nwk;
+    }
+    for (const sx of [-1, 0, 1]) archWindow(P, sx * nw * 0.22, y + nh * 0.55, fz + 0.28, Math.max(0.7, nw * 0.07), nh * 0.28, DARK);
+    archWindow(P, 0, y + nh + 2.8, fz + 0.28, nw * 0.1, 1.6, DARK);
+    crossY = yy + 0.2;
+  } else if (st.front === "gothic") {
+    // Santa Cruz: a steep gable with a rose window, pointed windows, and
+    // pinnacles up the front.
+    const tri = new THREE.Shape([new THREE.Vector2(-nw / 2, 0), new THREE.Vector2(nw / 2, 0), new THREE.Vector2(0, nw * 0.5)]);
+    P.add(new THREE.ExtrudeGeometry(tri, { depth: 0.5, bevelEnabled: false }).translate(0, y + nh + 0.4, fz - 0.3), st.wall);
+    P.add(new THREE.CylinderGeometry(nw * 0.13, nw * 0.13, 0.1, 18).rotateX(Math.PI / 2).translate(0, y + nh + nw * 0.14, fz + 0.26), 0x3b4f7a);
+    P.add(new THREE.TorusGeometry(nw * 0.13, 0.12, 6, 18).translate(0, y + nh + nw * 0.14, fz + 0.28), st.trim);
+    for (const sx of [-1, 1]) {
+      archWindow(P, sx * nw * 0.3, y + nh * 0.35, fz + 0.28, Math.max(0.8, nw * 0.08), nh * 0.5, 0x3b4f7a);
+      for (const px of [sx * (nw / 2 - 0.3), sx * (doorW / 2 + 0.4)]) {
+        P.cyl(0.18, 0.18, 1.6, px, y + nh + 1.2, fz + 0.1, st.trim, 6);
+        P.cone(0.3, 1.4, px, y + nh + 2.7, fz + 0.1, st.trim, 6);
+      }
+    }
+    crossY = y + nh + nw * 0.5 + 0.6;
+  } else {
+    const tri = new THREE.Shape([new THREE.Vector2(-nw / 2, 0), new THREE.Vector2(nw / 2, 0), new THREE.Vector2(0, nw * 0.32)]);
+    P.add(new THREE.ExtrudeGeometry(tri, { depth: 0.5, bevelEnabled: false }).translate(0, y + nh + 0.4, fz - 0.3), st.wall);
+    P.add(new THREE.CylinderGeometry(nw * 0.1, nw * 0.1, 0.1, 14).rotateX(Math.PI / 2).translate(0, y + nh * 0.72, fz + 0.06), 0x3b4f7a);
+    crossY = y + nh + nw * 0.32 + 0.4;
+  }
+  P.box(0.15, 1.4, 0.15, 0, crossY + 0.7, fz - 0.05, st.trim);
+  P.box(0.8, 0.15, 0.15, 0, crossY + 1, fz - 0.05, st.trim);
 
   // Towers: a pair flanking the front, or one at the front corner (a
   // Kerala church's bell tower), never across the door.
@@ -400,9 +448,13 @@ export function church(w: number, d: number, st: ChurchStyle): Monument {
     P.box(tw, th, tw, tx, y + th / 2, tz, st.wall);
     for (let k = 1; k <= 3; k++) P.box(tw + 0.3, 0.3, tw + 0.3, tx, y + (th * k) / 4, tz, st.trim);
     P.box(tw * 0.35, tw * 0.6, 0.1, tx, y + th * 0.82, tz + tw / 2 + 0.05, DARK);
-    P.cone(tw * 0.72, tw * 1.6, tx, y + th + tw * 0.8, tz, st.roof, 4);
-    P.box(0.12, 1.1, 0.12, tx, y + th + tw * 1.6 + 0.5, tz, st.trim);
-    P.box(0.6, 0.12, 0.12, tx, y + th + tw * 1.6 + 0.75, tz, st.trim);
+    // A Gothic spire is slender and eight-sided, with pinnacles round it.
+    const gothic = st.front === "gothic";
+    const sh = gothic ? tw * 3.2 : tw * 1.6;
+    P.cone(tw * (gothic ? 0.6 : 0.72), sh, tx, y + th + sh / 2, tz, st.roof, gothic ? 8 : 4);
+    if (gothic) for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) P.cone(0.3, 1.8, tx + (a * tw) / 2.3, y + th + 0.9, tz + (b * tw) / 2.3, st.trim, 6);
+    P.box(0.12, 1.1, 0.12, tx, y + th + sh + 0.5, tz, st.trim);
+    P.box(0.6, 0.12, 0.12, tx, y + th + sh + 0.75, tz, st.trim);
     C.push({ x: tx, z: tz, hw: tw / 2, hd: tw / 2 });
   }
   // The priest stands before the altar step, facing the door.
