@@ -106,6 +106,8 @@ export type MapData = {
   pois: MapPoi[];
   spawn: Spot;
   spots: Record<TaskSpotKind, Spot>;
+  /** Spots for the city's own errands, by task id. */
+  errandSpots: Record<string, Spot>;
 };
 
 /** Surface height of raised footpaths. */

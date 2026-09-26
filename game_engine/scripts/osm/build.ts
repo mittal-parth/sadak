@@ -376,6 +376,15 @@ class Grid {
       }
     }
   }
+  /** True when any cell within `r` holds `v`. */
+  near(x: number, z: number, r: number, v: number): boolean {
+    for (let dz = -r; dz <= r; dz += 0.5) {
+      for (let dx = -r; dx <= r; dx += 0.5) {
+        if (dx * dx + dz * dz <= r * r && this.get(x + dx, z + dz) === v) return true;
+      }
+    }
+    return false;
+  }
   disc(x: number, z: number, r: number, v: number) {
     for (let dz = -r; dz <= r; dz++) {
       for (let dx = -r; dx <= r; dx++) {
@@ -720,7 +729,7 @@ function compile(city: OsmCity): MapData {
   const landmarkNamed = (re: RegExp) => landmarks.find((l) => re.test(l.name));
 
   /** A standing spot at the kerb of the nearest street to `p`, facing `p`. */
-  const kerbSpot = (p: Pt, filter: (r: MapRoad) => boolean, minDist = 0, avoid: Spot[] = []): Spot => {
+  const kerbSpot = (p: Pt, filter: (r: MapRoad) => boolean, minDist = 0, avoid: Spot[] = [], clearance = 0): Spot => {
     let best: { spot: Spot; d: number } | null = null;
     for (const r of roads) {
       if (!filter(r)) continue;
@@ -738,8 +747,9 @@ function compile(city: OsmCity): MapData {
       // Well inside the map: a set piece on the edge has nowhere to come from.
       if (Math.abs(x) > H - 25 || Math.abs(z) > H - 25) continue;
       // Never inside a building: some service roads run straight through
-      // real footprints (Majestic's bus stand).
-      if (grid.get(x, z) === BUILT) continue;
+      // real footprints (Majestic's bus stand). With `clearance`, not against
+      // one either.
+      if (grid.near(x, z, clearance, BUILT)) continue;
       // Keep clear of spots already taken, so two set pieces never share a kerb.
       if (avoid.some((a) => Math.hypot(a.x - x, a.z - z) < 12)) continue;
       if (!best || d < best.d) best = { spot: { x: r1(x), z: r1(z), yaw: +Math.atan2(p[0] - x, p[1] - z).toFixed(3) }, d };
@@ -816,7 +826,46 @@ function compile(city: OsmCity): MapData {
     // Footways count: the approach to a temple complex is often all paths.
     kerbSpot([spawnMark.x, spawnMark.z], () => true, Math.max(spawnMark.w, spawnMark.d) / 2 + 8, Object.values(spots))
   );
-  for (const s of [spawn, ...Object.values(spots)]) grid.disc(s.x, s.z, 5, RESERVED);
+  // The city's own errands: at the named place, on the nearest path to it.
+  const errandSpots: Record<string, Spot> = {};
+  for (const e of city.errands ?? []) {
+    const named =
+      pois.find((p) => p.name && e.at.test(p.name)) ??
+      landmarks.find((l) => e.at.test(l.name)) ??
+      areas.find((a) => a.name && e.at.test(a.name));
+    let target: Pt | null = null;
+    if (named && "pts" in named) {
+      // An area (a beach, a market): stand at its edge nearest the spawn.
+      target = named.pts.reduce((best, p) =>
+        Math.hypot(p[0] - spawn.x, p[1] - spawn.z) < Math.hypot(best[0] - spawn.x, best[1] - spawn.z) ? p : best
+      );
+    } else if (named) {
+      target = [named.x, named.z];
+    } else {
+      const road = roads.find((r) => r.name && e.at.test(r.name));
+      if (road) target = road.pts[Math.floor(road.pts.length / 2)];
+    }
+    if (!target) {
+      // Anything else OSM has a name for: a station stop, a ticket hall.
+      for (const el of els) {
+        if (!el.tags || !e.at.test(nameOf(el.tags) ?? "")) continue;
+        const pts = el.type === "node" ? [P(el)] : el.type === "way" && el.geometry ? el.geometry.map(P) : [];
+        if (!pts.length) continue;
+        const c = centroid(pts);
+        if (Math.abs(c[0]) < H - 20 && Math.abs(c[1]) < H - 20) {
+          target = c;
+          break;
+        }
+      }
+    }
+    if (!target) throw new Error(`${city.id}: errand ${e.id} place ${e.at} not in the extract`);
+    // The place is often a building of its own (the Golden Temple's langar
+    // hall) and the nearest path hugs its wall: keep the host, and a ticket
+    // booth backed onto the place, off the wall.
+    errandSpots[e.id] = kerbSpot(target, (r) => !e.street || (r.cls !== "footway" && r.cls !== "steps"), 0, [...Object.values(spots), spawn, ...Object.values(errandSpots)], 2.5);
+  }
+
+  for (const s of [spawn, ...Object.values(spots), ...Object.values(errandSpots)]) grid.disc(s.x, s.z, 5, RESERVED);
 
   /* ---- frontage fill ---- */
 
@@ -928,6 +977,7 @@ function compile(city: OsmCity): MapData {
     pois,
     spawn,
     spots,
+    errandSpots,
   };
 }
 

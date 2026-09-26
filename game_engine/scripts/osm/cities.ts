@@ -52,6 +52,10 @@ export type OsmCity = {
   shopStreet: RegExp;
   /** Open sea beyond one edge, for coasts the extract stops short of. */
   sea?: "east" | "west";
+  /** City errands beyond the four staples, each at a real named place:
+   *  matched against point names, then landmarks, areas and roads.
+   *  `street` keeps the spot off footpaths (a ticket hall on the road). */
+  errands?: { id: string; at: RegExp; street?: boolean }[];
 };
 
 const SMALL_TEMPLE: [number, number] = [9, 9];
@@ -73,6 +77,7 @@ export const OSM_CITIES: OsmCity[] = [
     spawnNear: /Gauri Shankar/,
     temple: /Gauri Shankar/,
     shopStreet: /Dariba Kalan|Kinari Bazar/,
+    errands: [{ id: "purani-sadak-paranthe", at: /Paranthe Wali Gali/ }],
   },
   {
     id: "dadar-chowk",
@@ -90,6 +95,8 @@ export const OSM_CITIES: OsmCity[] = [
     spawnNear: /Kabutar Khana/,
     temple: /Hanuman temple/,
     shopStreet: /N C Kelkar|Ranade/,
+    // The ticket hall is out on the station road, not between the platforms.
+    errands: [{ id: "dadar-chowk-local", at: /^Ticket Counter$|Dadar \(Western\)/, street: true }],
   },
   {
     id: "marina-nagar",
@@ -105,6 +112,7 @@ export const OSM_CITIES: OsmCity[] = [
     temple: /Sri Parthasarathy Koil/,
     shopStreet: /Car Street|Singarachari/,
     sea: "east",
+    errands: [{ id: "marina-nagar-sundal", at: /^Marina Beach$/ }],
   },
   {
     id: "majestic-cross",
@@ -121,6 +129,7 @@ export const OSM_CITIES: OsmCity[] = [
     spawnNear: /Annammadevi/,
     temple: /Annammadevi/,
     shopStreet: /Subedar Chatram|Cottonpete|Balepet/,
+    errands: [{ id: "majestic-cross-metro", at: /Nadaprabhu Kempegowda Station, Majestic$/ }],
   },
   {
     id: "park-gully",
@@ -137,6 +146,7 @@ export const OSM_CITIES: OsmCity[] = [
     spawnNear: /Asiatic Society/,
     shrineOn: /Park Street/,
     shopStreet: /Park Street|Mirza Ghalib/,
+    errands: [{ id: "park-gully-roll", at: /^Mocambo$/ }],
   },
   {
     id: "charminar-lane",
@@ -155,6 +165,7 @@ export const OSM_CITIES: OsmCity[] = [
     spawnNear: /^Charminar$/,
     temple: /Bhagyalaxmi Temple/,
     shopStreet: /Ladbazar|Lad Bazar/,
+    errands: [{ id: "charminar-lane-chai", at: /^Nimrah$/ }],
   },
   {
     id: "fort-kochi",
@@ -172,6 +183,7 @@ export const OSM_CITIES: OsmCity[] = [
     spawnNear: /Santa Cruz Cathedral/,
     temple: /Santa Cruz Cathedral/,
     shopStreet: /Princess Street|Bastian Street/,
+    errands: [{ id: "fort-kochi-ferry", at: /Junkar Jetty|^Jetty$/ }],
   },
   {
     id: "manek-chowk",
@@ -189,6 +201,7 @@ export const OSM_CITIES: OsmCity[] = [
     spawnNear: /^Jama Masjid$/,
     shrineOn: /Manek Chowk/,
     shopStreet: /Manek Chowk|Gandhi Road/,
+    errands: [{ id: "manek-chowk-kulfi", at: /Open air food market/ }],
   },
   {
     id: "hall-bazaar",
@@ -207,6 +220,7 @@ export const OSM_CITIES: OsmCity[] = [
     temple: /^Shri Harmandir Sahib$/,
     // The bazaars wrap the complex; any lane off the approach will do.
     shopStreet: /.*/,
+    errands: [{ id: "hall-bazaar-langar", at: /Langar Ghar/ }],
   },
   {
     id: "lingaraj-lane",
@@ -221,5 +235,6 @@ export const OSM_CITIES: OsmCity[] = [
     spawnNear: /Lord Lingaraj Temple/,
     temple: /Lord Lingaraj Temple/,
     shopStreet: /Rath Road/,
+    errands: [{ id: "lingaraj-lane-chhena", at: /Bindu Sagara/ }],
   },
 ];
