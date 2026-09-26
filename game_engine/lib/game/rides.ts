@@ -275,10 +275,21 @@ export class Rides {
         .map((n) => ({ n, d: Math.hypot(n.x - sx, n.z - sz) }))
         .filter((q) => q.d > 90 && q.d < 170)
         .sort((a, b) => a.d - b.d);
+      // The start with the shortest drive in (one-way streets can turn a
+      // junction 90m away into a 900m loop), long enough to be seen coming.
+      let path: Pt[] | null = null;
+      let best = Infinity;
       for (const { n } of src) {
         // A proper bus road if there is one, else whatever the stop is on.
-        const path = this.busRoute(n.x, n.z, sx, sz, 15);
-        if (!path) continue;
+        const p = this.busRoute(n.x, n.z, sx, sz, 15);
+        if (!p) continue;
+        const len = toPath(p).len;
+        if (len >= 40 && len < best) {
+          best = len;
+          path = p;
+        }
+      }
+      if (path) {
         const vehicle = new THREE.Group();
         vehicle.add(makeBus(this.vehicleMats, this.transitMat, CITY_TRAFFIC[this.district.theme.landmark].bus, 77));
         this.scene.add(vehicle);
@@ -286,7 +297,6 @@ export class Rides {
         this.bus = { vehicle, path: p, s: 0, speed: 7, cruise: 7, yaw: sample(p, 0).yaw, taskId: task.id, state: "arriving", conductor: null };
         const host = hosts.get(task.id);
         if (host) host.visible = false;
-        break;
       }
       return;
     }
