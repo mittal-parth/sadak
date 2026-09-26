@@ -31,6 +31,7 @@ import type {
   MapBuilding,
   MapData,
   MapLandmark,
+  FacadeBoard,
   MapNode,
   MapPoi,
   MapRail,
@@ -333,6 +334,72 @@ function pointAlong(pts: Pt[], s: number): Pt {
   }
   return pts[pts.length - 1];
 }
+
+/** Even-odd point in polygon. */
+function pointInRing(x: number, z: number, ring: Pt[]): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, zi] = ring[i];
+    const [xj, zj] = ring[j];
+    if (zi > z !== zj > z && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+/**
+ * A board for the shop at `p` on its building's wall nearest the street:
+ * the edge closest to the nearest road, the board centred on the shop's
+ * spot along it, facing out. Null if the building has no wall long enough.
+ */
+function streetWall(b: MapBuilding, p: { x: number; z: number; name?: string }, roads: MapRoad[]): FacadeBoard | null {
+  let road: Pt | null = null;
+  let rd = Infinity;
+  for (const r of roads) {
+    if (r.cls === "footway" || r.cls === "steps") continue;
+    const n = nearestOnPolyline(r.pts, [p.x, p.z]);
+    if (n.dist < rd) {
+      rd = n.dist;
+      road = n.pt;
+    }
+  }
+  if (!road) return null;
+  const ring = b.pts;
+  let best: { board: FacadeBoard; d: number } | null = null;
+  for (let i = 0; i < ring.length; i++) {
+    const [ax, az] = ring[i];
+    const [bx, bz] = ring[(i + 1) % ring.length];
+    const L = Math.hypot(bx - ax, bz - az);
+    if (L < 3) continue;
+    const ux = (bx - ax) / L;
+    const uz = (bz - az) / L;
+    // Outward normal: the side the road is on.
+    let nx = uz;
+    let nz = -ux;
+    const mx = (ax + bx) / 2;
+    const mz = (az + bz) / 2;
+    if ((road[0] - mx) * nx + (road[1] - mz) * nz < 0) {
+      nx = -nx;
+      nz = -nz;
+    }
+    // Only walls that face out of the building toward the road.
+    if (pointInRing(mx + nx * 0.5, mz + nz * 0.5, ring)) continue;
+    const d = Math.hypot(road[0] - mx, road[1] - mz);
+    const w = Math.min(6, L - 1);
+    const t = Math.max(w / 2, Math.min(L - w / 2, (p.x - ax) * ux + (p.z - az) * uz));
+    const board: FacadeBoard = {
+      name: p.name!.trim(),
+      x: r1(ax + ux * t + nx * 0.15),
+      z: r1(az + uz * t + nz * 0.15),
+      rot: +Math.atan2(nx, nz).toFixed(3),
+      w: r1(w),
+    };
+    if (!best || d < best.d) best = { board, d };
+  }
+  return best?.board ?? null;
+}
+
+/** Real shop names per district: each is a cell in the sign atlas. */
+const MAX_NAMED_SIGNS = 40;
 
 /** Footprint landmarks whose front is on the street. */
 const FACE_STREET = new Set(["cinema", "colonial", "church", "church_small", "basilica"]);
@@ -1203,6 +1270,46 @@ function compile(city: OsmCity): MapData {
     }
   }
 
+  // Real names over real shops: a named restaurant or shop inside a real
+  // building gets a board on that building's street wall; otherwise it takes
+  // the nearest street-front shop plot within reach.
+  const named = pois
+    .filter(
+      (p) =>
+        (p.kind === "food" || p.kind === "shop") &&
+        p.name &&
+        /\p{L}/u.test(p.name) &&
+        p.name.length <= 28 &&
+        !/entry|entrance|ticket|window|toilet|atm\b/i.test(p.name)
+    )
+    // The city errand's own place first (Mocambo), then out from the spawn.
+    .map((p) => ({
+      p,
+      key: ((city.errands ?? []).some((e) => e.at.test(p.name!)) ? 0 : 1e6) + Math.hypot(p.x - spawn.x, p.z - spawn.z),
+    }))
+    .sort((a, b) => a.key - b.key)
+    .map(({ p }) => p);
+  const signed = new Set<Plot>();
+  const boards: FacadeBoard[] = [];
+  for (const p of named) {
+    if (signed.size + boards.length >= MAX_NAMED_SIGNS) break;
+    const home = buildings.find((b) => !b.canopy && pointInRing(p.x, p.z, b.pts));
+    if (home) {
+      const board = streetWall(home, p, roads);
+      if (board && !boards.some((o) => Math.hypot(o.x - board.x, o.z - board.z) < board.w)) boards.push(board);
+      continue;
+    }
+    let best: { plot: Plot; d: number } | null = null;
+    for (const plot of plots) {
+      if (!plot.front || signed.has(plot)) continue;
+      const d = Math.hypot(plot.x - p.x, plot.z - p.z);
+      if (d < 15 && (!best || d < best.d)) best = { plot, d };
+    }
+    if (!best) continue;
+    best.plot.sign = p.name!.trim();
+    signed.add(best.plot);
+  }
+
   return {
     id: city.id,
     half: H,
@@ -1218,6 +1325,7 @@ function compile(city: OsmCity): MapData {
     spawn,
     spots,
     errandSpots,
+    boards,
   };
 }
 

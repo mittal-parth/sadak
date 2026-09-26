@@ -56,6 +56,8 @@ export type Plot = {
   /** Street frontage with a ground-floor shop, versus a back-lot block. */
   front: boolean;
   seed: number;
+  /** The real name over the shop, where OSM has one here (Mocambo, Trupti). */
+  sign?: string;
 };
 
 /** A real building footprint from OSM (outer ring). */
@@ -68,6 +70,10 @@ export type MapBuilding = {
    *  market sheds. Walk-under, no walls. */
   canopy?: true;
 };
+
+/** A shop's signboard on an OSM building's street wall: centre on the wall
+ *  line, facing out along (sin rot, cos rot), `w` wide. */
+export type FacadeBoard = { name: string; x: number; z: number; rot: number; w: number };
 
 /** A named place rendered with a hero model instead of its footprint. */
 export type MapLandmark = {
@@ -120,6 +126,8 @@ export type MapData = {
   spots: Record<TaskSpotKind, Spot>;
   /** Spots for the city's own errands, by task id. */
   errandSpots: Record<string, Spot>;
+  /** Real shops' own boards on real (OSM) buildings: Mocambo on Park Street. */
+  boards: FacadeBoard[];
 };
 
 /** Surface height of raised footpaths. */
