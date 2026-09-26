@@ -162,15 +162,20 @@ export function buildAreas(map: MapData, theme: Theme): AreaMeshes {
   const sea = map.areas.filter((a) => a.kind === "sea");
   const inSea = (x: number, z: number) => sea.some((a) => pointInRing(x, z, a.pts));
   const far = 900;
+  // Each edge with its outward normal.
   const edges: [AreaMeshes["seaEdges"][number], number, number, Pt[]][] = [
-    ["north", 0, -H + 1, [[-H - far, -H - far], [H + far, -H - far], [H + far, -H], [-H - far, -H]]],
-    ["south", 0, H - 1, [[-H - far, H], [H + far, H], [H + far, H + far], [-H - far, H + far]]],
-    ["east", H - 1, 0, [[H, -H - far], [H + far, -H - far], [H + far, H + far], [H, H + far]]],
-    ["west", -H + 1, 0, [[-H - far, -H - far], [-H, -H - far], [-H, H + far], [-H - far, H + far]]],
+    ["north", 0, -1, [[-H - far, -H - far], [H + far, -H - far], [H + far, -H], [-H - far, -H]]],
+    ["south", 0, 1, [[-H - far, H], [H + far, H], [H + far, H + far], [-H - far, H + far]]],
+    ["east", 1, 0, [[H, -H - far], [H + far, -H - far], [H + far, H + far], [H, H + far]]],
+    ["west", -1, 0, [[-H - far, -H - far], [-H, -H - far], [-H, H + far], [-H - far, H + far]]],
   ];
-  for (const [name, x, z, quad] of edges) {
-    // Sample a few points along the edge; the sea has to own most of it.
-    const along = [-0.6, -0.3, 0, 0.3, 0.6].map((f) => (name === "north" || name === "south" ? inSea(f * H, z) : inSea(x, f * H)));
+  for (const [name, nx, nz, quad] of edges) {
+    // Sample a few points along the edge, a metre either side of it (the
+    // sea may start inside the map, or right at its edge past a beach that
+    // runs to the boundary); the sea has to own most of it.
+    const along = [-0.6, -0.3, 0, 0.3, 0.6].map((f) =>
+      [H - 1, H + 1].some((r) => (nx ? inSea(nx * r, f * H) : inSea(f * H, nz * r)))
+    );
     if (along.filter(Boolean).length >= 3) {
       seaEdges.push(name);
       push("water", flatPolygon(quad, [], Y.area + 0.01, 1));
