@@ -1235,16 +1235,73 @@ function compile(city: OsmCity): MapData {
     templeSpot = onRoad;
   }
 
+  // The city's own errands: at the named place, on the nearest path to it.
+  const errandSpots: Record<string, Spot> = {};
+  for (const e of city.errands ?? []) {
+    // A monument you walk into: at its door.
+    const monument = landmarks.find((l) => e.at.test(l.name) && l.door);
+    const named =
+      pois.find((p) => p.name && e.at.test(p.name)) ??
+      landmarks.find((l) => e.at.test(l.name)) ??
+      areas.find((a) => a.name && e.at.test(a.name));
+    let target: Pt | null = null;
+    if (monument) {
+      target = monument.door!;
+    } else if (named && "pts" in named) {
+      // An area (a beach, a market): stand at its edge nearest the spawn.
+      target = named.pts.reduce((best, p) =>
+        Math.hypot(p[0] - spawn.x, p[1] - spawn.z) < Math.hypot(best[0] - spawn.x, best[1] - spawn.z) ? p : best
+      );
+    } else if (named) {
+      target = [named.x, named.z];
+    } else {
+      const road = roads.find((r) => r.name && e.at.test(r.name));
+      if (road) target = road.pts[Math.floor(road.pts.length / 2)];
+    }
+    if (!target) {
+      // Anything else OSM has a name for: a station stop, a ticket hall.
+      for (const el of els) {
+        if (!el.tags || !e.at.test(nameOf(el.tags) ?? "")) continue;
+        const pts = el.type === "node" ? [P(el)] : el.type === "way" && el.geometry ? el.geometry.map(P) : [];
+        if (!pts.length) continue;
+        const c = centroid(pts);
+        if (Math.abs(c[0]) < H - 20 && Math.abs(c[1]) < H - 20) {
+          target = c;
+          break;
+        }
+      }
+    }
+    if (!target) throw new Error(`${city.id}: errand ${e.id} place ${e.at} not in the extract`);
+    // The place is often a building of its own (the Golden Temple's langar
+    // hall) and the nearest path hugs its wall: keep the host, and a ticket
+    // booth backed onto the place, off the wall.
+    errandSpots[e.id] = kerbSpot(target, (r) => !e.street || (r.cls !== "footway" && r.cls !== "steps"), 0, [templeSpot, ...Object.values(errandSpots)], 2.5);
+  }
+
+
   const shopRoads = roads.filter((r) => city.shopStreet.test(r.name ?? ""));
   if (!shopRoads.length) throw new Error(`${city.id}: shop street ${city.shopStreet} not in the extract`);
-  const shopSpot = kerbSpot([spawn.x, spawn.z], (r) => shopRoads.includes(r), 25, [templeSpot]);
+  // Errands spread over the district, not bunched at the spawn: each staple
+  // goes to the candidate farthest from everything placed so far (up to a
+  // couple of hundred metres; beyond that, nearer the spawn is better), well
+  // in from the map's edge.
+  const SPREAD = 200;
+  const placed: Pt[] = [[spawn.x, spawn.z], [templeSpot.x, templeSpot.z], ...Object.values(errandSpots).map((e): Pt => [e.x, e.z])];
+  const spread = (p: Pt) =>
+    Math.min(SPREAD, ...placed.map((q) => Math.hypot(p[0] - q[0], p[1] - q[1]))) - 0.15 * Math.hypot(p[0] - spawn.x, p[1] - spawn.z);
+  const wellIn = (p: Pt) => Math.abs(p[0]) < H - 60 && Math.abs(p[1]) < H - 60;
+  const alongRoads = (rs: MapRoad[], step: number): Pt[] =>
+    rs.flatMap((r) => {
+      const L = polylineLength(r.pts);
+      return Array.from({ length: Math.max(1, Math.floor(L / step)) }, (_, k) => pointAlong(r.pts, (k + 0.5) * (L / Math.max(1, Math.floor(L / step)))));
+    }).filter(wellIn);
+  const farthest = (pts: Pt[]): Pt | null => (pts.length ? pts.reduce((a, b) => (spread(b) > spread(a) ? b : a)) : null);
+  const allErrands = () => [templeSpot, ...Object.values(errandSpots)];
 
-  const near = (kind: PoiKind, max: number) =>
-    pois
-      .filter((p) => p.kind === kind)
-      .map((p) => ({ p, d: Math.hypot(p.x - spawn.x, p.z - spawn.z) }))
-      .filter((q) => q.d < max && q.d > 20)
-      .sort((a, b) => a.d - b.d)[0]?.p;
+  const shopAt = farthest(alongRoads(shopRoads, 10));
+  if (!shopAt) throw new Error(`${city.id}: shop street ${city.shopStreet} runs only along the map's edge`);
+  const shopSpot = kerbSpot(shopAt, (r) => shopRoads.includes(r), 0, allErrands());
+  placed.push([shopSpot.x, shopSpot.z]);
 
   const major = (r: MapRoad) => ["trunk", "primary", "secondary", "tertiary", "unclassified"].includes(r.cls);
   /** Streets a vehicle can wait on: not a footpath or a pedestrian street. */
@@ -1253,16 +1310,16 @@ function compile(city: OsmCity): MapData {
    *  lane: buses and autos wait where the traffic is, but not 400m away. */
   const roadside = (p: Pt, minDist: number, avoid: Spot[]) => {
     const onMajor = roads.some(major) ? kerbSpot(p, major, minDist, avoid) : null;
-    if (onMajor && Math.hypot(onMajor.x - spawn.x, onMajor.z - spawn.z) < 150) return onMajor;
+    if (onMajor && Math.hypot(onMajor.x - p[0], onMajor.z - p[1]) < 60) return onMajor;
     return kerbSpot(p, drivable, minDist, avoid);
   };
-  const taken = [templeSpot, shopSpot];
+  const taken = [...allErrands(), shopSpot];
   /** A stop on a street a bus can use, if one is within reach. */
   const busStop = (p: Pt, minDist: number) => {
     const wide = (r: MapRoad) => r.w >= 7.5 && r.cls !== "pedestrian" && r.cls !== "footway" && r.cls !== "steps";
     if (roads.some(wide)) {
       const s = kerbSpot(p, wide, minDist, taken);
-      if (Math.hypot(s.x - spawn.x, s.z - spawn.z) < 180) return s;
+      if (Math.hypot(s.x - p[0], s.z - p[1]) < 60) return s;
     }
     return roadside(p, minDist, taken);
   };
@@ -1302,18 +1359,22 @@ function compile(city: OsmCity): MapData {
       );
     return leaves && arrives;
   };
+  // At the city's bus stand when it has one (Kempegowda); else the real
+  // stops, the most out-of-the-way first, then kerbs on the main roads.
+  const stand = city.busNear ? landmarks.find((l) => city.busNear!.test(l.name)) : undefined;
+  if (city.busNear && !stand) throw new Error(`${city.id}: bus stand ${city.busNear} not in the extract`);
+  const byspread = (pts: Pt[]) => pts.filter(wellIn).sort((a, b) => spread(b) - spread(a));
   const busCandidates = [
-    ...pois
-      .filter((p) => p.kind === "bus_stop" && Math.hypot(p.x - spawn.x, p.z - spawn.z) < 260)
-      .sort((a, b) => Math.hypot(a.x - spawn.x, a.z - spawn.z) - Math.hypot(b.x - spawn.x, b.z - spawn.z))
-      .map((p) => () => busStop([p.x, p.z], 0)),
+    ...(stand ? [() => busStop(frontOf(stand, 6), 0)] : []),
+    ...byspread(pois.filter((p) => p.kind === "bus_stop").map((p): Pt => [p.x, p.z])).map((p) => () => busStop(p, 0)),
+    ...byspread(alongRoads(roads.filter(major), 25)).slice(0, 12).map((p) => () => busStop(p, 0)),
     () => busStop([spawn.x - 60, spawn.z + 30], 50),
     () => busStop([spawn.x + 60, spawn.z - 30], 50),
   ];
   let busSpot: Spot | null = null;
   for (const make of busCandidates) {
     const st = make();
-    if (busLeaves(st)) {
+    if (reachShare(routeMap, st.x, st.z, 4.2) >= 0.5 && busLeaves(st)) {
       busSpot = st;
       break;
     }
@@ -1321,20 +1382,32 @@ function compile(city: OsmCity): MapData {
   if (!busSpot) throw new Error(`${city.id}: no bus stop a bus can drive on from`);
   // The auto stand, likewise, has to be somewhere an auto can drive off
   // from to most of the district.
-  const taxiPoi = near("taxi", 220);
-  const autoAt: Pt = taxiPoi ? [taxiPoi.x, taxiPoi.z] : [spawn.x + 45, spawn.z - 20];
+  placed.push([busSpot.x, busSpot.z]);
+  const taxiPoi = farthest(pois.filter((p) => p.kind === "taxi").map((p): Pt => [p.x, p.z]).filter(wellIn));
+  const autoAt: Pt =
+    taxiPoi && spread(taxiPoi) > 80
+      ? taxiPoi
+      : farthest(alongRoads(roads.filter((r) => drivable(r) && r.w >= 4.2), 15)) ?? [spawn.x + 45, spawn.z - 20];
   const byDistance = roads
     .filter((r) => drivable(r) && r.w >= 4.2)
     .map((r) => ({ r, d: nearestOnPolyline(r.pts, autoAt).dist }))
     .sort((a, b) => a.d - b.d);
+  // And rides from it drop you within a short walk of every other errand.
+  const dropsNearAll = (st: Spot) =>
+    [...taken, busSpot!].every((t) => {
+      const path = planRoute(routeMap, st.x, st.z, t.x, t.z, 4.2, 1.6, { closest: true });
+      if (!path || path.length < 2) return false;
+      const [ex, ez] = path[path.length - 1];
+      return Math.hypot(ex - t.x, ez - t.z) < 150;
+    });
   let autoSpot: Spot | null = null;
   // Main roads within reach first (autos wait where the traffic is), then
   // any street, nearest first.
   for (const pass of [(r: MapRoad) => major(r), () => true]) {
     for (const { r, d } of byDistance) {
       if (autoSpot || d > 150 || !pass(r)) continue;
-      const st = kerbSpotOrNull(autoAt, (x) => x === r, taxiPoi ? 0 : 30, [...taken, busSpot], 0, {});
-      if (st && reachShare(routeMap, st.x, st.z, 4.2) >= 0.5) autoSpot = st;
+      const st = kerbSpotOrNull(autoAt, (x) => x === r, 0, [...taken, busSpot], 0, {});
+      if (st && reachShare(routeMap, st.x, st.z, 4.2) >= 0.5 && dropsNearAll(st)) autoSpot = st;
     }
   }
   if (!autoSpot) throw new Error(`${city.id}: no auto stand an auto can drive off from`);
@@ -1349,62 +1422,23 @@ function compile(city: OsmCity): MapData {
     // Facing its entrance when the rule says where that is.
     const rule = city.landmarks.find((r) => r.match.test(spawnMark!.name));
     if (rule?.faces !== undefined) {
-      const front = kerbSpotOrNull(frontOf(spawnMark!, 14), () => true, 0, Object.values(spots), 0, {
+      const front = kerbSpotOrNull(frontOf(spawnMark!, 14), () => true, 0, [...Object.values(spots), ...Object.values(errandSpots)], 0, {
         avoidR: 8,
         sight: reach,
         sightTo: at,
       });
       if (front) return { ...front, yaw: +Math.atan2(at[0] - front.x, at[1] - front.z).toFixed(3) };
     }
-    const inView = kerbSpotOrNull(at, () => true, minDist, Object.values(spots), 0, { avoidR: 8, sight: reach });
+    const inView = kerbSpotOrNull(at, () => true, minDist, [...Object.values(spots), ...Object.values(errandSpots)], 0, { avoidR: 8, sight: reach });
     if (inView) return inView;
     console.log(`${city.id}: no kerb with ${spawnMark!.name} in view; spawning at the nearest kerb`);
-    return kerbSpot(at, () => true, minDist, Object.values(spots));
+    return kerbSpot(at, () => true, minDist, [...Object.values(spots), ...Object.values(errandSpots)]);
   }
   Object.assign(
     spawn,
     // Footways count: the approach to a temple complex is often all paths.
     spawnSpot()
   );
-  // The city's own errands: at the named place, on the nearest path to it.
-  const errandSpots: Record<string, Spot> = {};
-  for (const e of city.errands ?? []) {
-    const named =
-      pois.find((p) => p.name && e.at.test(p.name)) ??
-      landmarks.find((l) => e.at.test(l.name)) ??
-      areas.find((a) => a.name && e.at.test(a.name));
-    let target: Pt | null = null;
-    if (named && "pts" in named) {
-      // An area (a beach, a market): stand at its edge nearest the spawn.
-      target = named.pts.reduce((best, p) =>
-        Math.hypot(p[0] - spawn.x, p[1] - spawn.z) < Math.hypot(best[0] - spawn.x, best[1] - spawn.z) ? p : best
-      );
-    } else if (named) {
-      target = [named.x, named.z];
-    } else {
-      const road = roads.find((r) => r.name && e.at.test(r.name));
-      if (road) target = road.pts[Math.floor(road.pts.length / 2)];
-    }
-    if (!target) {
-      // Anything else OSM has a name for: a station stop, a ticket hall.
-      for (const el of els) {
-        if (!el.tags || !e.at.test(nameOf(el.tags) ?? "")) continue;
-        const pts = el.type === "node" ? [P(el)] : el.type === "way" && el.geometry ? el.geometry.map(P) : [];
-        if (!pts.length) continue;
-        const c = centroid(pts);
-        if (Math.abs(c[0]) < H - 20 && Math.abs(c[1]) < H - 20) {
-          target = c;
-          break;
-        }
-      }
-    }
-    if (!target) throw new Error(`${city.id}: errand ${e.id} place ${e.at} not in the extract`);
-    // The place is often a building of its own (the Golden Temple's langar
-    // hall) and the nearest path hugs its wall: keep the host, and a ticket
-    // booth backed onto the place, off the wall.
-    errandSpots[e.id] = kerbSpot(target, (r) => !e.street || (r.cls !== "footway" && r.cls !== "steps"), 0, [...Object.values(spots), spawn, ...Object.values(errandSpots)], 2.5);
-  }
-
   for (const s of [spawn, ...Object.values(spots), ...Object.values(errandSpots)]) grid.disc(s.x, s.z, 5, RESERVED);
 
   // The barber's lock-up: a gap in a street frontage near the spawn (the

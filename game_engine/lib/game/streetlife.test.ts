@@ -264,8 +264,8 @@ test("spawn and task spots are clear of buildings and within reach of each other
     for (const b of map.buildings) world.add({ kind: "poly", outer: b.pts, holes: b.holes ?? [] });
     for (const [name, s] of [["spawn", map.spawn], ...Object.entries(map.spots)] as const) {
       assert.equal(world.blocked(s.x, s.z, 0.5), false, `${d.id}: ${name} is inside a building`);
-      const dist = Math.hypot(s.x - map.spawn.x, s.z - map.spawn.z);
-      assert.ok(dist < 260, `${d.id}: ${name} is ${Math.round(dist)}m from spawn`);
+      // Spread over the district, but not out at its edge.
+      assert.ok(Math.abs(s.x) < map.half - 40 && Math.abs(s.z) < map.half - 40, `${d.id}: ${name} is at the map's edge`);
     }
     for (const [a, sa] of Object.entries(map.spots)) {
       for (const [b, sb] of Object.entries(map.spots)) {
@@ -285,30 +285,32 @@ test("seeded task positions are their map spots (see migration 012)", () => {
   }
 });
 
-test("every district has one city errand, on dry open ground an auto can reach", () => {
+test("every district has its city errands, on dry open ground an auto can reach", () => {
   for (const pack of SEED_TASK_PACKS) {
     const map = loadMap(pack.districtId);
     const errands = pack.tasks.filter((t) => map.errandSpots[t.id]);
-    assert.equal(errands.length, 1, `${pack.districtId}: ${errands.length} city errands`);
-    assert.equal(pack.tasks.length, 5, `${pack.districtId}: ${pack.tasks.length} tasks`);
-    // The city errand comes last, after auto, shop, temple and bus.
-    assert.equal(pack.tasks[4].id, errands[0].id);
-    const e = map.errandSpots[errands[0].id];
+    assert.ok(errands.length >= 1, `${pack.districtId}: no city errand`);
+    assert.equal(pack.tasks.length, 4 + errands.length, `${pack.districtId}: ${pack.tasks.length} tasks`);
+    // The city errands come last, after auto, shop, temple and bus.
+    assert.deepEqual(pack.tasks.slice(4).map((t) => t.id), errands.map((t) => t.id));
+    for (const errand of errands) {
+      const e = map.errandSpots[errand.id];
 
-    const solid = new CollisionWorld();
-    for (const p of map.plots) solid.box(p.x, p.z, p.w / 2, p.d / 2, p.rot);
-    for (const b of map.buildings) solid.add({ kind: "poly", outer: b.pts, holes: b.holes ?? [] });
-    assert.equal(solid.blocked(e.x, e.z, 0.5), false, `${pack.districtId}: errand inside a building`);
-    const wet = new CollisionWorld();
-    for (const a of map.areas) if (a.kind === "water" || a.kind === "sea") wet.add({ kind: "poly", outer: a.pts, holes: a.holes ?? [] });
-    assert.equal(wet.blocked(e.x, e.z, 0.1), false, `${pack.districtId}: errand in the water`);
+      const solid = new CollisionWorld();
+      for (const p of map.plots) solid.box(p.x, p.z, p.w / 2, p.d / 2, p.rot);
+      for (const b of map.buildings) solid.add({ kind: "poly", outer: b.pts, holes: b.holes ?? [] });
+      assert.equal(solid.blocked(e.x, e.z, 0.5), false, `${pack.districtId}: errand inside a building`);
+      const wet = new CollisionWorld();
+      for (const a of map.areas) if (a.kind === "water" || a.kind === "sea") wet.add({ kind: "poly", outer: a.pts, holes: a.holes ?? [] });
+      assert.equal(wet.blocked(e.x, e.z, 0.1), false, `${pack.districtId}: errand in the water`);
 
-    assert.ok(Math.abs(e.x) < map.half - 20 && Math.abs(e.z) < map.half - 20, `${pack.districtId}: errand at the map edge`);
-    for (const [kind, s] of Object.entries(map.spots)) {
-      assert.ok(Math.hypot(e.x - s.x, e.z - s.z) > 5, `${pack.districtId}: errand on the ${kind} spot`);
+      assert.ok(Math.abs(e.x) < map.half - 20 && Math.abs(e.z) < map.half - 20, `${pack.districtId}: errand at the map edge`);
+      for (const [kind, s] of Object.entries(map.spots)) {
+        assert.ok(Math.hypot(e.x - s.x, e.z - s.z) > 5, `${pack.districtId}: errand on the ${kind} spot`);
+      }
+      const path = planRoute(map, map.spots.auto.x, map.spots.auto.z, e.x, e.z, 4.2, 1.6);
+      assert.ok(path && path.length >= 2, `${pack.districtId}: no auto route to the errand`);
     }
-    const path = planRoute(map, map.spots.auto.x, map.spots.auto.z, e.x, e.z, 4.2, 1.6);
-    assert.ok(path && path.length >= 2, `${pack.districtId}: no auto route to the errand`);
   }
 });
 
@@ -727,6 +729,34 @@ test("from the spawn you can walk to every errand, every monument's host and the
       ...inners.map((i): [string, { x: number; z: number }] => [i.name, i]),
     ];
     for (const [name, p] of places) assert.ok(walk.reached(p.x, p.z, 2), `${d.id}: ${name} cannot be reached from the spawn`);
+  }
+});
+
+test("errands are spread over each district, and one is at its signature place", () => {
+  const SIGNATURE: Record<string, RegExp> = {
+    "purani-sadak": /^Jama Masjid$/,
+    "manek-chowk": /^Jama Masjid$/,
+    "fort-kochi": /^Chinese Fishing Nets$/,
+    "hall-bazaar": /^Shri Harmandir Sahib$/,
+    "lingaraj-lane": /^Lord Lingaraj Temple$/,
+    "charminar-lane": /^Charminar$/,
+    "marina-nagar": /^Sri Parthasarathy Koil$/,
+    "majestic-cross": /^Kempegowda Bus Station$/,
+  };
+  for (const pack of SEED_TASK_PACKS) {
+    const map = loadMap(pack.districtId);
+    const spots = pack.tasks.map((t) => taskSpot(map, t));
+    const nearest = spots
+      .map((s) => Math.min(...spots.filter((o) => o !== s).map((o) => Math.hypot(o.x - s.x, o.z - s.z))))
+      .sort((a, b) => a - b);
+    const median = nearest[Math.floor(nearest.length / 2)];
+    assert.ok(median >= 120, `${pack.districtId}: errands bunched (median ${median.toFixed(0)} m to the next)`);
+    const sig = SIGNATURE[pack.districtId];
+    if (!sig) continue;
+    const l = map.landmarks.find((x) => sig.test(x.name));
+    assert.ok(l, `${pack.districtId}: ${sig} not on the map`);
+    const at = (x: number, z: number) => spots.some((s) => Math.hypot(s.x - x, s.z - z) < Math.max(l.w, l.d) / 2 + 40);
+    assert.ok(at(l.x, l.z) || (l.door && at(...l.door)), `${pack.districtId}: no errand at ${l.name}`);
   }
 });
 

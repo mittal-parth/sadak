@@ -83,6 +83,8 @@ export type OsmCity = {
   /** A sanctum on an island in a tank (the Harmandir Sahib in the sarovar):
    *  the compiler cuts its causeway and opens the ring of buildings round it. */
   pool?: { water: RegExp; sanctum: RegExp };
+  /** The bus stand the bus errand is at, when the district has one. */
+  busNear?: RegExp;
 };
 
 const SMALL_TEMPLE: [number, number] = [9, 9];
@@ -109,7 +111,10 @@ export const OSM_CITIES: OsmCity[] = [
     spawnNear: /Gauri Shankar/,
     temple: /Gauri Shankar/,
     shopStreet: /Dariba Kalan|Kinari Bazar/,
-    errands: [{ id: "purani-sadak-paranthe", at: /Paranthe Wali Gali/ }],
+    errands: [
+      { id: "purani-sadak-paranthe", at: /Paranthe Wali Gali/ },
+      { id: "purani-sadak-minaret", at: /^Jama Masjid$/ },
+    ],
   },
   {
     id: "dadar-chowk",
@@ -168,6 +173,7 @@ export const OSM_CITIES: OsmCity[] = [
       { match: /Tawakkal Shah/, model: "dargah" },
     ],
     spawnNear: /Annammadevi/,
+    busNear: /Kempegowda Bus Station/,
     temple: /Annammadevi/,
     shopStreet: /Subedar Chatram|Cottonpete|Balepet/,
     errands: [{ id: "majestic-cross-metro", at: /Nadaprabhu Kempegowda Station, Majestic$/ }],
@@ -230,7 +236,10 @@ export const OSM_CITIES: OsmCity[] = [
     spawnNear: /Santa Cruz Cathedral/,
     temple: /Santa Cruz Cathedral/,
     shopStreet: /Princess Street|Bastian Street/,
-    errands: [{ id: "fort-kochi-ferry", at: /Junkar Jetty|^Jetty$/ }],
+    errands: [
+      { id: "fort-kochi-ferry", at: /Junkar Jetty|^Jetty$/ },
+      { id: "fort-kochi-catch", at: /^Chinese Fishing Nets$/ },
+    ],
   },
   {
     id: "manek-chowk",
@@ -250,7 +259,10 @@ export const OSM_CITIES: OsmCity[] = [
     spawnNear: /^Jama Masjid$/,
     shrineOn: /Manek Chowk/,
     shopStreet: /Manek Chowk|Gandhi Road/,
-    errands: [{ id: "manek-chowk-kulfi", at: /Open air food market/ }],
+    errands: [
+      { id: "manek-chowk-kulfi", at: /Open air food market/ },
+      { id: "manek-chowk-masjid", at: /^Jama Masjid$/ },
+    ],
   },
   {
     id: "hall-bazaar",
