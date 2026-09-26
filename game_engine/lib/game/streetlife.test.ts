@@ -153,6 +153,26 @@ test("road network samples by arc length and lists roads at a node", () => {
   assert.ok(near([back.x, back.z, back.dx, back.dz], [75, 0, -1, 0]));
 });
 
+test("every district's traffic finds a street for every vehicle it fields", () => {
+  const vehicleMats = createVehicleMaterials();
+  const transitMat = createTransitMaterial();
+  for (const d of SEED_DISTRICTS) {
+    const map = loadMap(d.id);
+    const traffic = createTraffic(map, {
+      landmark: d.theme.landmark,
+      autoCanopy: d.theme.autoCanopy,
+      autos: d.theme.autos,
+      cars: d.theme.cars,
+      vehicleMats,
+      transitMat,
+    });
+    const focus = new THREE.Vector3(map.spawn.x, 0, map.spawn.z);
+    traffic.prime(focus);
+    for (let i = 0; i < 20; i++) traffic.update(0.05, i * 0.05, focus);
+    for (const v of traffic.vehicles) assert.ok(map.roads[v.road], `${d.id}: a ${v.kind} with no street`);
+  }
+});
+
 test("traffic keeps left, stays on its roads and fits the road width", () => {
   const map = tinyMap();
   const traffic = createTraffic(map, {

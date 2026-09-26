@@ -94,6 +94,11 @@ export function createTraffic(map: MapData, opts: TrafficOpts): Traffic {
     ["bus", city.buses],
     ["rickshaw", ["delhi", "amritsar", "hyderabad", "kolkata", "bhubaneswar", "ahmedabad"].includes(opts.landmark) ? 4 : 0],
   ];
+  // Only kinds some street here is wide enough for (no buses in lanes).
+  const fitting = Object.fromEntries(
+    (Object.keys(MIN_WIDTH) as Kind[]).map((k) => [k, drivable.filter((i) => roads[i].r.w >= MIN_WIDTH[k])])
+  ) as Record<Kind, number[]>;
+  for (const m of mix) if (!fitting[m[0]].length) m[1] = 0;
   const total = mix.reduce((a, [, w]) => a + w, 0);
   const pickKind = (): Kind => {
     let r = rand() * total;
@@ -162,8 +167,8 @@ export function createTraffic(map: MapData, opts: TrafficOpts): Traffic {
 
   const place = (v: TrafficVehicle, focus: THREE.Vector3 | null, minDist = SPAWN_MIN) => {
     for (let tries = 0; tries < 60; tries++) {
-      const ri = drivable[Math.floor(rand() * drivable.length)];
-      if (!fits(v, ri)) continue;
+      const pool = fitting[v.kind];
+      const ri = pool[Math.floor(rand() * pool.length)];
       const road = roads[ri];
       const dir: 1 | -1 = road.r.oneway ? 1 : rand() < 0.5 ? 1 : -1;
       const p = rand() * road.len;
@@ -244,7 +249,10 @@ export function createTraffic(map: MapData, opts: TrafficOpts): Traffic {
     group,
     vehicles,
     prime(focus) {
-      for (const v of vehicles) if (!place(v, focus, 10)) place(v, null);
+      for (const v of vehicles) {
+        if (place(v, focus, 10) || place(v, null)) continue;
+        throw new Error(`[traffic] no street for a ${v.kind}`);
+      }
     },
     update(dt, t, focus) {
       byLane.clear();
