@@ -31,7 +31,7 @@ import {
   makeJharokha,
 } from "./arch-details";
 import type { ArchStyle } from "./districts";
-import type { UvRect } from "./signage";
+import type { SignTrade, UvRect } from "./signage";
 import type { Wares } from "./world/mapData";
 
 export const FLOOR_H = 3.2;
@@ -64,7 +64,7 @@ export type BuildingParts = {
 export type BuildingOptions = {
   style?: ArchStyle;
   /** Sign atlas cells to pick from. Without it shops get no lettered faces. */
-  signs?: { cells: number; rect(i: number): UvRect };
+  signs?: { cells: number; rect(i: number): UvRect; trade(i: number): SignTrade };
   /** A real shop's own board, over the middle bay of the street face. */
   named?: UvRect;
   /** What the shops sell, on a street known for it. */
@@ -257,8 +257,19 @@ const INTERIOR = 0x2c211c;
 const SHELF = 0x7a5537;
 
 /** Back wall, three shelves and rows of stock, seen through an open shutter. */
-type ShopKind = "grocer" | "cloth" | "steel" | "sweets" | "general";
+export type ShopKind = "grocer" | "cloth" | "steel" | "sweets" | "general";
 const SHOP_KINDS: readonly ShopKind[] = ["grocer", "cloth", "steel", "sweets", "general", "general"];
+/** The stock behind each board. */
+export const KIND_OF_TRADE: Record<SignTrade, ShopKind> = {
+  grocer: "grocer",
+  chemist: "general",
+  sweets: "sweets",
+  tea: "sweets",
+  tailor: "cloth",
+  food: "sweets",
+  mobile: "general",
+  bakery: "sweets",
+};
 const CLOTH = [0xc2185b, 0xf5a623, 0x1f6f5c, 0x3b4ba8, 0xe8364f, 0x7b2d8b, 0xf2efe6, 0x2f9e44];
 const GRAIN = [0xe8c36a, 0xd9a441, 0xb5651d, 0xc0392b, 0xf2d27a, 0x8b5a2b, 0xf4e6c4];
 const STEEL = 0xc9ced3;
@@ -276,9 +287,11 @@ function shopInterior(
   facing: 1 | -1,
   w: number,
   h: number,
-  rand: () => number
+  rand: () => number,
+  trade?: ShopKind
 ) {
-  const kind = pick(SHOP_KINDS, rand);
+  // Unsigned (a test, or no atlas): any trade, a steel shop among them.
+  const kind = trade ?? pick(SHOP_KINDS, rand);
   const zs = zBack + facing * 0.17;
   decor.push(box(w, h, 0.04, cx, h / 2, zBack + facing * 0.02, INTERIOR));
   for (let i = 0; i < 3; i++) {
@@ -505,6 +518,9 @@ function shopfront(
   L.shell.push(slab(pier, bayH, inset, cx + w / 2 + pier / 2 - 0.15, bayH / 2, zMid));
   L.shell.push(slab(w, 0.3, inset, cx, bayH, zMid));
 
+  // The board first: the stock follows the trade it names.
+  const board = atlas ? Math.floor(rand() * atlas.cells) : -1;
+  const kind: ShopKind | undefined = named ? "general" : atlas ? KIND_OF_TRADE[atlas.trade(board)] : undefined;
   const open = rand() > 0.45;
   if (wares === "bangles") {
     // Bangle shop: always open, glass bangles stacked on the shelves and
@@ -513,7 +529,7 @@ function shopfront(
   } else if (open) {
     // Open shop: a dark interior with lit shelves of stock, which is what an
     // open Indian shopfront actually looks like from the street — not glass.
-    shopInterior(L.decor, cx, zBack, facing, w - 0.3, bayH - 0.15, rand);
+    shopInterior(L.decor, cx, zBack, facing, w - 0.3, bayH - 0.15, rand, kind);
     if (rand() < 0.4) packetStrips(L.decor, cx, bayH - 0.2, faceZ - facing * 0.05, w - 0.4, rand);
     if (rand() < 0.5) shopGoods(L.decor, cx, faceZ, w, facing, rand);
   } else {
@@ -533,7 +549,7 @@ function shopfront(
   if (atlas) {
     const face = new THREE.PlaneGeometry(w - 0.02, 0.66);
     // Always draw, so a named board leaves the rest of the street as it was.
-    const pick = atlas.rect(Math.floor(rand() * atlas.cells));
+    const pick = atlas.rect(board);
     const [u0, v0, u1, v1] = named ?? pick;
     const uv = face.attributes.uv as THREE.BufferAttribute;
     for (let i = 0; i < uv.count; i++) {

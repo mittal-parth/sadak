@@ -16,6 +16,11 @@ import { mulberry32 } from "./props";
 
 export type ShopSign = { native: string; en: string };
 
+/** What each board in a language's list sells, by position: every list
+ *  runs grocer, chemist, sweets, tea, tailor, eating house, mobiles, bakery. */
+export const SIGN_TRADES = ["grocer", "chemist", "sweets", "tea", "tailor", "food", "mobile", "bakery"] as const;
+export type SignTrade = (typeof SIGN_TRADES)[number];
+
 /**
  * Eight everyday shop types per language, keyed by the district's
  * `language` code. Deliberately common words only (grocer, chemist,
@@ -157,6 +162,8 @@ export type SignAtlas = {
   /** Generic boards (grocer, chemist...) to pick from at random. */
   cells: number;
   rect(i: number): UvRect;
+  /** What the shop under generic board `i` sells. */
+  trade(i: number): SignTrade;
   /** The board lettered with a real shop's own name, if the atlas has it. */
   named(name: string): UvRect | null;
   dispose(): void;
@@ -314,6 +321,10 @@ export function createSignAtlas(language: LangCode, seed = 1, shopNames: string[
     cells,
     rect(i) {
       return cellRect(((i % cells) + cells) % cells);
+    },
+    trade(i) {
+      // paintAtlas letters cell i with signs[i % signs.length].
+      return SIGN_TRADES[(((i % cells) + cells) % cells) % signs.length];
     },
     named(name) {
       const k = names.indexOf(name);

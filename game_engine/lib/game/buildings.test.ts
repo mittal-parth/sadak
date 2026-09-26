@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
-import { buildBuildingParts } from "./buildings";
-import type { UvRect } from "./signage";
+import { buildBuildingParts, KIND_OF_TRADE } from "./buildings";
+import { SHOP_SIGNS, SIGN_TRADES, type SignTrade, type UvRect } from "./signage";
 
 const W = 9;
 const D = 12;
@@ -13,6 +13,9 @@ const atlas = {
   cells: 4,
   rect(i: number): UvRect {
     return [(i % 2) / 2, Math.floor(i / 2) / 2, (i % 2) / 2 + 0.5, Math.floor(i / 2) / 2 + 0.5];
+  },
+  trade(i: number): SignTrade {
+    return SIGN_TRADES[i % SIGN_TRADES.length];
   },
 };
 
@@ -120,11 +123,29 @@ test("a named shop gets its own board over the middle bay, and nothing else chan
   const changed = b.filter((f, i) => f.u !== a[i].u || f.v !== a[i].v);
   assert.equal(changed.length, 1, "exactly one board relettered");
   assert.ok(changed[0].u >= 0.9 - 1e-6 && changed[0].v >= 0.9 - 1e-6, "with the named cell");
-  // Everything else is the same building.
-  for (const k of ["body", "glass", "decor"] as const) {
+  // Everything else is the same building (its stock may change: a real
+  // shop's does not follow the generic board it replaced).
+  for (const k of ["body", "glass"] as const) {
     const pa = (plain as unknown as Record<string, THREE.BufferGeometry>)[k];
     const pb = (withName as unknown as Record<string, THREE.BufferGeometry>)[k];
     if (!pa?.attributes?.position) continue;
     assert.deepEqual(Array.from(pb.attributes.position.array), Array.from(pa.attributes.position.array), `${k} moved`);
   }
+});
+
+test("a shop's stock follows its board: every language's boards run in the same trades", () => {
+  // SIGN_TRADES reads a board's trade from its place in the list, so every
+  // language must list the same eight trades in the same order.
+  const expect = ["grocer|provision|kirana|daily", "chemist|pharmacy|medical|24", "sweet|ghee", "tea|chai", "tailor|ladies", "restaurant|hotel|dhaba|veg", "mobile|recharge", "bakery|fresh"];
+  for (const [lang, signs] of Object.entries(SHOP_SIGNS)) {
+    assert.equal(signs.length, SIGN_TRADES.length, lang);
+    signs.forEach((sg, i) => assert.match(sg.en, new RegExp(expect[i], "i"), `${lang}: board ${i} (${sg.en}) is not a ${SIGN_TRADES[i]}`));
+  }
+  assert.equal(KIND_OF_TRADE.tailor, "cloth");
+  assert.equal(KIND_OF_TRADE.grocer, "grocer");
+  assert.equal(KIND_OF_TRADE.sweets, "sweets");
+  // A tailor's street and a grocer's street stock their shops differently.
+  const street = (trade: SignTrade) =>
+    buildBuildingParts(W, D, FLOORS, 5, { style: "colonial", signs: { ...atlas, trade: () => trade } }).decor.attributes.position.count;
+  assert.notEqual(street("tailor"), street("grocer"));
 });
