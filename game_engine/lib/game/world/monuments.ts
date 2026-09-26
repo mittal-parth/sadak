@@ -343,7 +343,10 @@ export function temple(w: number, d: number, st: TempleStyle): Monument {
   const md = Math.max(3, pf.front - (sz + s / 2) - 0.6);
   const mz = sz + s / 2 + md / 2;
   const ph = Math.min(4, 2.6 + W * 0.05);
-  for (const px of [-mw / 2 + 0.3, -mw / 6, mw / 6, mw / 2 - 0.3]) {
+  // Corner pillars, and on a wide mandapa two more with a broad bay between
+  // them: the way in is down the middle, wide enough to walk through.
+  const pillarsX = mw >= 7 ? [-mw / 2 + 0.3, -mw / 4, mw / 4, mw / 2 - 0.3] : [-mw / 2 + 0.3, mw / 2 - 0.3];
+  for (const px of pillarsX) {
     for (const pz of [mz - md / 2 + 0.3, mz + md / 2 - 0.3]) {
       P.box(0.35, ph, 0.35, px, y + ph / 2, pz, st.accent);
       C.push({ x: px, z: pz, hw: 0.25, hd: 0.25 });
@@ -378,33 +381,96 @@ export function church(w: number, d: number, st: ChurchStyle): Monument {
   const nd = pf.depth * 0.82;
   const nz = pf.top + nd / 2 + 0.3;
   const nh = Math.min(12, 5 + nw * 0.4);
-  P.box(nw, nh, nd, 0, y + nh / 2, nz, st.wall);
-  // Gable roof as two sloped slabs.
-  for (const s of [-1, 1]) {
+  const t = 0.5;
+  const fz = nz + nd / 2;
+  const bz = nz - nd / 2;
+  const doorW = Math.max(2.4, nw * 0.26);
+  const WOOD = 0x6b4a2e;
+
+  // Walls: a nave you walk into, not a block. Side walls, the east end
+  // behind the altar, and a west front with the door in it.
+  for (const sx of [-1, 1]) {
+    P.box(t, nh, nd, sx * (nw / 2 - t / 2), y + nh / 2, nz, st.wall);
+    C.push({ x: sx * (nw / 2 - t / 2), z: nz, hw: t / 2, hd: nd / 2 });
+    // Tall arched windows, coloured glass, inside and out.
+    const n = Math.max(2, Math.floor(nd / 4.5));
+    for (let k = 0; k < n; k++) {
+      const z = bz + 3 + ((nd - 6) * (k + 0.5)) / n;
+      for (const face of [1, -1]) {
+        const x = sx * (nw / 2 - t / 2) + sx * face * (t / 2 + 0.03);
+        P.box(0.05, nh * 0.42, 1.3, x, y + nh * 0.5, z, k % 2 ? 0x3b6fa8 : 0x9b3b5a);
+        P.add(new THREE.CylinderGeometry(0.65, 0.65, 0.05, 10, 1, false, 0, Math.PI).rotateZ(Math.PI / 2).rotateY(Math.PI / 2).translate(x, y + nh * 0.71, z), k % 2 ? 0x3b6fa8 : 0x9b3b5a);
+      }
+    }
+  }
+  P.box(nw, nh, t, 0, y + nh / 2, bz + t / 2, st.wall);
+  C.push({ x: 0, z: bz + t / 2, hw: nw / 2, hd: t / 2 });
+  const side = (nw - doorW) / 2;
+  for (const sx of [-1, 1]) {
+    P.box(side, nh, t, sx * (doorW / 2 + side / 2), y + nh / 2, fz - t / 2, st.wall);
+    C.push({ x: sx * (doorW / 2 + side / 2), z: fz - t / 2, hw: side / 2, hd: t / 2 });
+  }
+  // Over the door, and the door leaves standing open.
+  P.box(doorW, nh - 3.4, t, 0, y + 3.4 + (nh - 3.4) / 2, fz - t / 2, st.wall);
+  for (const sx of [-1, 1]) P.box(0.08, 3.3, doorW / 2, sx * (doorW / 2 + 0.05), y + 1.65, fz + doorW / 4, WOOD);
+
+  // Timber ceiling under a pitched roof.
+  P.box(nw - 0.2, 0.2, nd - 0.2, 0, y + nh - 0.1, nz, 0x7a5a3a);
+  for (let z = bz + 2; z < fz - 1; z += 3) P.box(nw - 0.3, 0.3, 0.25, 0, y + nh - 0.35, z, WOOD);
+  for (const sgn of [-1, 1]) {
     const g = new THREE.BoxGeometry(nw * 0.58, 0.3, nd + 0.6);
-    g.rotateZ(s * -0.55);
-    g.translate(s * nw * 0.24, y + nh + nw * 0.14, nz);
+    g.rotateZ(sgn * -0.55);
+    g.translate(sgn * nw * 0.24, y + nh + nw * 0.14, nz);
     P.add(g, st.roof);
   }
-  C.push({ x: 0, z: nz, hw: nw / 2, hd: nd / 2 });
-  // Façade: gable front, door, rose window, pilasters.
-  const fz = nz + nd / 2;
+
+  // Inside: altar on a step at the east end, a cross, candle stands; pews
+  // either side of the aisle down the middle.
+  const altarZ = bz + t + 2.2;
+  P.box(nw - 1.2, 0.3, 3.4, 0, y + 0.15, altarZ, st.trim);
+  Hs.push({ x: 0, z: altarZ, hw: (nw - 1.2) / 2, hd: 1.7, y0: y + 0.3, y1: y + 0.3 });
+  P.box(2.6, 1.0, 1.0, 0, y + 0.8, bz + t + 1.3, 0xf4efe4);
+  P.box(2.7, 0.08, 1.1, 0, y + 1.34, bz + t + 1.3, 0xd4a017);
+  C.push({ x: 0, z: bz + t + 1.3, hw: 1.3, hd: 0.5 });
+  P.box(0.18, 2.6, 0.12, 0, y + 3.2, bz + t + 0.2, 0xd4a017);
+  P.box(1.4, 0.18, 0.12, 0, y + 3.9, bz + t + 0.2, 0xd4a017);
+  for (const sx of [-1, 1]) {
+    P.cyl(0.06, 0.1, 1.4, sx * 1.8, y + 1.0, bz + t + 1.3, 0xd4a017, 6);
+    P.cyl(0.04, 0.04, 0.25, sx * 1.8, y + 1.82, bz + t + 1.3, 0xfff1c2, 6);
+  }
+  const aisle = Math.max(1.8, doorW * 0.8);
+  const pewW = (nw - 2 * t - aisle) / 2 - 0.4;
+  if (pewW > 0.8) {
+    for (let z = altarZ + 3; z < fz - 3; z += 1.3) {
+      for (const sx of [-1, 1]) {
+        const x = sx * (aisle / 2 + pewW / 2);
+        P.box(pewW, 0.45, 0.45, x, y + 0.45, z, WOOD);
+        P.box(pewW, 0.5, 0.08, x, y + 0.85, z - 0.22, WOOD);
+        C.push({ x, z, hw: pewW / 2, hd: 0.3 });
+      }
+    }
+  }
+
+  // Façade over the door: gable, rose window, pilasters, cross.
   P.box(nw + 0.4, 0.5, 0.6, 0, y + nh + 0.2, fz, st.trim);
   const tri = new THREE.Shape([new THREE.Vector2(-nw / 2, 0), new THREE.Vector2(nw / 2, 0), new THREE.Vector2(0, nw * 0.32)]);
   P.add(new THREE.ExtrudeGeometry(tri, { depth: 0.5, bevelEnabled: false }).translate(0, y + nh + 0.4, fz - 0.3), st.wall);
-  P.box(nw * 0.2, nh * 0.45, 0.1, 0, y + nh * 0.225, fz + 0.05, DARK);
-  P.add(new THREE.CylinderGeometry(nw * 0.1, nw * 0.1, 0.1, 14).rotateX(Math.PI / 2).translate(0, y + nh * 0.68, fz + 0.06), 0x3b4f7a);
-  for (const px of [-nw / 2 + 0.3, -nw / 6, nw / 6, nw / 2 - 0.3]) P.box(0.5, nh, 0.3, px, y + nh / 2, fz + 0.1, st.trim);
-  // Cross on the gable.
+  P.add(new THREE.CylinderGeometry(nw * 0.1, nw * 0.1, 0.1, 14).rotateX(Math.PI / 2).translate(0, y + nh * 0.72, fz + 0.06), 0x3b4f7a);
+  for (const px of [-nw / 2 + 0.3, -doorW / 2 - 0.4, doorW / 2 + 0.4, nw / 2 - 0.3]) P.box(0.5, nh, 0.3, px, y + nh / 2, fz + 0.1, st.trim);
   P.box(0.15, 1.4, 0.15, 0, y + nh + nw * 0.32 + 1.1, fz - 0.05, st.trim);
   P.box(0.8, 0.15, 0.15, 0, y + nh + nw * 0.32 + 1.4, fz - 0.05, st.trim);
 
-  // Towers.
+  // Towers: a pair flanking the front, or one at the front corner (a
+  // Kerala church's bell tower), never across the door.
   const tw = Math.max(3, nw * 0.26);
   const th = nh * 1.7;
-  const towerAt = st.towers === 2 ? [-(nw / 2 + tw / 2 - 0.4), nw / 2 + tw / 2 - 0.4] : st.towers === 1 ? [0] : [];
-  for (const tx of towerAt) {
-    const tz = st.towers === 1 ? fz + tw / 2 : fz - tw / 2;
+  const towerAt: [number, number][] =
+    st.towers === 2
+      ? [[-(nw / 2 + tw / 2 - 0.4), fz - tw / 2], [nw / 2 + tw / 2 - 0.4, fz - tw / 2]]
+      : st.towers === 1
+        ? [[nw / 2 + tw / 2 - 0.4, fz - tw / 2]]
+        : [];
+  for (const [tx, tz] of towerAt) {
     P.box(tw, th, tw, tx, y + th / 2, tz, st.wall);
     for (let k = 1; k <= 3; k++) P.box(tw + 0.3, 0.3, tw + 0.3, tx, y + (th * k) / 4, tz, st.trim);
     P.box(tw * 0.35, tw * 0.6, 0.1, tx, y + th * 0.82, tz + tw / 2 + 0.05, DARK);
@@ -413,7 +479,8 @@ export function church(w: number, d: number, st: ChurchStyle): Monument {
     P.box(0.6, 0.12, 0.12, tx, y + th + tw * 1.6 + 0.75, tz, st.trim);
     C.push({ x: tx, z: tz, hw: tw / 2, hd: tw / 2 });
   }
-  return finish(P, C, Hs, { x: st.towers === 1 ? nw * 0.3 : 0, z: fz + (st.towers === 1 ? tw + 1.5 : 1.8) });
+  // The priest stands before the altar step, facing the door.
+  return finish(P, C, Hs, { x: 0, z: altarZ + 2.2 });
 }
 
 /* ------------------------------------------------------------------ *

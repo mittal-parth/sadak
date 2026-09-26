@@ -17,6 +17,7 @@ import { offsetPolyline, trimPolyline, polylineLength, footpathStrips, isDrivabl
 import { createTraffic } from "./world/traffic";
 import { buildLandmark, placeLandmarks } from "./world/landmarks";
 import { planRoute } from "./world/route";
+import { reachesInside } from "./world/reach";
 import { medians } from "./world/roads";
 import { marketStalls, MAX_STALLS } from "./world/market";
 import { createFlocks, flockCounts, flockSites } from "./world/birds";
@@ -681,6 +682,29 @@ test("you can walk under Charminar's arches and into a cinema's forecourt, not t
   // Just inside the front edge of the footprint: under the marquee.
   assert.equal(cw.blocked(...at(cinema, 0, cinema.d / 2 - 1.5), 0.35), false, "the forecourt is walled off");
   assert.equal(cw.blocked(...at(cinema, 0, 0), 0.1), true, "the hall is not solid");
+});
+
+test("every monument can be walked into from the street, and stands inside its map", () => {
+  // Rebuilt in the Amritsar pass: the Golden Temple's ring of buildings is
+  // one OSM footprint that walls the Akal Takht in.
+  const pending = new Set(["Sri Akal Takht Sahib"]);
+  for (const d of SEED_DISTRICTS) {
+    const map = loadMap(d.id);
+    const world = new CollisionWorld();
+    for (const p of map.plots) world.box(p.x, p.z, p.w / 2, p.d / 2, p.rot);
+    for (const b of map.buildings) if (!b.canopy) world.add({ kind: "poly", outer: b.pts, holes: b.holes ?? [] });
+    const { inners } = placeLandmarks(map.landmarks, d.theme.landmark, world, new HeightField(map.half));
+    for (const inner of inners) {
+      const l = map.landmarks.find((x) => x.name === inner.name)!;
+      for (const [u, v] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+        const x = l.x + (u * l.w * Math.cos(l.rot)) / 2 + (v * l.d * Math.sin(l.rot)) / 2;
+        const z = l.z - (u * l.w * Math.sin(l.rot)) / 2 + (v * l.d * Math.cos(l.rot)) / 2;
+        assert.ok(Math.abs(x) <= map.half && Math.abs(z) <= map.half, `${d.id}: ${l.name} runs off the map`);
+      }
+      if (pending.has(l.name)) continue;
+      assert.ok(reachesInside(world, l, inner), `${d.id}: ${l.name} cannot be walked into`);
+    }
+  }
 });
 
 test("footpaths stop short of junctions", () => {

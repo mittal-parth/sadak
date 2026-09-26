@@ -87,9 +87,11 @@ const SMALL_TEMPLE: [number, number] = [9, 9];
 export const OSM_CITIES: OsmCity[] = [
   {
     id: "purani-sadak",
-    lat: 28.6535,
+    lat: 28.65323,
     lon: 77.2335,
-    half: MAP_HALF,
+    // 800m: Chandni Chowk along the north, the whole of the Jama Masjid to the
+    // south.
+    half: 400,
     fill: { width: [3.5, 7], depth: [8, 14], floors: [2, 4], shop: 0.95, laneWidth: 4.5, courtyards: 0.05 },
     landmarks: [
       { match: /^Jama Masjid$/, model: "jama_masjid" },
@@ -229,8 +231,10 @@ export const OSM_CITIES: OsmCity[] = [
   },
   {
     id: "manek-chowk",
+    // The old city's spine, west to east: Teen Darwaza, the Jama Masjid,
+    // Ahmad Shah's tomb, the queens' tombs and Manek Chowk.
     lat: 23.0245,
-    lon: 72.5855,
+    lon: 72.58657,
     half: MAP_HALF,
     fill: { width: [3.5, 7], depth: [8, 13], floors: [2, 4], shop: 0.85, laneWidth: 4.5, courtyards: 0.05 },
     landmarks: [
@@ -267,7 +271,7 @@ export const OSM_CITIES: OsmCity[] = [
   {
     id: "lingaraj-lane",
     lat: 20.2395,
-    lon: 85.835,
+    lon: 85.83443,
     half: MAP_HALF,
     fill: { width: [6, 10], depth: [9, 14], floors: [1, 2], shop: 0.35, laneWidth: 5.5, courtyards: 0.3 },
     landmarks: [

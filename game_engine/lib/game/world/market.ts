@@ -73,6 +73,7 @@ export function marketStalls(
   blocked: (x: number, z: number, r: number) => boolean
 ): { area: MapArea; stalls: StallSpot[] }[] {
   const keepClear = [map.spawn, ...Object.values(map.spots), ...Object.values(map.errandSpots)];
+  const doors = map.landmarks.flatMap((l) => (l.door ? [l.door] : []));
   const roads = map.roads.filter((r) => r.cls !== "footway" && r.cls !== "steps" && r.cls !== "pedestrian");
   const onRoad = (x: number, z: number) =>
     roads.some((r) =>
@@ -123,6 +124,8 @@ export function marketStalls(
           if (!inArea(x, z, a) || !corners.every(([px, pz]) => inArea(px, pz, a))) continue;
           if (blocked(x, z, 1.4) || onRoad(x, z)) continue;
           if (keepClear.some((s) => Math.hypot(s.x - x, s.z - z) < 5)) continue;
+          // Never across a monument's gate.
+          if (doors.some(([dx, dz]) => Math.hypot(dx - x, dz - z) < 10)) continue;
           // Facing the aisle: local +z toward it.
           stalls.push({ x, z, rot: Math.atan2(vx * face, vz * face) });
         }

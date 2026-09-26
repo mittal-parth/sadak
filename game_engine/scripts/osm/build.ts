@@ -26,6 +26,7 @@ import { fileURLToPath } from "node:url";
 import { OSM_CITIES, type OsmCity } from "./cities";
 import { planRoute, reachShare } from "../../lib/game/world/route";
 import { BARBER_PLOT } from "../../lib/game/barber";
+import { modelExtent } from "../../lib/game/world/extent";
 import { polylineLength } from "../../lib/game/world/roads";
 import type {
   MapArea,
@@ -403,7 +404,42 @@ function streetWall(b: MapBuilding, p: { x: number; z: number; name?: string }, 
 const MAX_NAMED_SIGNS = 40;
 
 /** Footprint landmarks whose front is on the street. */
-const FACE_STREET = new Set(["cinema", "colonial", "church", "church_small", "basilica"]);
+const FACE_STREET = new Set([
+  "cinema",
+  "colonial",
+  "church",
+  "church_small",
+  "basilica",
+  "temple",
+  "deul_small",
+  "gurdwara_small",
+  "mosque_small",
+  "dargah",
+  "tomb",
+  "shrine",
+]);
+
+/** Where the great gates really are: India's congregational mosques pray
+ *  west and open east; Lingaraj's Lion Gate and the Akal Takht face east. */
+const MODEL_FACES: Record<string, number> = { jama_masjid: 90, lingaraj: 90, akal_takht: 90 };
+
+/** Monuments with a stair or gate at local +z that you walk into. */
+const HAS_DOOR = new Set([
+  "jama_masjid",
+  "mosque_small",
+  "dargah",
+  "temple",
+  "deul_small",
+  "lingaraj",
+  "gurdwara_small",
+  "akal_takht",
+  "church",
+  "church_small",
+  "basilica",
+  "tomb",
+  "gopuram_temple",
+  "shrine",
+]);
 
 /** Landmark models that stand in or over the carriageway: a fountain or a
  *  pigeon house on a traffic island, a gateway the street runs through. */
@@ -830,11 +866,15 @@ function compile(city: OsmCity): MapData {
   for (const { e, outer: ring, holes } of footprints) {
     const name = nameOf(e.tags);
     const rule = ruleFor(name);
-    if (rule && name && !claimed.has(`${rule.model}:${name.toLowerCase()}`)) {
+    // A landmark the map edge has cut to a sliver is just a building here.
+    const cutByEdge = ring.some(([x, z]) => Math.abs(x) >= H - 0.5 || Math.abs(z) >= H - 0.5);
+    const sliver = cutByEdge && Math.min(orientedBox(ring).w, orientedBox(ring).d) < 6;
+    if (rule && name && !sliver && !claimed.has(`${rule.model}:${name.toLowerCase()}`)) {
       claimed.add(`${rule.model}:${name.toLowerCase()}`);
+      const faces = rule.faces ?? MODEL_FACES[rule.model];
       const box =
-        rule.faces !== undefined
-          ? facing(orientedBox(ring), rule.faces)
+        faces !== undefined
+          ? facing(orientedBox(ring), faces)
           : FACE_STREET.has(rule.model)
             ? towardStreet(orientedBox(ring))
             : orientedBox(ring);
@@ -873,7 +913,8 @@ function compile(city: OsmCity): MapData {
     if (!rule || !name || claimed.has(`${rule.model}:${name.toLowerCase()}`)) continue;
     let [x, z] = P(e);
     if (Math.abs(x) > H - 5 || Math.abs(z) > H - 5) continue;
-    const [w, d] = rule.size ?? [10, 10];
+    // Placed and fenced at the size its model really is.
+    const [w, d] = modelExtent(rule.model, ...(rule.size ?? [10, 10]));
     // The same place again as a point, beside its own footprint.
     if (landmarks.some((l) => l.model === rule.model && Math.hypot(l.x - x, l.z - z) < Math.max(l.w, l.d) / 2 + 15)) continue;
     claimed.add(`${rule.model}:${name.toLowerCase()}`);
@@ -920,6 +961,42 @@ function compile(city: OsmCity): MapData {
     const rot = Math.atan2(n.dir[0], n.dir[1]);
     landmarks.push({ model: piece.model, name: piece.name, x: r1(x), z: r1(z), rot: +rot.toFixed(3), w, d });
     grid.markBox(x, z, rot, w + 2, d + 2, BUILT);
+  }
+
+  // The models replace the OSM buildings under them (a mosque's own gates
+  // and prayer hall, mapped as buildings, would otherwise wall off its
+  // courtyard); the rest of a big compound keeps its real buildings.
+  // (A bus stand, a memorial garden or a promenade is open ground hosting
+  // real buildings: its platform roofs and pavilions stay.)
+  const HOSTS_BUILDINGS = new Set(["bus_station", "memorial_garden", "promenade", "fishing_nets"]);
+  const underModel = (x: number, z: number) =>
+    landmarks.some((l) => {
+      if (HOSTS_BUILDINGS.has(l.model)) return false;
+      const [mw, md] = modelExtent(l.model, l.w, l.d);
+      const c = Math.cos(l.rot);
+      const s = Math.sin(l.rot);
+      const u = (x - l.x) * c - (z - l.z) * s;
+      const v = (x - l.x) * s + (z - l.z) * c;
+      return Math.abs(u) < mw / 2 + 1 && Math.abs(v) < md / 2 + 1;
+    });
+  for (let i = buildings.length - 1; i >= 0; i--) {
+    const [cx, cz] = centroid(buildings[i].pts);
+    if (underModel(cx, cz)) buildings.splice(i, 1);
+  }
+
+  // Every monument you walk into gets its door, and a clear way from the
+  // door to the nearest street, so no plot is built across it.
+  for (const l of landmarks) {
+    if (!HAS_DOOR.has(l.model)) continue;
+    const door = frontOf(l, 1.5);
+    l.door = [r1(door[0]), r1(door[1])];
+    let best: ReturnType<typeof nearestOnPolyline> | null = null;
+    for (const r of roads) {
+      if (r.cls === "steps") continue;
+      const n = nearestOnPolyline(r.pts, door);
+      if (!best || n.dist < best.dist) best = n;
+    }
+    if (best && best.dist < 80) grid.stroke([door, best.pt], 2.5, RESERVED);
   }
 
   /* ---- spawn and task spots ---- */
@@ -1010,10 +1087,14 @@ function compile(city: OsmCity): MapData {
     if (!road.length) throw new Error(`${city.id}: shrine road ${city.shrineOn} not in the extract`);
     const onRoad = kerbSpot([spawn.x + 40, spawn.z + 40], (r) => road.includes(r));
     // The shrine stands just behind the stall, off the footpath.
-    const sx = onRoad.x + Math.sin(onRoad.yaw) * 5;
-    const sz = onRoad.z + Math.cos(onRoad.yaw) * 5;
-    landmarks.push({ model: "shrine", name: "Wayside mandir", x: r1(sx), z: r1(sz), rot: +(onRoad.yaw + Math.PI).toFixed(3), w: 5, d: 5 });
-    grid.markBox(sx, sz, onRoad.yaw, 7, 7, BUILT);
+    const [shw, shd] = modelExtent("shrine", 5, 5);
+    const sx = onRoad.x + Math.sin(onRoad.yaw) * (shd / 2 + 2);
+    const sz = onRoad.z + Math.cos(onRoad.yaw) * (shd / 2 + 2);
+    const shrine: MapLandmark = { model: "shrine", name: "Wayside mandir", x: r1(sx), z: r1(sz), rot: +(onRoad.yaw + Math.PI).toFixed(3), w: shw, d: shd };
+    const door = frontOf(shrine, 1.5);
+    shrine.door = [r1(door[0]), r1(door[1])];
+    landmarks.push(shrine);
+    grid.markBox(sx, sz, onRoad.yaw, shw + 2, shd + 2, BUILT);
     templeSpot = onRoad;
   }
 

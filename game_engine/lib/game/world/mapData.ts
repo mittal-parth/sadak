@@ -90,6 +90,9 @@ export type MapLandmark = {
   /** Oriented footprint extents. */
   w: number;
   d: number;
+  /** The foot of the main stair or gate (on local +z), for monuments you
+   *  walk into; the compiler keeps a path from it to the street clear. */
+  door?: Pt;
 };
 
 export type AreaKind = "water" | "park" | "beach" | "plaza" | "market" | "pitch" | "sea";

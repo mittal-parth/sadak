@@ -21,6 +21,7 @@ import {
 import type { MapLandmark } from "./mapData";
 import type { CollisionWorld } from "./collide";
 import type { HeightField } from "./height";
+import { modelExtent } from "./extent";
 import {
   busStation,
   church,
@@ -125,16 +126,16 @@ export function buildLandmark(l: MapLandmark, city: Landmark, clear?: ClearTest)
     case "jama_masjid":
       return mosque(w, d, ms);
     case "mosque_small":
-      return smallMosque(Math.min(w, 26), Math.min(d, 26), ms);
+      return smallMosque(...modelExtent(l.model, w, d), ms);
     case "dargah":
-      return smallMosque(Math.min(w, 18), Math.min(d, 18), { ...ms, dome: 0x2e8b57, accent: 0x2e8b57, stone: 0xf2efe6 });
+      return smallMosque(...modelExtent(l.model, w, d), { ...ms, dome: 0x2e8b57, accent: 0x2e8b57, stone: 0xf2efe6 });
     case "tomb":
-      return tomb(Math.min(w, 40), Math.min(d, 40), ms);
+      return tomb(...modelExtent(l.model, w, d), ms);
     case "temple":
     case "shrine":
-      return temple(Math.max(6, Math.min(w, 22)), Math.max(7, Math.min(d, 26)), ts);
+      return temple(...modelExtent(l.model, w, d), ts);
     case "deul_small":
-      return temple(Math.max(7, Math.min(w, 14)), Math.max(8, Math.min(d, 16)), TEMPLE.bhubaneswar!);
+      return temple(...modelExtent(l.model, w, d), TEMPLE.bhubaneswar!);
     case "lingaraj":
       return temple(w, d, { ...TEMPLE.bhubaneswar!, compound: true, tower: 2.6 });
     case "gopuram_temple": {
@@ -146,14 +147,14 @@ export function buildLandmark(l: MapLandmark, city: Landmark, clear?: ClearTest)
       return m;
     }
     case "church_small":
-      return church(Math.min(w, 22), Math.min(d, 32), { wall: 0xf4efe4, trim: 0xd9c9a8, roof: 0x9b3b2f, towers: 1 });
+      return church(...modelExtent(l.model, w, d), { wall: 0xf4efe4, trim: 0xd9c9a8, roof: 0x9b3b2f, towers: 1 });
     case "church":
       return church(w, d, { wall: 0xf4efe4, trim: 0xd9c9a8, roof: 0x7a3a2f, towers: 1 });
     case "basilica":
       // Santa Cruz: pale with twin spires.
       return church(w, d, { wall: 0xf6f2ea, trim: 0xb9a57c, roof: 0x5c6f8f, towers: 2 });
     case "gurdwara_small":
-      return gurdwara(Math.min(w, 26), Math.min(d, 26), { storeys: 2, gold: false, nishan: true });
+      return gurdwara(...modelExtent(l.model, w, d), { storeys: 2, gold: false, nishan: true });
     case "harmandir_sahib":
       return gurdwara(w, d, { storeys: 2, gold: true, nishan: false });
     case "akal_takht":
