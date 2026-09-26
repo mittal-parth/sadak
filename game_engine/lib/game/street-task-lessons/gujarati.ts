@@ -121,14 +121,23 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
     easy: [
       s("આવો, બેસો. શું કરવાનું છે?", "Aavo, beso. Shu karvaanu chhe?", "Come, sit. What needs doing?", "વાળ કાપી આપો", "Vaal kaapi aapo", "Please cut my hair"),
       s("ઠીક છે, થોડી રાહ જોવી પડશે", "Thik chhe, thodi raah jovi padshe", "Alright, you'll have to wait a bit", "કેટલો સમય લાગશે?", "Ketlo samay laagshe?", "How long will it take?"),
+      s("દસ મિનિટ", "Das minit", "Ten minutes", "ઠીક છે, રાહ જોઉં છું", "Thik chhe, raah jou chhu", "Okay, I'll wait"),
     ],
     medium: [
       s("આવો, બેસો. શું કરવાનું છે?", "Aavo, beso. Shu karvaanu chhe?", "Come, sit. What needs doing?", "વાળ કાપી આપો", "Vaal kaapi aapo", "Please cut my hair"),
       s("ઠીક છે, થોડી રાહ જોવી પડશે", "Thik chhe, thodi raah jovi padshe", "Alright, you'll have to wait a bit", "કેટલો સમય લાગશે?", "Ketlo samay laagshe?", "How long will it take?"),
+      s("દસ મિનિટ", "Das minit", "Ten minutes", "ઠીક છે, રાહ જોઉં છું", "Thik chhe, raah jou chhu", "Okay, I'll wait"),
+      s("થઈ ગયું. કેવું લાગે છે?", "Thai gayu. Kevu laage chhe?", "Done. How does it look?", "સરસ! કેટલા થયા?", "Saras! Ketlaa thayaa?", "Very nice! How much?"),
+      s("એંસી રૂપિયા", "Ensi rupiya", "Eighty rupees", "લો, આભાર", "Lo, aabhaar", "Here you go, thank you"),
     ],
     hard: [
       s("આવો, બેસો. શું કરવાનું છે?", "Aavo, beso. Shu karvaanu chhe?", "Come, sit. What needs doing?", "વાળ કાપી આપો", "Vaal kaapi aapo", "Please cut my hair"),
       s("ઠીક છે, થોડી રાહ જોવી પડશે", "Thik chhe, thodi raah jovi padshe", "Alright, you'll have to wait a bit", "કેટલો સમય લાગશે?", "Ketlo samay laagshe?", "How long will it take?"),
+      s("દસ મિનિટ", "Das minit", "Ten minutes", "ઠીક છે, રાહ જોઉં છું", "Thik chhe, raah jou chhu", "Okay, I'll wait"),
+      s("ટૂંકા કરું કે થોડા સરખા?", "Tunka karu ke thoda sarkha?", "Short, or just a trim?", "થોડા સરખા કરો", "Thoda sarkha karo", "Just a trim"),
+      s("દાઢી પણ કરું?", "Daadhi pan karu?", "Shave as well?", "ના, ફક્ત વાળ", "Naa, fakt vaal", "No, just the haircut"),
+      s("થઈ ગયું. કેવું લાગે છે?", "Thai gayu. Kevu laage chhe?", "Done. How does it look?", "સરસ! કેટલા થયા?", "Saras! Ketlaa thayaa?", "Very nice! How much?"),
+      s("એંસી રૂપિયા", "Ensi rupiya", "Eighty rupees", "લો, આભાર", "Lo, aabhaar", "Here you go, thank you"),
     ],
   },
   "manek-chowk-masjid": {

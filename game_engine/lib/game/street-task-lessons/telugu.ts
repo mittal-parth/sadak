@@ -121,14 +121,23 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
     easy: [
       s("రండి, కూర్చోండి. ఏం చేయాలి?", "Randi, koorchondi. Em cheyaali?", "Come, sit. What should I do?", "జుట్టు కత్తిరించండి", "Juttu kattirinchandi", "Please cut my hair"),
       s("సరే, కొంచెం ఆగాలి", "Sare, konchem aagaali", "Okay, you'll have to wait a bit", "ఎంత సమయం పడుతుంది?", "Enta samayam padutundi?", "How long will it take?"),
+      s("పది నిమిషాలు", "Padi nimishaalu", "Ten minutes", "సరే, ఆగుతాను", "Sare, aagutaanu", "Okay, I'll wait"),
     ],
     medium: [
       s("రండి, కూర్చోండి. ఏం చేయాలి?", "Randi, koorchondi. Em cheyaali?", "Come, sit. What should I do?", "జుట్టు కత్తిరించండి", "Juttu kattirinchandi", "Please cut my hair"),
       s("సరే, కొంచెం ఆగాలి", "Sare, konchem aagaali", "Okay, you'll have to wait a bit", "ఎంత సమయం పడుతుంది?", "Enta samayam padutundi?", "How long will it take?"),
+      s("పది నిమిషాలు", "Padi nimishaalu", "Ten minutes", "సరే, ఆగుతాను", "Sare, aagutaanu", "Okay, I'll wait"),
+      s("అయిపోయింది. ఎలా ఉంది?", "Ayipoyindi. Elaa undi?", "Done. How does it look?", "చాలా బాగుంది! ఎంత?", "Chaalaa baagundi! Enta?", "Very nice! How much?"),
+      s("ఎనభై రూపాయలు", "Enabhai roopaayalu", "Eighty rupees", "ఇదిగో, ధన్యవాదాలు", "Idigo, dhanyavaadaalu", "Here you go, thank you"),
     ],
     hard: [
       s("రండి, కూర్చోండి. ఏం చేయాలి?", "Randi, koorchondi. Em cheyaali?", "Come, sit. What should I do?", "జుట్టు కత్తిరించండి", "Juttu kattirinchandi", "Please cut my hair"),
       s("సరే, కొంచెం ఆగాలి", "Sare, konchem aagaali", "Okay, you'll have to wait a bit", "ఎంత సమయం పడుతుంది?", "Enta samayam padutundi?", "How long will it take?"),
+      s("పది నిమిషాలు", "Padi nimishaalu", "Ten minutes", "సరే, ఆగుతాను", "Sare, aagutaanu", "Okay, I'll wait"),
+      s("పొట్టిగానా, కొంచెం సరిచేయాలా?", "Pottigaanaa, konchem saricheyaalaa?", "Short, or just a trim?", "కొంచెం సరిచేయండి", "Konchem saricheyandi", "Just a trim"),
+      s("షేవింగ్ కూడా చేయాలా?", "Shaving kooda cheyaalaa?", "Shave as well?", "వద్దు, జుట్టు మాత్రమే", "Vaddu, juttu maatrame", "No, just the haircut"),
+      s("అయిపోయింది. ఎలా ఉంది?", "Ayipoyindi. Elaa undi?", "Done. How does it look?", "చాలా బాగుంది! ఎంత?", "Chaalaa baagundi! Enta?", "Very nice! How much?"),
+      s("ఎనభై రూపాయలు", "Enabhai roopaayalu", "Eighty rupees", "ఇదిగో, ధన్యవాదాలు", "Idigo, dhanyavaadaalu", "Here you go, thank you"),
     ],
   },
 };

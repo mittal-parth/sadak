@@ -29,13 +29,13 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
     easy: [
       s("কী নেবেন?", "Ki neben?", "What will you take?", "দুটো শিঙ্গারা আর একটা কচুরি", "Duto shingara ar ekta kachori", "Two singaras and one kachori"),
       s("গরম গরম!", "Garam garam!", "Hot hot!", "ঠিক আছে, অপেক্ষা করছি", "Thik ache, opekkha korchi", "Okay, I'm waiting"),
-      s("চল্লিশ টাকা", "Chollish taka", "Forty taka", "নিন, ধন্যবাদ", "Nin, dhonnobad", "Take it, thank you"),
+      s("চল্লিশ টাকা", "Chollish taka", "Forty rupees", "নিন, ধন্যবাদ", "Nin, dhonnobad", "Take it, thank you"),
     ],
     medium: [
       s("কী নেবেন?", "Ki neben?", "What will you take?", "দুটো শিঙ্গারা আর একটা কচুরি", "Duto shingara ar ekta kachori", "Two singaras and one kachori"),
       s("চা?", "Cha?", "Tea?", "হ্যাঁ, এক কাপ", "Hyaa, ek kap", "Yes, one cup"),
       s("ঠিক আছে", "Thik ache", "Okay", "কত?", "Koto?", "How much?"),
-      s("চল্লিশ টাকা", "Chollish taka", "Forty taka", "নিন", "Nin", "Take it"),
+      s("চল্লিশ টাকা", "Chollish taka", "Forty rupees", "নিন", "Nin", "Take it"),
       s("ধন্যবাদ", "Dhonnobad", "Thank you", "আবার আসবেন", "Abar asben", "Come again"),
     ],
     hard: [
@@ -43,7 +43,7 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
       s("চা?", "Cha?", "Tea?", "হ্যাঁ, এক কাপ", "Hyaa, ek kap", "Yes, one cup"),
       s("মিষ্টি চা নাকি?", "Mishti cha naki?", "Sweet tea or not?", "না, সাদা চা", "Na, sada cha", "No, plain tea"),
       s("ঠিক আছে", "Thik ache", "Okay", "কত?", "Koto?", "How much?"),
-      s("চল্লিশ টাকা", "Chollish taka", "Forty taka", "নিন", "Nin", "Take it"),
+      s("চল্লিশ টাকা", "Chollish taka", "Forty rupees", "নিন", "Nin", "Take it"),
       s("গরম গরম!", "Garam garam!", "Hot hot!", "ধন্যবাদ", "Dhonnobad", "Thank you"),
       s("নিন", "Nin", "Take it", "ধন্যবাদ", "Dhonnobad", "Thank you"),
     ],
@@ -74,24 +74,24 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
   "park-gully-bus": {
     easy: [
       s("কোথায়?", "Kothay?", "Where to?", "এসপ্ল্যানেড", "Esplanade", "Esplanade"),
-      s("দশ টাকা", "Dash taka", "Ten taka", "নিন", "Nin", "Take it"),
-      s("যান", "Jan", "Go", "ধন্যবাদ", "Dhonnobad", "Thank you"),
+      s("দশ টাকা", "Dash taka", "Ten rupees", "নিন", "Nin", "Take it"),
+      s("ভেতরে চলুন", "Bhetore cholun", "Move inside", "ঠিক আছে, ধন্যবাদ", "Thik ache, dhonnobad", "Okay, thank you"),
     ],
     medium: [
       s("কোথায়?", "Kothay?", "Where to?", "এসপ্ল্যানেড", "Esplanade", "Esplanade"),
-      s("ট্রাম আসছে!", "Tram asche!", "Tram is coming!", "ঠিক আছে, ট্রামে উঠব", "Thik ache, trame uthbo", "Okay, I'll board the tram"),
+      s("উঠে পড়ুন, তাড়াতাড়ি!", "Uthe porun, taratari!", "Get on, quick!", "ঠিক আছে, উঠছি", "Thik ache, uthchi", "Okay, I'm getting on"),
       s("ঠিক আছে", "Thik ache", "Okay", "কত?", "Koto?", "How much?"),
-      s("দশ টাকা", "Dash taka", "Ten taka", "নিন", "Nin", "Take it"),
-      s("যান", "Jan", "Go", "ধন্যবাদ", "Dhonnobad", "Thank you"),
+      s("দশ টাকা", "Dash taka", "Ten rupees", "নিন", "Nin", "Take it"),
+      s("ভেতরে চলুন", "Bhetore cholun", "Move inside", "ঠিক আছে, ধন্যবাদ", "Thik ache, dhonnobad", "Okay, thank you"),
     ],
     hard: [
       s("কোথায়?", "Kothay?", "Where to?", "এসপ্ল্যানেড", "Esplanade", "Esplanade"),
-      s("ট্রাম আসছে!", "Tram asche!", "Tram is coming!", "ঠিক আছে, ট্রামে উঠব", "Thik ache, trame uthbo", "Okay, I'll board the tram"),
+      s("উঠে পড়ুন, তাড়াতাড়ি!", "Uthe porun, taratari!", "Get on, quick!", "ঠিক আছে, উঠছি", "Thik ache, uthchi", "Okay, I'm getting on"),
       s("ঠিক আছে", "Thik ache", "Okay", "একটা টিকিট", "Ekta ticket", "One ticket"),
       s("ঠিক আছে", "Thik ache", "Okay", "কত?", "Koto?", "How much?"),
-      s("দশ টাকা", "Dash taka", "Ten taka", "নিন", "Nin", "Take it"),
+      s("দশ টাকা", "Dash taka", "Ten rupees", "নিন", "Nin", "Take it"),
       s("খুচরো আছে?", "Khuchro ache?", "Got change?", "হ্যাঁ, নিন", "Hyaa, nin", "Yes, take it"),
-      s("যান", "Jan", "Go", "ধন্যবাদ", "Dhonnobad", "Thank you"),
+      s("ভেতরে চলুন", "Bhetore cholun", "Move inside", "ঠিক আছে, ধন্যবাদ", "Thik ache, dhonnobad", "Okay, thank you"),
     ],
   },
   "park-gully-roll": {
@@ -121,14 +121,23 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
     easy: [
       s("আসুন, বসুন। কী করতে হবে?", "Aashun, boshun. Ki korte hobe?", "Come, sit. What needs doing?", "চুল কেটে দিন", "Chul kete din", "Please cut my hair"),
       s("ঠিক আছে, একটু অপেক্ষা করতে হবে", "Thik achhe, ektu opekkha korte hobe", "Alright, you'll have to wait a little", "কত সময় লাগবে?", "Koto shomoy laagbe?", "How long will it take?"),
+      s("দশ মিনিট", "Dosh minit", "Ten minutes", "ঠিক আছে, অপেক্ষা করছি", "Thik achhe, opekkha korchhi", "Okay, I'll wait"),
     ],
     medium: [
       s("আসুন, বসুন। কী করতে হবে?", "Aashun, boshun. Ki korte hobe?", "Come, sit. What needs doing?", "চুল কেটে দিন", "Chul kete din", "Please cut my hair"),
       s("ঠিক আছে, একটু অপেক্ষা করতে হবে", "Thik achhe, ektu opekkha korte hobe", "Alright, you'll have to wait a little", "কত সময় লাগবে?", "Koto shomoy laagbe?", "How long will it take?"),
+      s("দশ মিনিট", "Dosh minit", "Ten minutes", "ঠিক আছে, অপেক্ষা করছি", "Thik achhe, opekkha korchhi", "Okay, I'll wait"),
+      s("হয়ে গেছে। কেমন লাগছে?", "Hoye gechhe. Kemon laagchhe?", "Done. How does it look?", "খুব ভালো! কত হল?", "Khub bhalo! Koto holo?", "Very nice! How much?"),
+      s("আশি টাকা", "Aashi taka", "Eighty rupees", "এই নিন, ধন্যবাদ", "Ei nin, dhonnobad", "Here you go, thank you"),
     ],
     hard: [
       s("আসুন, বসুন। কী করতে হবে?", "Aashun, boshun. Ki korte hobe?", "Come, sit. What needs doing?", "চুল কেটে দিন", "Chul kete din", "Please cut my hair"),
       s("ঠিক আছে, একটু অপেক্ষা করতে হবে", "Thik achhe, ektu opekkha korte hobe", "Alright, you'll have to wait a little", "কত সময় লাগবে?", "Koto shomoy laagbe?", "How long will it take?"),
+      s("দশ মিনিট", "Dosh minit", "Ten minutes", "ঠিক আছে, অপেক্ষা করছি", "Thik achhe, opekkha korchhi", "Okay, I'll wait"),
+      s("ছোট, না শুধু একটু ছাঁটা?", "Chhoto, na shudhu ektu chhaanta?", "Short, or just a trim?", "শুধু একটু ছাঁটুন", "Shudhu ektu chhaatun", "Just a trim"),
+      s("দাড়িও কামাবো?", "Daario kamabo?", "Shave as well?", "না, শুধু চুল", "Na, shudhu chul", "No, just the haircut"),
+      s("হয়ে গেছে। কেমন লাগছে?", "Hoye gechhe. Kemon laagchhe?", "Done. How does it look?", "খুব ভালো! কত হল?", "Khub bhalo! Koto holo?", "Very nice! How much?"),
+      s("আশি টাকা", "Aashi taka", "Eighty rupees", "এই নিন, ধন্যবাদ", "Ei nin, dhonnobad", "Here you go, thank you"),
     ],
   },
 };

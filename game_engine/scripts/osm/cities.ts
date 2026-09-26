@@ -181,7 +181,9 @@ export const OSM_CITIES: OsmCity[] = [
     busNear: /Kempegowda Bus Station/,
     temple: /Annammadevi/,
     shopStreet: /Subedar Chatram|Cottonpete|Balepet/,
-    errands: [{ id: "majestic-cross-metro", at: /Nadaprabhu Kempegowda Station, Majestic$/ }],
+    // The counter at the metro's A1 stairs by the railway station, not out
+    // on a service road 50m from any stair down.
+    errands: [{ id: "majestic-cross-metro", at: /^A1: KSR Railway Station$/ }],
   },
   {
     id: "park-gully",
@@ -199,7 +201,8 @@ export const OSM_CITIES: OsmCity[] = [
     // Park Street's own place of worship (the extract maps no mandir).
     temple: /^Saint Thomas' Catholic Church$/,
     shopStreet: /Park Street|Mirza Ghalib/,
-    errands: [{ id: "park-gully-roll", at: /^Mocambo$/ }],
+    // Kusum, the Park Street roll counter (Mocambo is a sit-down restaurant).
+    errands: [{ id: "park-gully-roll", at: /^Kusum Rolls$/ }],
   },
   {
     id: "charminar-lane",
@@ -243,7 +246,9 @@ export const OSM_CITIES: OsmCity[] = [
     temple: /Santa Cruz Cathedral/,
     shopStreet: /Princess Street|Bastian Street/,
     errands: [
-      { id: "fort-kochi-ferry", at: /Junkar Jetty|^Jetty$/ },
+      // The Vypin boats leave from the Junkar jetty at the point; the
+      // Customs jetty to the east serves Ernakulam.
+      { id: "fort-kochi-ferry", at: /^Fort Kochi Junkar Jetty$/ },
       { id: "fort-kochi-catch", at: /^Chinese Fishing Nets$/ },
     ],
   },

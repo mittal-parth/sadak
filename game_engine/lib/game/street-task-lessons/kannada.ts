@@ -4,19 +4,19 @@ import { s } from "./types";
 export const LESSONS: Record<string, StreetTaskLessons> = {
   "majestic-cross-auto": {
     easy: [
-      s("ಎಲ್ಲಿಗೆ?", "Ellige?", "Where to?", "ಮೆಜೆಸ್ಟಿಕ್ ಬಸ್ ಸ್ಟ್ಯಾಂಡ್", "Majestic bus stand", "Majestic bus stand"),
+      s("ಎಲ್ಲಿಗೆ?", "Ellige?", "Where to?", "ಲಾಲ್‌ಬಾಗ್", "Lalbagh", "Lalbagh"),
       s("ಒಪ್ಪಿಗೆ, ಬನ್ನಿ", "Oppige, banni", "Agreed, come", "ಧನ್ಯವಾದ", "Dhanyavaada", "Thank you"),
       s("ಬನ್ನಿ", "Banni", "Come", "ಸರಿ", "Sari", "Okay"),
     ],
     medium: [
-      s("ಎಲ್ಲಿಗೆ?", "Ellige?", "Where to?", "ಮೆಜೆಸ್ಟಿಕ್ ಬಸ್ ಸ್ಟ್ಯಾಂಡ್", "Majestic bus stand", "Majestic bus stand"),
+      s("ಎಲ್ಲಿಗೆ?", "Ellige?", "Where to?", "ಲಾಲ್‌ಬಾಗ್", "Lalbagh", "Lalbagh"),
       s("ಟ್ರಾಫಿಕ್ ಜಾಸ್ತಿ ಇದೆ!", "Traffic jaasti ide!", "Traffic is heavy!", "ಸರಿ, ಸಮಯ ಆಗುತ್ತೆ", "Sari, samaya agutte", "Okay, time is tight"),
       s("ಸರಿ", "Sari", "Okay", "ಎಷ್ಟು?", "Eshtu?", "How much?"),
       s("ನೂರು ರೂಪಾಯಿ", "Nuru rupaayi", "Hundred rupees", "ಸರಿ, ಇದು", "Sari, idu", "Okay, here"),
       s("ಒಪ್ಪಿಗೆ, ಬನ್ನಿ", "Oppige, banni", "Agreed, come", "ಧನ್ಯವಾದ", "Dhanyavaada", "Thank you"),
     ],
     hard: [
-      s("ಎಲ್ಲಿಗೆ?", "Ellige?", "Where to?", "ಮೆಜೆಸ್ಟಿಕ್ ಬಸ್ ಸ್ಟ್ಯಾಂಡ್", "Majestic bus stand", "Majestic bus stand"),
+      s("ಎಲ್ಲಿಗೆ?", "Ellige?", "Where to?", "ಲಾಲ್‌ಬಾಗ್", "Lalbagh", "Lalbagh"),
       s("ಟ್ರಾಫಿಕ್ ಜಾಸ್ತಿ ಇದೆ!", "Traffic jaasti ide!", "Traffic is heavy!", "ಸರಿ, ಸಮಯ ಆಗುತ್ತೆ", "Sari, samaya agutte", "Okay, time is tight"),
       s("ಸರಿ", "Sari", "Okay", "ಎಷ್ಟು?", "Eshtu?", "How much?"),
       s("ನೂರು ರೂಪಾಯಿ", "Nuru rupaayi", "Hundred rupees", "ಸ್ವಲ್ಪ ಕಡಿಮೆ", "Swalpa kadime", "A little less, please"),
@@ -121,14 +121,23 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
     easy: [
       s("ಬನ್ನಿ, ಕೂತ್ಕೊಳ್ಳಿ. ಏನು ಮಾಡಬೇಕು?", "Banni, kootkolli. Enu maadabeku?", "Come, sit down. What should I do?", "ಕೂದಲು ಕತ್ತರಿಸಿ", "Koodalu kattarisi", "Please cut my hair"),
       s("ಸರಿ, ಸ್ವಲ್ಪ ಕಾಯಬೇಕು", "Sari, swalpa kaayabeku", "Okay, you'll have to wait a little", "ಎಷ್ಟು ಹೊತ್ತು ಆಗುತ್ತೆ?", "Eshtu hottu aagutte?", "How long will it take?"),
+      s("ಹತ್ತು ನಿಮಿಷ", "Hattu nimisha", "Ten minutes", "ಸರಿ, ಕಾಯ್ತೀನಿ", "Sari, kaaytini", "Okay, I'll wait"),
     ],
     medium: [
       s("ಬನ್ನಿ, ಕೂತ್ಕೊಳ್ಳಿ. ಏನು ಮಾಡಬೇಕು?", "Banni, kootkolli. Enu maadabeku?", "Come, sit down. What should I do?", "ಕೂದಲು ಕತ್ತರಿಸಿ", "Koodalu kattarisi", "Please cut my hair"),
       s("ಸರಿ, ಸ್ವಲ್ಪ ಕಾಯಬೇಕು", "Sari, swalpa kaayabeku", "Okay, you'll have to wait a little", "ಎಷ್ಟು ಹೊತ್ತು ಆಗುತ್ತೆ?", "Eshtu hottu aagutte?", "How long will it take?"),
+      s("ಹತ್ತು ನಿಮಿಷ", "Hattu nimisha", "Ten minutes", "ಸರಿ, ಕಾಯ್ತೀನಿ", "Sari, kaaytini", "Okay, I'll wait"),
+      s("ಆಯ್ತು. ಹೇಗಿದೆ?", "Aaytu. Hegide?", "Done. How does it look?", "ತುಂಬಾ ಚೆನ್ನಾಗಿದೆ! ಎಷ್ಟು?", "Tumbaa chennaagide! Eshtu?", "Very nice! How much?"),
+      s("ಎಂಬತ್ತು ರೂಪಾಯಿ", "Embattu roopaayi", "Eighty rupees", "ಇದು, ಧನ್ಯವಾದ", "Idu, dhanyavaada", "Here you go, thank you"),
     ],
     hard: [
       s("ಬನ್ನಿ, ಕೂತ್ಕೊಳ್ಳಿ. ಏನು ಮಾಡಬೇಕು?", "Banni, kootkolli. Enu maadabeku?", "Come, sit down. What should I do?", "ಕೂದಲು ಕತ್ತರಿಸಿ", "Koodalu kattarisi", "Please cut my hair"),
       s("ಸರಿ, ಸ್ವಲ್ಪ ಕಾಯಬೇಕು", "Sari, swalpa kaayabeku", "Okay, you'll have to wait a little", "ಎಷ್ಟು ಹೊತ್ತು ಆಗುತ್ತೆ?", "Eshtu hottu aagutte?", "How long will it take?"),
+      s("ಹತ್ತು ನಿಮಿಷ", "Hattu nimisha", "Ten minutes", "ಸರಿ, ಕಾಯ್ತೀನಿ", "Sari, kaaytini", "Okay, I'll wait"),
+      s("ಚಿಕ್ಕದಾಗಿ, ಇಲ್ಲ ಸ್ವಲ್ಪ ಟ್ರಿಮ್?", "Chikkadaagi, illa swalpa trim?", "Short, or just a trim?", "ಸ್ವಲ್ಪ ಟ್ರಿಮ್ ಸಾಕು", "Swalpa trim saaku", "Just a trim"),
+      s("ಶೇವ್ ಕೂಡ ಮಾಡ್ಲಾ?", "Shave kooda maadlaa?", "Shave as well?", "ಬೇಡ, ಕೂದಲು ಮಾತ್ರ", "Beda, koodalu maatra", "No, just the haircut"),
+      s("ಆಯ್ತು. ಹೇಗಿದೆ?", "Aaytu. Hegide?", "Done. How does it look?", "ತುಂಬಾ ಚೆನ್ನಾಗಿದೆ! ಎಷ್ಟು?", "Tumbaa chennaagide! Eshtu?", "Very nice! How much?"),
+      s("ಎಂಬತ್ತು ರೂಪಾಯಿ", "Embattu roopaayi", "Eighty rupees", "ಇದು, ಧನ್ಯವಾದ", "Idu, dhanyavaada", "Here you go, thank you"),
     ],
   },
 };

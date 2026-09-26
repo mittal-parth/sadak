@@ -1,7 +1,7 @@
 import { streetLessonsFor } from "@/lib/game/street-task-lessons";
-import type { DistrictTaskPack } from "./tasks";
+import type { SeedTaskPack } from "./tasks";
 
-const charminarLane: DistrictTaskPack = {
+const charminarLane: SeedTaskPack = {
   districtId: "charminar-lane",
   finale: {
     title: "CHARMINAR MORNING DONE",
@@ -49,7 +49,7 @@ const charminarLane: DistrictTaskPack = {
       brief: "Buy marigold garlands near Charminar. Ask the price before you pay.",
       reward: 200,
       interactLabel: "Buy flowers",
-      name: "Rahim",
+      name: "Saroja",
       role: "Flower Seller",
       speaker: "ritu",
       colour: 0xe8364f,
@@ -91,11 +91,11 @@ const charminarLane: DistrictTaskPack = {
   ],
 };
 
-const fortKochi: DistrictTaskPack = {
+const fortKochi: SeedTaskPack = {
   districtId: "fort-kochi",
   finale: {
     title: "FORT KOCHI ERRANDS DONE",
-    text: "Auto to Ernakulam, puttu breakfast, church flowers, bus to Fort Kochi — Kerala in Malayalam.",
+    text: "Auto to Ernakulam, puttu breakfast, candles at Santa Cruz, bus to Mattancherry — Kerala in Malayalam.",
   },
   tasks: [
     {
@@ -120,10 +120,10 @@ const fortKochi: DistrictTaskPack = {
       kind: "shop",
       pos: [-288.8, -24.8],
       title: "Puttu and chai",
-      brief: "Order puttu and chai at the waterfront stall.",
+      brief: "Order puttu and chai at the stall on Bastian Street.",
       reward: 180,
       interactLabel: "Order at the stall",
-      name: "Mary",
+      name: "Mathew",
       role: "Puttu Stall",
       speaker: "rohan",
       colour: 0xff7a1a,
@@ -135,38 +135,38 @@ const fortKochi: DistrictTaskPack = {
       districtId: "fort-kochi",
       kind: "temple",
       pos: [-119.8, 117.6],
-      title: "Church flowers",
-      brief: "Buy garlands for the church stall before the bell.",
+      title: "Candles at Santa Cruz",
+      brief: "Buy candles for Santa Cruz Basilica before Mass, and light them at the front.",
       reward: 200,
-      interactLabel: "Buy flowers",
-      name: "Thomas",
-      role: "Flower Stall",
+      interactLabel: "Buy candles",
+      name: "Rosamma",
+      role: "Candle Seller",
       speaker: "kavitha",
       colour: 0xe8364f,
-      completionNote: "Garlands ready — bell is ringing.",
+      completionNote: "Two candles burning under Santa Cruz's painted ceiling.",
       lessons: streetLessonsFor("fort-kochi-temple"),
     },
     {
       id: "fort-kochi-bus",
       districtId: "fort-kochi",
       kind: "bus",
-      pos: [29.9, -145.5],
-      title: "Bus to Fort Kochi",
-      brief: "Get a ticket to Fort Kochi on the city bus.",
+      pos: [166.2, -55.4],
+      title: "Bus to Mattancherry",
+      brief: "Get a ticket to Mattancherry on the city bus.",
       reward: 220,
       interactLabel: "Buy bus ticket",
       name: "Varghese",
       role: "Conductor",
       speaker: "shubh",
       colour: 0x2f8fff,
-      completionNote: "Ticket to Fort Kochi — board from the back.",
+      completionNote: "Ticket to Mattancherry — board from the back.",
       lessons: streetLessonsFor("fort-kochi-bus"),
     },
     {
       id: "fort-kochi-ferry",
       districtId: "fort-kochi",
       kind: "counter",
-      pos: [311.1, -242.7],
+      pos: [109.5, -316.8],
       title: "Ferry to Vypin",
       brief: "Buy a ferry ticket to Vypin at the Fort Kochi jetty before the boat leaves.",
       reward: 240,
@@ -187,7 +187,7 @@ const fortKochi: DistrictTaskPack = {
       brief: "Buy karimeen straight from the Chinese fishing nets. Have it cleaned and bargain the price.",
       reward: 240,
       interactLabel: "Buy fish",
-      name: "Joseph",
+      name: "Antony",
       role: "Fish Seller",
       speaker: "varun",
       colour: 0x19c3b0,
@@ -197,11 +197,11 @@ const fortKochi: DistrictTaskPack = {
   ],
 };
 
-const dadarChowk: DistrictTaskPack = {
+const dadarChowk: SeedTaskPack = {
   districtId: "dadar-chowk",
   finale: {
     title: "DADAR ERRANDS DONE",
-    text: "Auto to Dadar station, vada pav, flowers for Hanuman, bus to Bandra — Mumbai in Marathi.",
+    text: "Taxi to Siddhivinayak, vada pav, flowers for Hanuman, bus to Bandra — Mumbai in Marathi.",
   },
   tasks: [
     {
@@ -209,15 +209,15 @@ const dadarChowk: DistrictTaskPack = {
       districtId: "dadar-chowk",
       kind: "auto",
       pos: [-86.8, 274.7],
-      title: "Auto to Dadar station",
-      brief: "Hail the auto to Dadar railway station and settle the fare.",
+      title: "Taxi to Siddhivinayak",
+      brief: "Hail a kaali-peeli to Siddhivinayak and go by the meter. Dadar has no autos.",
       reward: 250,
-      interactLabel: "Stop the auto",
+      interactLabel: "Hail the taxi",
       name: "Nitin",
-      role: "Auto Driver",
+      role: "Taxi Driver",
       speaker: "vijay",
       colour: 0xf5c518,
-      completionNote: "Dadar station — fare agreed in Marathi.",
+      completionNote: "On the meter to Siddhivinayak.",
       lessons: streetLessonsFor("dadar-chowk-auto"),
     },
     {
@@ -287,7 +287,7 @@ const dadarChowk: DistrictTaskPack = {
   ],
 };
 
-const manekChowk: DistrictTaskPack = {
+const manekChowk: SeedTaskPack = {
   districtId: "manek-chowk",
   finale: {
     title: "MANEK CHOWK DONE",
@@ -393,11 +393,11 @@ const manekChowk: DistrictTaskPack = {
   ],
 };
 
-const hallBazaar: DistrictTaskPack = {
+const hallBazaar: SeedTaskPack = {
   districtId: "hall-bazaar",
   finale: {
     title: "HALL BAZAAR DONE",
-    text: "Auto to the Golden Temple, lassi, karah prasad, bus to Hall Bazaar — Amritsar in Punjabi.",
+    text: "Auto to the station, lassi, karah prasad, bus to Hall Bazaar — Amritsar in Punjabi.",
   },
   tasks: [
     {
@@ -405,15 +405,15 @@ const hallBazaar: DistrictTaskPack = {
       districtId: "hall-bazaar",
       kind: "auto",
       pos: [-22.1, 55.3],
-      title: "Auto to Harmandir Sahib",
-      brief: "Hail the auto to Sri Harmandir Sahib and agree the fare.",
+      title: "Auto to the station",
+      brief: "Hail the auto to Amritsar railway station and agree the fare.",
       reward: 250,
       interactLabel: "Hail the auto",
       name: "Jasbir",
       role: "Auto Driver",
       speaker: "vijay",
       colour: 0xf5c518,
-      completionNote: "Golden Temple bound — fare settled.",
+      completionNote: "Station bound — fare settled.",
       lessons: streetLessonsFor("hall-bazaar-auto"),
     },
     {
@@ -438,14 +438,14 @@ const hallBazaar: DistrictTaskPack = {
       kind: "temple",
       pos: [-101.1, 241.6],
       title: "Karah prasad",
-      brief: "Buy karah prasad before sangat arrives.",
+      brief: "Receive karah prasad at the Harmandir Sahib: head covered, both hands held out.",
       reward: 200,
-      interactLabel: "Buy prasad",
+      interactLabel: "Receive prasad",
       name: "Manpreet",
-      role: "Prasad Stall",
+      role: "Sevadar",
       speaker: "kavitha",
       colour: 0xe8364f,
-      completionNote: "Karah prasad in hand — join the queue.",
+      completionNote: "Warm karah prasad in cupped hands. No one pays for it here.",
       lessons: streetLessonsFor("hall-bazaar-temple"),
     },
     {
@@ -483,7 +483,7 @@ const hallBazaar: DistrictTaskPack = {
   ],
 };
 
-const lingarajLane: DistrictTaskPack = {
+const lingarajLane: SeedTaskPack = {
   districtId: "lingaraj-lane",
   finale: {
     title: "LINGARAJ LANE DONE",
@@ -531,7 +531,7 @@ const lingarajLane: DistrictTaskPack = {
       brief: "Buy marigold garlands for Lingaraj before arati.",
       reward: 200,
       interactLabel: "Buy flowers",
-      name: "Debasish",
+      name: "Jharana",
       role: "Flower Seller",
       speaker: "ritu",
       colour: 0xe8364f,
@@ -563,7 +563,7 @@ const lingarajLane: DistrictTaskPack = {
       brief: "Buy chhena poda at the sweet shop by Bindu Sagar. Say how much you want.",
       reward: 210,
       interactLabel: "Buy chhena poda",
-      name: "Sabita",
+      name: "Mamata",
       role: "Sweet Seller",
       speaker: "ishita",
       colour: 0xb05cff,
@@ -573,7 +573,7 @@ const lingarajLane: DistrictTaskPack = {
   ],
 };
 
-export const SIX_SEED_TASK_PACKS: DistrictTaskPack[] = [
+export const SIX_SEED_TASK_PACKS: SeedTaskPack[] = [
   charminarLane,
   fortKochi,
   dadarChowk,

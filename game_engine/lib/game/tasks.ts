@@ -41,7 +41,14 @@ export type DistrictTaskPack = {
   districtId: string;
   finale: { title: string; text: string };
   tasks: StreetTask[];
+  /** The optional haircut: stored with the pack like every errand, but
+   *  beside `tasks` rather than in it, so it is not counted as an errand or
+   *  needed for the finale. */
+  barber: StreetTask;
 };
+
+/** A seed pack as authored; its barber is added from barber.ts. */
+export type SeedTaskPack = Omit<DistrictTaskPack, "barber">;
 
 /** What the dialogue UI needs — tasks and legacy NPCs share this shape. */
 export type LessonTarget = {
@@ -72,12 +79,9 @@ export const ERRAND_COLOURS = [0xf5c518, 0xff7a1a, 0xe8364f, 0x2f8fff, 0xb05cff,
 
 /**
  * The haircut, as a StreetTask so it can ride the existing dialogue, grading
- * and TTS-cache pipeline unchanged.
- *
- * Built on demand rather than stored in a DistrictTaskPack: the packs live in
- * Supabase and drive errand progress, the four-errand finale and the district
- * picker's task count. The haircut is optional and pays XP only, so putting it
- * in a pack would make every city look like it needed five errands to finish.
+ * and TTS-cache pipeline unchanged. Seed only: it is written into each
+ * district's stored pack (DistrictTaskPack.barber), and the game reads it
+ * from there like every other errand.
  */
 export function barberTaskFor(districtId: string): StreetTask {
   const npc = barberNpcFor(districtId);
@@ -99,14 +103,6 @@ export function barberTaskFor(districtId: string): StreetTask {
     completionNote: "Hair cut, and you never switched to English.",
     lessons: streetLessonsFor(barberTaskId(districtId)),
   };
-}
-
-/**
- * The haircut sits outside the errand ladder, so its difficulty tracks the
- * player's comfort setting directly rather than a position in the pack.
- */
-export function barberLessonFor(districtId: string, comfort: ComfortLevel): LessonStep[] {
-  return barberTaskFor(districtId).lessons[comfort];
 }
 
 export function errandIndexForTask(taskId: string, tasks: StreetTask[]): number {
@@ -146,7 +142,7 @@ export function taskAsLessonTarget(
   };
 }
 
-const puraniSadak: DistrictTaskPack = {
+const puraniSadak: SeedTaskPack = {
   districtId: "purani-sadak",
   finale: {
     title: "PURANI SADAK SURVIVED",
@@ -206,15 +202,15 @@ const puraniSadak: DistrictTaskPack = {
       districtId: "purani-sadak",
       kind: "bus",
       pos: [281.1, -90.9],
-      title: "Bus ticket",
-      brief: "Buy a ticket to Chandni Chowk. Name the stop and ask the fare.",
+      title: "Bus to Kashmere Gate",
+      brief: "Buy a ticket to Kashmere Gate at the Lal Quila stop. Name the stop and ask the fare.",
       reward: 220,
       interactLabel: "Buy bus ticket",
       name: "Suresh",
       role: "Bus Conductor",
       speaker: "shubh",
       colour: 0x2f8fff,
-      completionNote: "Ticket punched — next stop Chandni Chowk.",
+      completionNote: "Ticket punched — next stop Kashmere Gate.",
       lessons: streetLessonsFor("purani-sadak-bus"),
     },
     {
@@ -252,11 +248,11 @@ const puraniSadak: DistrictTaskPack = {
   ],
 };
 
-const marinaNagar: DistrictTaskPack = {
+const marinaNagar: SeedTaskPack = {
   districtId: "marina-nagar",
   finale: {
     title: "MARINA MORNING DONE",
-    text: "Share auto, masala dosa, temple coconut, bus to the beach — a Chennai day in Tamil.",
+    text: "Share auto, masala dosa, temple coconut, bus to Mylapore — a Chennai day in Tamil.",
   },
   tasks: [
     {
@@ -272,7 +268,7 @@ const marinaNagar: DistrictTaskPack = {
       role: "Auto Driver",
       speaker: "vijay",
       colour: 0xf5c518,
-      completionNote: "Share auto to T Nagar — meter plus split fare.",
+      completionNote: "Share auto to T Nagar — thirty-five a seat.",
       lessons: streetLessonsFor("marina-nagar-auto"),
     },
     {
@@ -297,10 +293,10 @@ const marinaNagar: DistrictTaskPack = {
       kind: "temple",
       pos: [-210.6, 107.6],
       title: "Coconut at the temple",
-      brief: "Buy a coconut for archana at the shore temple stall.",
+      brief: "Buy a coconut for archana at the Parthasarathy temple's stall.",
       reward: 200,
       interactLabel: "Buy prasad",
-      name: "Iyer",
+      name: "Meenakshi",
       role: "Temple Stall",
       speaker: "kavitha",
       colour: 0xe8364f,
@@ -312,15 +308,15 @@ const marinaNagar: DistrictTaskPack = {
       districtId: "marina-nagar",
       kind: "bus",
       pos: [-100.6, -333.8],
-      title: "Beach bus ticket",
-      brief: "Get a ticket to Marina Beach on the city bus.",
+      title: "Bus to Mylapore",
+      brief: "Get a ticket to Mylapore on the city bus.",
       reward: 220,
       interactLabel: "Buy bus ticket",
       name: "Dass",
       role: "Conductor",
       speaker: "shubh",
       colour: 0x2f8fff,
-      completionNote: "Ticket to Marina Beach — keep it for checking.",
+      completionNote: "Ticket to Mylapore — keep it for checking.",
       lessons: streetLessonsFor("marina-nagar-bus"),
     },
     {
@@ -342,11 +338,11 @@ const marinaNagar: DistrictTaskPack = {
   ],
 };
 
-const majesticCross: DistrictTaskPack = {
+const majesticCross: SeedTaskPack = {
   districtId: "majestic-cross",
   finale: {
     title: "MAJESTIC ERRANDS DONE",
-    text: "Auto to Majestic, idli-vada, temple flowers, BMTC ticket — Bengaluru without English.",
+    text: "Auto to Lalbagh, idli-vada, temple flowers, BMTC ticket — Bengaluru without English.",
   },
   tasks: [
     {
@@ -354,15 +350,15 @@ const majesticCross: DistrictTaskPack = {
       districtId: "majestic-cross",
       kind: "auto",
       pos: [215.4, 202.2],
-      title: "Auto to Majestic",
-      brief: "Negotiate with Shankar's auto to Majestic bus stand. Push back on the first quote.",
+      title: "Auto to Lalbagh",
+      brief: "Negotiate with Shankar's auto to Lalbagh. Push back on the first quote.",
       reward: 250,
       interactLabel: "Stop the auto",
       name: "Shankar",
       role: "Auto Driver",
       speaker: "vijay",
       colour: 0xf5c518,
-      completionNote: "Auto to Majestic — fare settled in Kannada.",
+      completionNote: "Auto to Lalbagh — fare settled in Kannada.",
       lessons: streetLessonsFor("majestic-cross-auto"),
     },
     {
@@ -417,7 +413,7 @@ const majesticCross: DistrictTaskPack = {
       id: "majestic-cross-metro",
       districtId: "majestic-cross",
       kind: "counter",
-      pos: [-90.2, 41.5],
+      pos: [-259.9, 71.5],
       title: "Metro token at Majestic",
       brief: "Buy a Namma Metro token to MG Road. Token, not card.",
       reward: 240,
@@ -432,34 +428,34 @@ const majesticCross: DistrictTaskPack = {
   ],
 };
 
-const parkGully: DistrictTaskPack = {
+const parkGully: SeedTaskPack = {
   districtId: "park-gully",
   finale: {
     title: "PARA ERRANDS DONE",
-    text: "Yellow taxi fare, singara-kachori, candles at St Thomas', tram ticket — Kolkata in Bengali.",
+    text: "Yellow taxi fare, singara-kachori, candles at St Thomas', bus to Esplanade — Kolkata in Bengali.",
   },
   tasks: [
     {
       id: "park-gully-auto",
       districtId: "park-gully",
       kind: "auto",
-      pos: [-199.4, -18.3],
-      title: "Auto to Howrah",
-      brief: "Tell Bikash-da you need Howrah station and agree a fair fare.",
+      pos: [-225.2, 77],
+      title: "Taxi to Howrah",
+      brief: "Stop Bikash-da's yellow taxi, tell him Howrah station and agree a fair fare.",
       reward: 250,
-      interactLabel: "Hail the auto",
+      interactLabel: "Hail the taxi",
       name: "Bikash-da",
-      role: "Auto Driver",
+      role: "Taxi Driver",
       speaker: "soham",
       colour: 0xf5c518,
-      completionNote: "Howrah-bound — fare settled.",
+      completionNote: "Howrah-bound in a yellow Ambassador — fare settled.",
       lessons: streetLessonsFor("park-gully-auto"),
     },
     {
       id: "park-gully-shop",
       districtId: "park-gully",
       kind: "shop",
-      pos: [98.9, -214.9],
+      pos: [84.7, -177.4],
       title: "Singara and kachori",
       brief: "Order singara and kachori from Mitali's shop corner.",
       reward: 180,
@@ -492,22 +488,22 @@ const parkGully: DistrictTaskPack = {
       districtId: "park-gully",
       kind: "bus",
       pos: [-287.8, -211],
-      title: "Tram ticket",
-      brief: "Buy a tram ticket to Esplanade at the stop.",
+      title: "Bus to Esplanade",
+      brief: "Catch the bus to Esplanade at the Park Street stop and buy your ticket from the conductor.",
       reward: 220,
-      interactLabel: "Buy tram ticket",
+      interactLabel: "Buy bus ticket",
       name: "Nazrul",
-      role: "Ticket Seller",
+      role: "Conductor",
       speaker: "soham",
       colour: 0x2f8fff,
-      completionNote: "Tram ticket to Esplanade — validate before boarding.",
+      completionNote: "Ticket to Esplanade — squeeze inside.",
       lessons: streetLessonsFor("park-gully-bus"),
     },
     {
       id: "park-gully-roll",
       districtId: "park-gully",
       kind: "shop",
-      pos: [37.1, -19.8],
+      pos: [-97.1, -81.7],
       title: "Kathi roll on Park Street",
       brief: "Order an egg roll from the Park Street roll counter. Onion and chilli, your call.",
       reward: 220,
@@ -529,7 +525,7 @@ export const SEED_TASK_PACKS: DistrictTaskPack[] = [
   majesticCross,
   parkGully,
   ...SIX_SEED_TASK_PACKS,
-];
+].map((p) => ({ ...p, barber: barberTaskFor(p.districtId) }));
 
 export function findTaskById(
   tasks: StreetTask[],

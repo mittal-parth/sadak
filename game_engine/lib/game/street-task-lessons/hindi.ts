@@ -73,19 +73,19 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
   },
   "purani-sadak-bus": {
     easy: [
-      s("कहाँ जाना है?", "Kahaan jaana hai?", "Where are you going?", "चांदनी चौक", "Chandni Chowk", "Chandni Chowk"),
+      s("कहाँ जाना है?", "Kahaan jaana hai?", "Where are you going?", "कश्मीरी गेट", "Kashmiri Gate", "Kashmere Gate"),
       s("बीस रुपये", "Bees rupaye", "Twenty rupees", "ये लीजिए", "Ye lijiye", "Here you go"),
       s("लो, टिकट", "Lo, ticket", "Here, your ticket", "धन्यवाद", "Dhanyavaad", "Thank you"),
     ],
     medium: [
-      s("कहाँ जाना है?", "Kahaan jaana hai?", "Where are you going?", "चांदनी चौक", "Chandni Chowk", "Chandni Chowk"),
+      s("कहाँ जाना है?", "Kahaan jaana hai?", "Where are you going?", "कश्मीरी गेट", "Kashmiri Gate", "Kashmere Gate"),
       s("पीछे से चढ़ो, भीड़ है", "Peeche se chadho, bheed hai", "Board from the back, it's crowded", "ठीक है, पीछे से चढ़ता हूँ", "Theek hai, peeche se chadhta hoon", "Okay, I'll board from the back"),
       s("हाँ, बताइए", "Haan, bataiye", "Yes, tell me", "कितने का है?", "Kitne ka hai?", "How much is it?"),
       s("बीस रुपये", "Bees rupaye", "Twenty rupees", "ये लीजिए", "Ye lijiye", "Here you go"),
       s("लो, टिकट", "Lo, ticket", "Here, your ticket", "धन्यवाद", "Dhanyavaad", "Thank you"),
     ],
     hard: [
-      s("कहाँ जाना है?", "Kahaan jaana hai?", "Where are you going?", "चांदनी चौक", "Chandni Chowk", "Chandni Chowk"),
+      s("कहाँ जाना है?", "Kahaan jaana hai?", "Where are you going?", "कश्मीरी गेट", "Kashmiri Gate", "Kashmere Gate"),
       s("पीछे से चढ़ो, भीड़ है", "Peeche se chadho, bheed hai", "Board from the back, it's crowded", "ठीक है, पीछे से चढ़ता हूँ", "Theek hai, peeche se chadhta hoon", "Okay, I'll board from the back"),
       s("हाँ, बताइए", "Haan, bataiye", "Yes, tell me", "एक टिकट दीजिए", "Ek ticket dijiye", "One ticket, please"),
       s("बताइए", "Bataiye", "Tell me", "कितने का है?", "Kitne ka hai?", "How much is it?"),
@@ -121,14 +121,23 @@ export const LESSONS: Record<string, StreetTaskLessons> = {
     easy: [
       s("आइए, बैठिए। क्या करवाना है?", "Aaiye, baithiye. Kya karvaana hai?", "Come, sit down. What would you like done?", "बाल काट दीजिए", "Baal kaat dijiye", "Please cut my hair"),
       s("ठीक है, थोड़ा इंतज़ार करना होगा", "Theek hai, thoda intezaar karna hoga", "Alright, you'll have to wait a bit", "कितनी देर लगेगी?", "Kitni der lagegi?", "How long will it take?"),
+      s("दस मिनट", "Das minat", "Ten minutes", "ठीक है, रुकता हूँ", "Theek hai, rukta hoon", "Okay, I'll wait"),
     ],
     medium: [
       s("आइए, बैठिए। क्या करवाना है?", "Aaiye, baithiye. Kya karvaana hai?", "Come, sit down. What would you like done?", "बाल काट दीजिए", "Baal kaat dijiye", "Please cut my hair"),
       s("ठीक है, थोड़ा इंतज़ार करना होगा", "Theek hai, thoda intezaar karna hoga", "Alright, you'll have to wait a bit", "कितनी देर लगेगी?", "Kitni der lagegi?", "How long will it take?"),
+      s("दस मिनट", "Das minat", "Ten minutes", "ठीक है, रुकता हूँ", "Theek hai, rukta hoon", "Okay, I'll wait"),
+      s("हो गया। कैसा लगा?", "Ho gaya. Kaisa laga?", "Done. How does it look?", "बहुत बढ़िया! कितने हुए?", "Bahut badhiya! Kitne hue?", "Very nice! How much?"),
+      s("अस्सी रुपये", "Assi rupaye", "Eighty rupees", "ये लीजिए, शुक्रिया", "Ye lijiye, shukriya", "Here you go, thank you"),
     ],
     hard: [
       s("आइए, बैठिए। क्या करवाना है?", "Aaiye, baithiye. Kya karvaana hai?", "Come, sit down. What would you like done?", "बाल काट दीजिए", "Baal kaat dijiye", "Please cut my hair"),
       s("ठीक है, थोड़ा इंतज़ार करना होगा", "Theek hai, thoda intezaar karna hoga", "Alright, you'll have to wait a bit", "कितनी देर लगेगी?", "Kitni der lagegi?", "How long will it take?"),
+      s("दस मिनट", "Das minat", "Ten minutes", "ठीक है, रुकता हूँ", "Theek hai, rukta hoon", "Okay, I'll wait"),
+      s("छोटे या बस हल्के से?", "Chhote ya bas halke se?", "Short, or just a trim?", "बस हल्के से", "Bas halke se", "Just a trim"),
+      s("दाढ़ी भी बनाऊँ?", "Daadhi bhi banaaoon?", "Shave as well?", "नहीं, बस बाल", "Nahin, bas baal", "No, just the haircut"),
+      s("हो गया। कैसा लगा?", "Ho gaya. Kaisa laga?", "Done. How does it look?", "बहुत बढ़िया! कितने हुए?", "Bahut badhiya! Kitne hue?", "Very nice! How much?"),
+      s("अस्सी रुपये", "Assi rupaye", "Eighty rupees", "ये लीजिए, शुक्रिया", "Ye lijiye, shukriya", "Here you go, thank you"),
     ],
   },
   "purani-sadak-minaret": {
