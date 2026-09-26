@@ -249,8 +249,10 @@ export function createTraffic(map: MapData, opts: TrafficOpts): Traffic {
     group,
     vehicles,
     prime(focus) {
+      // Nothing parked on top of the player at the start: a bus stopped for
+      // them right behind the spawn fills the camera with its roof.
       for (const v of vehicles) {
-        if (place(v, focus, 10) || place(v, null)) continue;
+        if (place(v, focus, 25) || place(v, null)) continue;
         throw new Error(`[traffic] no street for a ${v.kind}`);
       }
     },
