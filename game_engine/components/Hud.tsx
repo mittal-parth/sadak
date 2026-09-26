@@ -432,8 +432,11 @@ export default function Hud({
   audioOn,
   onToggleAudio,
   map,
+  onSkipRide,
 }: {
   map: MapData;
+  /** Jump to the end of an auto or bus ride. */
+  onSkipRide: () => void;
   district: District;
   baseLang: BaseLangCode;
   tasks: StreetTask[];
@@ -690,6 +693,22 @@ export default function Hud({
             )}
           </div>
         </>
+      )}
+
+      {tel?.ride && (
+        <Button
+          variant="neutral"
+          className={cn(
+            "pointer-events-auto absolute left-1/2 -translate-x-1/2",
+            mobilePlay ? "top-3 text-sm" : "top-6"
+          )}
+          size={mobilePlay ? "default" : "lg"}
+          onClick={onSkipRide}
+        >
+          Riding to {tel.ride}
+          {!mobilePlay && <kbd>E</kbd>}
+          Skip
+        </Button>
       )}
 
       {nearbyTask && (

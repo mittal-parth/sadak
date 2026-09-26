@@ -154,9 +154,10 @@ export function makeBus(
   }
   // Windscreen, tall on the lower deck.
   glass.push(new THREE.BoxGeometry(W - 0.25, 1.35, 0.04).translate(0, beltY + 0.55, hl + 0.01));
-  // Doors on the kerb (left) side, front and middle.
+  // Doors on the kerb side, front and middle. Traffic keeps left, so the
+  // kerb is on the bus's left: local +x when it faces +z.
   for (const z of [hl - 1.4, -0.6]) {
-    parts.push(box(0.05, 2.0, 1.0, -W / 2 - 0.02, floor + 1.0, z, 0x3a3f46));
+    parts.push(box(0.05, 2.0, 1.0, W / 2 + 0.02, floor + 1.0, z, 0x3a3f46));
   }
 
   const g = new THREE.Group();

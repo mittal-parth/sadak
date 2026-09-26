@@ -417,6 +417,9 @@ export default function GameShell() {
       setToast(`Done: ${task.title}`);
       setTimeout(() => setToast(null), 4000);
       setTalking(null);
+      // The auto and the bus actually take you somewhere once you have
+      // talked your way on.
+      if (task.kind === "auto" || task.kind === "bus") gameRef.current?.startRide(taskId);
     },
     [district, tasks, completed, cash, comfort, persistProgress]
   );
@@ -476,6 +479,7 @@ export default function GameShell() {
 
       <Hud
         map={worldMap}
+        onSkipRide={() => gameRef.current?.skipRide()}
         district={district}
         baseLang={baseLang}
         tasks={tasks}

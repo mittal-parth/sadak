@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { createTransitMaterial } from "./transit";
 import { makeAuto } from "./props";
 import { buildWorld, type World } from "./world";
+import { Rides } from "./rides";
 import type { MapData, Spot } from "./world/mapData";
 import { makeMissionShopStall, makeStreetMandir } from "./assets/index";
 import {
@@ -37,6 +38,8 @@ export type Telemetry = {
   heading: number;
   tasks: TaskSnapshot[];
   speed: number;
+  /** Where the player is being driven, while on an auto or bus. */
+  ride: string | null;
 };
 
 /**
@@ -284,6 +287,9 @@ export class Game {
 
   private map: MapData;
   private world!: World;
+  private rides!: Rides;
+  /** Each auto errand's auto, which the player rides once it is done. */
+  private taskAutos = new Map<string, THREE.Object3D>();
   private spawn: Spot;
   private taskAnchors = new Map<string, THREE.Group>();
   private hostMeshes = new Map<string, THREE.Group>();
@@ -417,6 +423,7 @@ export class Game {
       toon,
     });
     this.scene.add(this.world.group);
+    this.rides = new Rides(this.scene, this.world, this.map, this.district, this.vehicleMats, this.transitMat);
     this.buildTaskSites();
     this.world.prime(this.playerPos);
   }
@@ -447,15 +454,24 @@ export class Game {
         this.materials
       );
       makeIdlePose(host);
-      host.position.set(0, 0.26, 0);
+      host.position.set(0, PLAYER_BASE_Y, 0);
       anchor.add(host);
       this.hostMeshes.set(task.id, host);
+
+      // Temple errands happen inside the real temple, mosque, church or
+      // gurdwara: the host stands in the mandapa or courtyard, up the steps.
+      const inner = task.kind === "temple" ? this.world.innerNear(x, z, 120) : null;
+      if (inner) {
+        anchor.position.set(inner.x, this.world.height.at(inner.x, inner.z), inner.z);
+        anchor.rotation.y = inner.yaw;
+      }
 
       if (task.kind === "auto") {
         const auto = makeAuto(theme.autoCanopy);
         auto.rotation.y = -Math.PI / 5;
         auto.position.set(-2.2, 0.02, 0.6);
         anchor.add(auto);
+        this.taskAutos.set(task.id, auto);
         collide.box(...at(-2.2, 0.6), 1.2, 2.0, yaw);
       } else if (task.kind === "shop") {
         const canopy = theme.canopies[hashId(task.id) % theme.canopies.length];
@@ -470,37 +486,27 @@ export class Game {
         stall.position.set(-1.4, 0, -0.8);
         anchor.add(stall);
         collide.box(...at(-1.4, -0.8), 1.4, 1.2, yaw + Math.PI / 6);
-      } else if (task.kind === "temple") {
-        // Entrance (torana, local +z) faces the marker so the player walks up
-        // to the front, not the back wall; the old Math.PI flip faced it away.
+      } else if (task.kind === "temple" && !inner) {
+        // No temple building nearby: a wayside shrine. Entrance (torana,
+        // local +z) faces the marker so the player walks up to the front.
         const mandir = makeStreetMandir(undefined, hashId(task.id));
         mandir.position.set(0, 0, -2.6);
         anchor.add(mandir);
         collide.box(...at(0, -2.6), 1.9, 1.7, yaw);
         // Priest stands beside the entrance, clear of the plinth, instead of
         // on top of it inside the temple's own collider.
-        host.position.set(1.5, 0.26, -0.6);
+        host.position.set(1.5, PLAYER_BASE_Y, -0.6);
       } else if (task.kind === "bus") {
-        const pole = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.08, 0.08, 3.2, 8),
-          new THREE.MeshLambertMaterial({ color: 0x2c3e50 })
-        );
-        pole.position.set(-1.5, 1.6, 0);
-        anchor.add(pole);
-        const sign = new THREE.Mesh(
-          new THREE.BoxGeometry(1.6, 0.5, 0.08),
-          new THREE.MeshLambertMaterial({ color: 0x2980b9 })
-        );
-        sign.position.set(-1.5, 2.8, 0);
-        anchor.add(sign);
-        collide.box(...at(-1.5, 0), 0.5, 0.5, yaw);
+        // The stop's shelter is part of the street (world/street.ts); the
+        // conductor arrives on the bus (see rides.ts).
+        host.visible = false;
       }
 
       this.scene.add(anchor);
       this.taskAnchors.set(task.id, anchor);
 
       const marker = makeTaskBlip(markerColourForKind(task.kind));
-      marker.position.set(x, 0, z);
+      marker.position.copy(anchor.position);
       this.scene.add(marker);
       this.markers.set(task.id, marker);
     }
@@ -585,6 +591,7 @@ export class Game {
     // Queue on the edge rather than reading the held key in updatePlayer, so
     // holding Space is a single hop and not a pogo stick.
     if (e.code === "Space" && !e.repeat && !this.paused) this.jumpQueued = true;
+    if (e.code === "KeyE" && !e.repeat && this.rides?.riding()) this.rides.skip();
 
     this.keys.add(e.code);
 
@@ -712,7 +719,29 @@ export class Game {
 
     this.world.update(dt, t, this.playerPos);
 
-    if (!this.paused) {
+    const ride = this.rides.update(dt, this.playerPos, this.tasks, this.done, this.hostMeshes);
+    if (ride && "kind" in ride) {
+      // Stepped off: back on foot at the kerb.
+      this.playerPos.set(ride.x, 0, ride.z);
+      this.velocity.set(0, 0, 0);
+      this.player.visible = true;
+      this.facing = ride.yaw;
+      this.groundY = this.world.height.at(ride.x, ride.z);
+    } else if (ride) {
+      // Riding: the camera follows the vehicle and the player sits in it.
+      this.playerPos.set(ride.x, 0, ride.z);
+      this.velocity.set(0, 0, 0);
+      this.yaw = dampAngle(this.yaw, ride.yaw, 2.5, dt);
+      this.groundY = 0;
+      this.player.visible = ride.seat !== null;
+      if (ride.seat) {
+        this.player.position.copy(ride.seat);
+        this.player.rotation.y = ride.yaw;
+        makeIdlePose(this.player);
+      }
+    }
+
+    if (!this.paused && !ride) {
       this.updateLook(dt);
       this.updatePlayer(dt);
       this.resolveVehicleOverlap();
@@ -1012,10 +1041,13 @@ export class Game {
    */
   /** Nearest interactable task, or null. Cheap enough to run every frame. */
   private findNearby(): string | null {
+    if (this.rides.riding()) return null;
     let nearby: string | null = null;
     let best = TALK_RADIUS;
     for (const task of this.tasks) {
       if (this.done.has(task.id)) continue;
+      // The ticket is bought from the conductor, so only with a bus in.
+      if (task.kind === "bus" && !this.rides.busReady(task.id)) continue;
       const anchor = this.taskAnchors.get(task.id)!;
       const d = Math.hypot(
         this.playerPos.x - anchor.position.x,
@@ -1066,6 +1098,7 @@ export class Game {
       heading: this.live.heading,
       tasks,
       speed: this.live.speed,
+      ride: this.rides.riding(),
     });
   }
 
@@ -1078,6 +1111,23 @@ export class Game {
 
   public markDone(npcId: string) {
     this.done.add(npcId);
+  }
+
+  /** Jump to the end of the current ride, if any. */
+  public skipRide() {
+    this.rides.skip();
+  }
+
+  /** After an auto or bus errand: ride it. */
+  public startRide(taskId: string) {
+    const task = this.tasks.find((t) => t.id === taskId);
+    if (!task) return;
+    if (task.kind === "auto") {
+      const auto = this.taskAutos.get(taskId);
+      if (auto) this.rides.startAuto(task, auto, this.tasks, this.done);
+    } else if (task.kind === "bus") {
+      this.rides.startBus(task);
+    }
   }
 
   /** Snap back to the spawn pose (position, facing, camera). */
