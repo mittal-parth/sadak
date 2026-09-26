@@ -415,10 +415,13 @@ export default function Hud({
   map,
   onSkipRide,
   onOpenMap,
+  onPlace,
 }: {
   map: MapData;
   /** Open the full map (also on M). */
   onOpenMap: () => void;
+  /** A place walked into: its find tally the first time, else null. */
+  onPlace: (name: string) => { found: number; total: number } | null;
   /** Jump to the end of an auto or bus ride. */
   onSkipRide: () => void;
   district: District;
@@ -473,7 +476,7 @@ export default function Hud({
 
   return (
     <>
-      <LocationCard map={map} live={live} district={district} compact={mobilePlay} />
+      <LocationCard map={map} live={live} district={district} compact={mobilePlay} onPlace={onPlace} />
       {mobilePlay ? (
         <>
           <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between gap-2">

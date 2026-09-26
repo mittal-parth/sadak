@@ -52,6 +52,7 @@ import {
   type NpcTurn,
 } from "@/lib/game/npc-memory";
 import { prefetchTtsUrls, revokeTtsPrefetchMap, type TtsPrefetchMap } from "@/lib/tts/prefetch-client";
+import { useDiscovery } from "@/components/map/useDiscovery";
 
 /** Minimum time the enter screen stays up, so its controls are readable even
  *  when the district and progress fetches come back instantly. */
@@ -64,6 +65,8 @@ export default function GameShell() {
   const [district, setDistrict] = useState<District | null>(null);
   /** The district's compiled street map (public/maps), loaded with it. */
   const [worldMap, setWorldMap] = useState<MapData | null>(null);
+  /** Places found in this district (kept between visits). */
+  const { discovery, claim: claimPlace } = useDiscovery(worldMap, district?.id ?? null);
   const [tasks, setTasks] = useState<StreetTask[]>([]);
   const [taskFinale, setTaskFinale] = useState<DistrictTaskPack["finale"] | null>(null);
   const [entering, setEntering] = useState(false);
@@ -595,6 +598,7 @@ export default function GameShell() {
         map={worldMap}
         onSkipRide={() => gameRef.current?.skipRide()}
         onOpenMap={() => setMapOpen(true)}
+        onPlace={claimPlace}
         district={district}
         baseLang={baseLang}
         tasks={tasks}
@@ -636,6 +640,7 @@ export default function GameShell() {
           barber={tel?.barber}
           district={district}
           titles={Object.fromEntries(tasks.map((t) => [t.id, t.title]))}
+          found={discovery?.found ?? null}
           onClose={() => setMapOpen(false)}
         />
       )}

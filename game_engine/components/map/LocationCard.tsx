@@ -25,7 +25,10 @@ export function LocationCard({
   live,
   district,
   compact,
+  onPlace,
 }: {
+  /** A place walked into: its find tally the first time, else null. */
+  onPlace?: (name: string) => { found: number; total: number } | null;
   map: MapData;
   /** Engine-owned, mutated every frame. */
   live: LiveState | null;
@@ -35,6 +38,8 @@ export function LocationCard({
   const locator = useMemo(() => createLocator(map), [map]);
   const liveRef = useRef(live);
   liveRef.current = live;
+  const onPlaceRef = useRef(onPlace);
+  onPlaceRef.current = onPlace;
   const [card, setCard] = useState<Card | null>(null);
   const [shown, setShown] = useState(false);
 
@@ -73,8 +78,15 @@ export function LocationCard({
       // Under the name: the street you are on at a place, else the district
       // (just the city when the street is what the district is named for).
       const shown = title ?? district.name;
-      const subtitle =
-        where.place && where.road ? where.road : shown === district.name ? district.city : `${district.name}, ${district.city}`;
+      // A place found for the first time says so, with the tally.
+      const got = where.place && !where.near ? onPlaceRef.current?.(where.place) : null;
+      const subtitle = got
+        ? `New place · ${got.found} of ${got.total} found`
+        : where.place && where.road
+          ? where.road
+          : shown === district.name
+            ? district.city
+            : `${district.name}, ${district.city}`;
       setCard({ title: shown, subtitle, key: ++n });
       setShown(true);
       hideAt = now + SHOW_MS;

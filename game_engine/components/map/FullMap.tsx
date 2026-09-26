@@ -39,8 +39,11 @@ export function FullMap({
   barber,
   district,
   titles,
+  found,
   onClose,
 }: {
+  /** Places found so far; the rest are marked but not named. */
+  found: ReadonlySet<string> | null;
   map: MapData;
   /** Errand titles by task id, for the card over a hovered marker. */
   titles: Record<string, string>;
@@ -222,11 +225,27 @@ export function FullMap({
       ctx.restore();
     }
 
-    // Places, in a warmer, larger face than the streets.
+    // Places, in a warmer, larger face than the streets. One not yet found
+    // is a question mark where it is, unnamed: something to go and see.
     for (const p of places) {
       const px = X(p.x);
       const py = Z(p.z);
       if (px < -80 || py < -30 || px > size.w + 80 || py > size.h + 30) continue;
+      if (found && !found.has(p.name)) {
+        if (!free(px, py, 18, 18)) continue;
+        taken.push({ x: px, y: py, w: 18, h: 18 });
+        ctx.fillStyle = "rgba(12,14,18,0.75)";
+        ctx.beginPath();
+        ctx.arc(px, py, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(243,210,122,0.8)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.font = "12px system-ui, sans-serif";
+        ctx.fillStyle = "#f3d27a";
+        ctx.fillText("?", px, py + 1);
+        continue;
+      }
       const fs = p.kind === "landmark" ? 15 : 13;
       ctx.font = `${fs}px ui-serif, Georgia, serif`;
       const w = ctx.measureText(p.name).width;
@@ -287,7 +306,7 @@ export function FullMap({
       ctx.stroke();
       ctx.restore();
     }
-  }, [view, size, map, roads, places, tasks, barber, live, hover]);
+  }, [view, size, map, roads, places, tasks, barber, live, hover, found]);
 
   /* ---- panning and zooming ---- */
 
@@ -362,6 +381,7 @@ export function FullMap({
           <div className="font-heading text-xl leading-tight">{district.name}</div>
           <div className="text-sm text-white/60">
             {district.city} · {district.native}
+            {found && ` · ${[...found].filter((n) => places.some((p) => p.name === n)).length} of ${places.length} places found`}
           </div>
         </div>
         <div className="flex items-center gap-2">

@@ -106,6 +106,32 @@ function centroid(pts: Pt[]): Pt {
   return [x, z];
 }
 
+/** A point inside a ring (and out of its holes), nearest its centroid: a
+ *  ring round a tank (the parikrama) has its centroid in the water. */
+function interiorPoint(ring: Pt[], holes: Pt[][]): Pt {
+  const c = centroid(ring);
+  const inside = (x: number, z: number) => inRing(x, z, ring) && !holes.some((h) => inRing(x, z, h));
+  if (inside(c[0], c[1])) return c;
+  let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
+  for (const [x, z] of ring) {
+    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+    minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
+  }
+  const step = Math.max(2, Math.min(maxX - minX, maxZ - minZ) / 40);
+  let best: Pt = c;
+  let bd = Infinity;
+  for (let z = minZ + step / 2; z < maxZ; z += step) {
+    for (let x = minX + step / 2; x < maxX; x += step) {
+      const d = Math.hypot(x - c[0], z - c[1]);
+      if (d < bd && inside(x, z)) {
+        bd = d;
+        best = [x, z];
+      }
+    }
+  }
+  return best;
+}
+
 /** Landmarks, named parks, markets, beaches and tanks, stations, and the
  *  big named buildings. */
 export function placeLabels(map: MapData): PlaceLabel[] {
@@ -119,7 +145,7 @@ export function placeLabels(map: MapData): PlaceLabel[] {
   for (const l of map.landmarks) add({ name: l.name, x: l.x, z: l.z, kind: "landmark" });
   for (const a of map.areas) {
     if (!a.name || a.kind === "sea") continue;
-    const [x, z] = centroid(a.pts);
+    const [x, z] = interiorPoint(a.pts, a.holes ?? []);
     add({ name: a.name, x, z, kind: "area" });
   }
   for (const p of map.pois) if (p.kind === "station" && p.name) add({ name: p.name, x: p.x, z: p.z, kind: "station" });
@@ -134,7 +160,9 @@ export function placeLabels(map: MapData): PlaceLabel[] {
  * Whereabouts
  * ------------------------------------------------------------------ */
 
-export type Whereabouts = { place: string | null; road: string | null };
+/** `near` when the place is only close by (you are not in it): the card
+ *  may say it, but it has not been visited. */
+export type Whereabouts = { place: string | null; road: string | null; near?: boolean };
 
 function inRing(x: number, z: number, ring: Pt[]): boolean {
   let inside = false;
@@ -188,6 +216,7 @@ export function createLocator(map: MapData): Locator {
   const areas = map.areas.filter((a) => a.name && a.kind !== "sea" && a.kind !== "water");
   const buildings = namedBuildings(map);
   const tanks = map.areas.filter((a) => a.name && a.kind === "water");
+  const stations = map.pois.filter((p) => p.kind === "station" && p.name);
   return {
     locate(x, z) {
       // On a street: the nearest named one whose carriageway or footpath
@@ -231,42 +260,60 @@ export function createLocator(map: MapData): Locator {
         }
       }
       if (!place) {
+        // Inside one before beside one; the smaller when two overlap.
+        let score = Infinity;
         for (const b of buildings) {
-          if (inRing(x, z, b.pts) || edgeDist(x, z, b.pts) < 6) {
+          const inside = inRing(x, z, b.pts);
+          if (!inside && edgeDist(x, z, b.pts) >= 6) continue;
+          const sc = (inside ? 0 : 1e9) + polyArea(b.pts);
+          if (sc < score) {
+            score = sc;
             place = b.name!;
+          }
+        }
+      }
+      if (!place) {
+        for (const st of stations) {
+          if (Math.hypot(x - st.x, z - st.z) < 20) {
+            place = st.name!;
             break;
           }
         }
       }
+      // On the bank of a named tank or lake (Bindu Sagar's ghats), even from
+      // the street round it: as close to it as anyone gets.
+      if (!place) {
+        for (const a of tanks) {
+          if (edgeDist(x, z, a.pts) < 15) {
+            place = a.name!;
+            break;
+          }
+        }
+      }
+      let near = false;
       // Nowhere named underfoot: say what is near (a lane off a named street,
       // the forecourt of a landmark), within a short walk.
       if (!place && !road) {
-        let near = 60;
+        let reach = 60;
         for (const l of map.landmarks) {
           const d = Math.hypot(x - l.x, z - l.z) - Math.max(l.w, l.d) / 2;
-          if (d < near) {
-            near = d;
+          if (d < reach) {
+            reach = d;
             place = l.name;
+            near = true;
           }
         }
         for (const b of buildings) {
           const d = edgeDist(x, z, b.pts);
-          if (d < near) {
-            near = d;
+          if (d < reach) {
+            reach = d;
             place = b.name!;
-          }
-        }
-        // On the bank of a named tank or lake (Bindu Sagar's ghats).
-        for (const a of tanks) {
-          const d = edgeDist(x, z, a.pts);
-          if (d < Math.min(near, 25)) {
-            near = d;
-            place = a.name!;
+            near = true;
           }
         }
       }
       if (!place && !road) {
-        let near = 60;
+        let reach = 60;
         for (const r of map.roads) {
           if (!named(r)) continue;
           for (let i = 0; i < r.pts.length - 1; i++) {
@@ -275,14 +322,14 @@ export function createLocator(map: MapData): Locator {
             const L2 = (bx - ax) ** 2 + (bz - az) ** 2 || 1e-9;
             const t = Math.max(0, Math.min(1, ((x - ax) * (bx - ax) + (z - az) * (bz - az)) / L2));
             const d = Math.hypot(x - ax - t * (bx - ax), z - az - t * (bz - az));
-            if (d < near) {
-              near = d;
+            if (d < reach) {
+              reach = d;
               road = r.name!;
             }
           }
         }
       }
-      return { place, road };
+      return near ? { place, road, near } : { place, road };
     },
   };
 }
