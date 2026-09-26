@@ -22,6 +22,7 @@ import { marketStalls, MAX_STALLS } from "./world/market";
 import { createFlocks, flockCounts, flockSites } from "./world/birds";
 import { beachSpots } from "./world/beach";
 import { buildAreas } from "./world/areas";
+import { busBays } from "./world/busyard";
 import { OSM_CITIES } from "../../scripts/osm/cities";
 
 const LANDMARKS: Landmark[] = [
@@ -497,6 +498,50 @@ test("the Marina: boats at the waterline, umbrellas and carts up the sand", () =
   for (const b of boats) assert.ok(Math.sin(b.rot) > 0.7, "bow to the sea");
   // No beach, no boats.
   assert.deepEqual(beachSpots(loadMap("purani-sadak"), () => false), []);
+});
+
+test("Majestic: platform roofs on posts, buses nosed in along them", () => {
+  const map = loadMap("majestic-cross");
+  const canopies = map.buildings.filter((b) => b.canopy);
+  assert.ok(canopies.length >= 8, `${canopies.length} platform roofs`);
+  for (const c of canopies) assert.equal(c.h, 5, "a roof, not a tower block");
+  // Buses stand in the yard, clear of every real building.
+  const world = new CollisionWorld();
+  for (const b of map.buildings) if (!b.canopy) world.add({ kind: "poly", outer: b.pts, holes: b.holes ?? [] });
+  const bays = busBays(map, (x, z, r) => world.blocked(x, z, r));
+  assert.ok(bays.length > 40, `${bays.length} buses at Kempegowda`);
+  for (let i = 0; i < bays.length; i++) {
+    for (let j = i + 1; j < bays.length; j++) {
+      assert.ok(Math.hypot(bays[i].x - bays[j].x, bays[i].z - bays[j].z) >= 3.2, "buses parked on top of each other");
+    }
+  }
+  // Nowhere else has a bus stand's platforms to fill.
+  assert.deepEqual(busBays(loadMap("park-gully"), () => false), []);
+});
+
+test("cinemas and colonial fronts turn to their street", () => {
+  for (const id of ["majestic-cross", "park-gully", "dadar-chowk"]) {
+    const map = loadMap(id);
+    for (const l of map.landmarks.filter((x) => ["cinema", "colonial", "church", "church_small"].includes(x.model))) {
+      let best: { d: number; x: number; z: number } | null = null;
+      for (const r of map.roads) {
+        if (r.cls === "footway" || r.cls === "steps") continue;
+        for (let i = 0; i < r.pts.length - 1; i++) {
+          const [ax, az] = r.pts[i];
+          const [bx, bz] = r.pts[i + 1];
+          const L2 = (bx - ax) ** 2 + (bz - az) ** 2 || 1e-9;
+          const t = Math.max(0, Math.min(1, ((l.x - ax) * (bx - ax) + (l.z - az) * (bz - az)) / L2));
+          const x = ax + t * (bx - ax);
+          const z = az + t * (bz - az);
+          const d = Math.hypot(l.x - x, l.z - z);
+          if (!best || d < best.d) best = { d, x, z };
+        }
+      }
+      const toStreet = Math.atan2(best!.x - l.x, best!.z - l.z);
+      const off = Math.abs(Math.atan2(Math.sin(toStreet - l.rot), Math.cos(toStreet - l.rot)));
+      assert.ok(off <= Math.PI / 4 + 0.01, `${id}: ${l.name} faces ${((off * 180) / Math.PI).toFixed(0)} deg off its street`);
+    }
+  }
 });
 
 test("footpaths stop short of junctions", () => {
