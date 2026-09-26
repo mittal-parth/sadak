@@ -215,6 +215,71 @@ function farOsm(b: Buf, bld: MapBuilding, colour: number, roof: THREE.BufferGeom
 }
 
 /**
+ * The face of a real (OSM) building, so it reads as part of the street and
+ * not a bare extrusion: a coped parapet all round, and on the walls that
+ * front a street, string courses at each floor and a shop band: openings
+ * with shutters half rolled up, an awning in the city's canopy colours and
+ * a sign strip over it.
+ */
+function osmFace(
+  P: Parts,
+  bld: MapBuilding,
+  wall: number,
+  canopies: readonly number[],
+  seed: number,
+  onStreet: (x: number, z: number, nx: number, nz: number) => boolean
+) {
+  const trim = trimFor(wall);
+  const area = signedArea(bld.pts);
+  const pts = area < 0 ? bld.pts : [...bld.pts].reverse();
+  const floors = Math.max(1, Math.floor((bld.h - 0.8) / FLOOR_H));
+  let k = seed;
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i];
+    const c = pts[(i + 1) % pts.length];
+    const len = Math.hypot(c[0] - a[0], c[1] - a[1]);
+    if (len < 1.5) continue;
+    // Outward normal; the wall's frame has local +z out of the building.
+    const nx = -(c[1] - a[1]) / len;
+    const nz = (c[0] - a[0]) / len;
+    const rot = Math.atan2(nx, nz);
+    const mx = (a[0] + c[0]) / 2;
+    const mz = (a[1] + c[1]) / 2;
+    const at = (u: number, out: number): [number, number] => [mx + (u * (c[0] - a[0])) / len + nx * out, mz + (u * (c[1] - a[1])) / len + nz * out];
+    const box = (w: number, h: number, d: number, u: number, y: number, out: number, col: number) => {
+      const [x, z] = at(u, out);
+      P.box(w, h, d, x, y, z, col, rot);
+    };
+    // Coping all round (the long walls: short ones are corners and jogs).
+    if (len >= 3) box(len + 0.2, 0.3, 0.35, 0, bld.h - 0.1, 0.1, trim);
+    if (len < 5 || bld.h < 5 || !onStreet(mx, mz, nx, nz)) continue;
+    // String courses between the floors on the street front.
+    for (let f = 1; f <= floors && FLOOR_H * f + GROUND_H - FLOOR_H < bld.h - 0.8; f++) {
+      box(len, 0.16, 0.14, 0, GROUND_H + FLOOR_H * (f - 1), 0.06, trim);
+    }
+    // A shop band along the street.
+    const n = Math.max(1, Math.floor(len / 3.4));
+    const bay = len / n;
+    const sign = canopies[k++ % canopies.length];
+    box(len, 0.7, 0.12, 0, GROUND_H + 0.1, 0.08, sign);
+    for (let j = 0; j < n; j++) {
+      const u = -len / 2 + (j + 0.5) * bay;
+      const ow = bay - 0.7;
+      box(ow, 2.7, 0.06, u, 1.4, 0.03, 0x2e2a27);
+      // The shutter, part way up.
+      const up = 0.6 + ((k * 7 + j * 3) % 5) * 0.35;
+      box(ow, 2.7 - up, 0.08, u, 2.75 - (2.7 - up) / 2, 0.05, 0x8a8f94);
+      // Awning, sloping down to the street.
+      const [x, z] = at(u, 0.55);
+      const g = new THREE.BoxGeometry(ow + 0.3, 0.06, 1.1).rotateX(0.32).rotateY(rot).translate(x, GROUND_H - 0.55, z);
+      P.add(g, (j + k) % 3 === 0 ? 0x2e6db4 : canopies[(j + k) % canopies.length]);
+      // Piers between the bays.
+      box(0.3, GROUND_H - 0.2, 0.16, -len / 2 + j * bay, (GROUND_H - 0.2) / 2, 0.08, trim);
+    }
+  }
+}
+
+/**
  * A canopy: a 0.35m slab at the building's height, underside and edges
  * included, on posts every ~8m round the outer ring. Returns the posts.
  */
@@ -356,7 +421,27 @@ export function buildBuildings(
   // Real footprints: always the extruded version (they have no plot to
   // detail), merged into one mesh per tile.
   const osmBufs = new Map<Tile, Buf>();
+  const faces = new Map<Tile, Parts>();
   const roofs: THREE.BufferGeometry[] = [];
+  // Does a street run past this wall? A drivable or pedestrian road within
+  // a few metres out from it.
+  const streets = map.roads.filter((r) => r.cls !== "footway" && r.cls !== "steps");
+  const onStreet = (x: number, z: number, nx: number, nz: number) => {
+    for (const r of streets) {
+      for (let i = 0; i < r.pts.length - 1; i++) {
+        const [ax, az] = r.pts[i];
+        const [bx, bz] = r.pts[i + 1];
+        if (Math.min(ax, bx) > x + 14 || Math.max(ax, bx) < x - 14 || Math.min(az, bz) > z + 14 || Math.max(az, bz) < z - 14) continue;
+        const L2 = (bx - ax) ** 2 + (bz - az) ** 2 || 1e-9;
+        const t = Math.max(0, Math.min(1, ((x - ax) * (bx - ax) + (z - az) * (bz - az)) / L2));
+        const px = ax + t * (bx - ax);
+        const pz = az + t * (bz - az);
+        const d = Math.hypot(px - x, pz - z);
+        if (d < r.w / 2 + r.foot + 6 && (px - x) * nx + (pz - z) * nz > 0) return true;
+      }
+    }
+    return false;
+  };
   const canopies: THREE.BufferGeometry[] = [];
   map.buildings.forEach((bld, i) => {
     if (bld.canopy) {
@@ -368,6 +453,8 @@ export function buildBuildings(
     const t = tileOf(cx, cz);
     if (!osmBufs.has(t)) osmBufs.set(t, newBuf());
     farOsm(osmBufs.get(t)!, bld, theme.buildings[i % theme.buildings.length], roofs);
+    if (!faces.has(t)) faces.set(t, new Parts());
+    osmFace(faces.get(t)!, bld, theme.buildings[i % theme.buildings.length], theme.canopies, i, onStreet);
     collide.add({ kind: "poly", outer: bld.pts, holes: bld.holes ?? [] });
   });
   if (canopies.length) {
@@ -384,6 +471,10 @@ export function buildBuildings(
     m.castShadow = true;
     m.receiveShadow = true;
     group.add(m);
+  }
+  for (const P of faces.values()) {
+    const m = P.mesh(bodyMat);
+    if (m) group.add(m);
   }
   if (roofs.length) {
     const m = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(roofs, false)!, roofMat);
