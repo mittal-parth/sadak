@@ -85,6 +85,8 @@ export type OsmCity = {
   pool?: { water: RegExp; sanctum: RegExp };
   /** The bus stand the bus errand is at, when the district has one. */
   busNear?: RegExp;
+  /** A tank whose island carries a pavilion (Bindu Sagar's Jalamandira). */
+  islandPavilion?: { water: RegExp; name: string };
 };
 
 const SMALL_TEMPLE: [number, number] = [9, 9];
@@ -296,6 +298,7 @@ export const OSM_CITIES: OsmCity[] = [
       { match: /Vaital Mandir|Yameswar|Chitrakarini|Mohini Temple|Bakreswara|Maitreswara|Ananta Basudeva|Kartikeswar|Suresvara|Lakheswar/, model: "deul_small", size: [8, 8] },
     ],
     spawnNear: /Lord Lingaraj Temple/,
+    islandPavilion: { water: /^Bindu Sagara$/, name: "Jalamandira, Bindu Sagar" },
     temple: /Lord Lingaraj Temple/,
     shopStreet: /Rath Road/,
     errands: [{ id: "lingaraj-lane-chhena", at: /Bindu Sagara/ }],

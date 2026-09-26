@@ -23,6 +23,7 @@ import type { CollisionWorld } from "./collide";
 import type { HeightField } from "./height";
 import { modelExtent } from "./extent";
 import { congregationalMosque } from "./mosque";
+import { deul, jalamandira, lingaraj } from "./odisha";
 import {
   busStation,
   church,
@@ -137,9 +138,11 @@ export function buildLandmark(l: MapLandmark, city: Landmark, clear?: ClearTest)
     case "shrine":
       return temple(...modelExtent(l.model, w, d), ts);
     case "deul_small":
-      return temple(...modelExtent(l.model, w, d), TEMPLE.bhubaneswar!);
+      return deul(...modelExtent(l.model, w, d));
     case "lingaraj":
-      return temple(w, d, { ...TEMPLE.bhubaneswar!, compound: true, tower: 2.6 });
+      return lingaraj(w, d);
+    case "jalamandira":
+      return jalamandira(w, d);
     case "gopuram_temple": {
       // Walled Dravidian temple: the gopuram over the gate, a vimana inside.
       const m = temple(w, d, { stone: 0xe9dcc0, accent: 0xc84b31, plinth: 0.8, kind: "nagara", tower: 1.0, compound: true });

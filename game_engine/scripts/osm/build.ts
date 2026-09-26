@@ -1001,6 +1001,18 @@ function compile(city: OsmCity): MapData {
     grid.markBox(x, z, rot, w + 2, d + 2, BUILT);
   }
 
+  // A pavilion on a tank's island.
+  if (city.islandPavilion) {
+    const ip = city.islandPavilion;
+    const tank = areas.find((a) => a.kind === "water" && ip.water.test(a.name ?? ""));
+    const island = tank?.holes?.[0];
+    if (!tank || !island) throw new Error(`${city.id}: no island in ${ip.water}`);
+    const box = orientedBox(island);
+    // The island is the pavilion's alone.
+    grid.fill(island, RESERVED);
+    landmarks.push({ model: "jalamandira", name: ip.name, x: r1(box.x), z: r1(box.z), rot: +box.rot.toFixed(3), w: r1(box.w), d: r1(box.d) });
+  }
+
   // A model smaller than its footprint that would stand in water (Gurdwara
   // Santokhsar's footprint is its whole compound, sarovar and all) moves to
   // the dry ground nearest the middle, and its footprint shrinks to the model.

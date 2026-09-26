@@ -15,6 +15,8 @@ export function modelExtent(model: string, w: number, d: number): [number, numbe
     case "jama_masjid":
       // Delhi's footprint takes in the grounds round the plinth.
       return [Math.min(w, 130), Math.min(d, 130)];
+    case "lingaraj":
+      return [Math.min(w, 150), Math.min(d, 170)];
     case "tomb":
       return [Math.min(w, 40), Math.min(d, 40)];
     case "temple":
