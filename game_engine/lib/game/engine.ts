@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { createTransitMaterial } from "./transit";
-import { makeAuto } from "./props";
+import { autoBodyFor, makeAuto } from "./props";
 import { buildWorld, type World } from "./world";
 import { Rides } from "./rides";
 import { Parts } from "./world/vc";
@@ -408,7 +408,7 @@ export class Game {
       }
 
       if (task.kind === "auto") {
-        const auto = makeAuto(theme.autoCanopy);
+        const auto = makeAuto(theme.autoCanopy, autoBodyFor(theme.landmark));
         auto.rotation.y = -Math.PI / 5;
         auto.position.set(-2.2, 0.02, 0.6);
         anchor.add(auto);

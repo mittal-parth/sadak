@@ -183,101 +183,106 @@ export function makeBuilding(
  * Auto rickshaw
  * ------------------------------------------------------------------ */
 
+/** The lower body of a city's autos: CNG green in Delhi, Bengaluru,
+ *  Kolkata and Ahmedabad; black elsewhere; all yellow in Chennai. */
+const AUTO_BODY: Record<string, number> = {
+  delhi: 0x2f8a3e,
+  bengaluru: 0x2f8a3e,
+  kolkata: 0x2f8a3e,
+  ahmedabad: 0x2f8a3e,
+  chennai: 0xf2c21b,
+};
+export const autoBodyFor = (city: string) => AUTO_BODY[city] ?? 0x17191d;
+
 /**
- * Three wheels, a curved shell and a canvas roof. The shape that matters is the
- * *taper*: an auto is wide and heavy at the rear axle and narrows to a single
- * front wheel under a rounded cowl, and the roof sits proud of the body on
- * visible posts with open sides between them. A plain box misses all three.
+ * An Indian auto-rickshaw (the Bajaj RE): a body wide at the rear axle and
+ * narrowing to a single front wheel, a tall apron in front of the driver
+ * with the headlamp on it, the windscreen over that, and a canvas hood on
+ * its frame that curves down behind the passengers, the sides open between.
+ * Body in the city's colour, hood in the canopy colour.
  */
-export function makeAuto(canopyColour = 0xf5c518): THREE.Group {
+export function makeAuto(canopyColour = 0xf5c518, bodyColour = 0x17191d): THREE.Group {
   const g = new THREE.Group();
 
-  const skirt = std(0x14161b, 0.55, 0.25);
-  const shell = std(canopyColour, 0.42, 0.2);
-  const canvasRoof = std(0x1c1e22, 0.9, 0);
+  const body = std(bodyColour, 0.45, 0.25);
+  const hood = std(canopyColour, 0.85, 0);
+  const dark = std(0x14161b, 0.6, 0.2);
+  const seat = std(0x2a2622, 0.9, 0);
   const chrome = std(0xc2c6ca, 0.22, 0.9);
+  const add = (geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, rx = 0) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    m.rotation.x = rx;
+    m.castShadow = true;
+    g.add(m);
+    return m;
+  };
 
-  // Lower body, tapering in toward the single front wheel.
-  const lower = new THREE.Mesh(new RoundedBoxGeometry(1.42, 0.72, 2.3, 3, 0.16), skirt);
-  lower.position.set(0, 0.62, -0.1);
-  lower.castShadow = true;
-  g.add(lower);
+  // Floor pan and the rear tub over the engine, full width at the back.
+  add(new RoundedBoxGeometry(1.4, 0.18, 2.2, 2, 0.06), dark, 0, 0.5, -0.15);
+  add(new RoundedBoxGeometry(1.42, 0.62, 0.95, 3, 0.14), body, 0, 0.82, -0.8);
+  // Sides of the passenger bay up to the seat, open above.
+  for (const sx of [-1, 1]) add(new RoundedBoxGeometry(0.08, 0.38, 1.2, 2, 0.03), body, sx * 0.68, 0.72, -0.25);
+  // The front: a floorboard narrowing to the nose, the apron rising from it.
+  add(new RoundedBoxGeometry(1.0, 0.16, 0.8, 2, 0.06), body, 0, 0.55, 0.62);
+  add(new RoundedBoxGeometry(0.96, 0.95, 0.24, 3, 0.1), body, 0, 0.98, 0.98, -0.12);
+  add(new RoundedBoxGeometry(0.7, 0.3, 0.3, 3, 0.1), body, 0, 0.62, 1.12);
+  // Front mudguard over the single wheel.
+  const fguard = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.06, 6, 12, Math.PI), body);
+  fguard.rotation.y = Math.PI / 2;
+  fguard.position.set(0, 0.36, 1.05);
+  g.add(fguard);
+  // Headlamp in a chrome ring on the apron; indicators either side.
+  add(new THREE.TorusGeometry(0.13, 0.03, 6, 14), chrome, 0, 1.18, 1.12, -0.12);
+  add(new THREE.SphereGeometry(0.11, 12, 10), glow(0xfff3c4, 1.3), 0, 1.18, 1.11);
+  for (const sx of [-1, 1]) add(new THREE.BoxGeometry(0.1, 0.06, 0.04), glow(0xffa21a, 0.7), sx * 0.36, 1.32, 1.08);
 
-  // Yellow shell over the passenger bay.
-  const bay = new THREE.Mesh(new RoundedBoxGeometry(1.5, 0.86, 1.62, 3, 0.18), shell);
-  bay.position.set(0, 1.42, -0.32);
-  bay.castShadow = true;
-  g.add(bay);
+  // Windscreen over the apron, raked back, in a dark frame.
+  const glass = new THREE.MeshPhysicalMaterial({ color: 0x9fc6d4, transparent: true, opacity: 0.42, roughness: 0.08, metalness: 0.1 });
+  add(new THREE.BoxGeometry(1.02, 0.52, 0.04), glass, 0, 1.68, 0.86, -0.3);
+  add(new THREE.BoxGeometry(1.08, 0.05, 0.08), dark, 0, 1.43, 0.94, -0.3);
 
-  // Rounded front cowl, squashed into a nose rather than left a sphere.
-  const cowl = new THREE.Mesh(new THREE.SphereGeometry(0.66, 16, 12), shell);
-  cowl.scale.set(0.94, 1.0, 1.05);
-  cowl.position.set(0, 1.16, 0.86);
-  cowl.castShadow = true;
-  g.add(cowl);
-
-  // Canvas roof on four posts, with the sides left open.
-  const roof = new THREE.Mesh(new RoundedBoxGeometry(1.56, 0.1, 1.94, 2, 0.05), canvasRoof);
-  roof.position.set(0, 1.98, -0.24);
-  roof.castShadow = true;
-  g.add(roof);
-
-  const postGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.62, 6);
-  for (const [px, pz] of [[-0.72, 0.5], [0.72, 0.5], [-0.72, -1.14], [0.72, -1.14]]) {
-    const post = new THREE.Mesh(postGeo, chrome);
-    post.position.set(px, 1.66, pz);
-    g.add(post);
+  // The hood: frame posts, the canvas roof, and the rear curtain curving
+  // down behind the passengers with canvas side quarters beside it.
+  for (const [px, pz] of [[-0.6, 0.72], [0.6, 0.72], [-0.7, -1.18], [0.7, -1.18]]) {
+    add(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 6), dark, px, 1.52, pz);
   }
+  add(new RoundedBoxGeometry(1.5, 0.09, 1.95, 2, 0.04), hood, 0, 1.97, -0.22);
+  const back = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 1.5, 14, 1, true, 0, Math.PI / 2), hood);
+  back.material.side = THREE.DoubleSide;
+  back.rotation.z = Math.PI / 2;
+  back.position.set(0, 1.3, -0.5);
+  back.scale.set(1, 1, 1);
+  back.castShadow = true;
+  g.add(back);
+  add(new THREE.BoxGeometry(1.46, 0.62, 0.04), hood, 0, 1.2, -1.22);
+  for (const sx of [-1, 1]) add(new THREE.BoxGeometry(0.04, 0.72, 0.5), hood, sx * 0.72, 1.55, -0.95);
+  // The rear window in the curtain.
+  add(new THREE.BoxGeometry(0.6, 0.2, 0.02), dark, 0, 1.62, -1.24);
+  // Black band where the hood meets the body.
+  add(new THREE.BoxGeometry(1.44, 0.06, 0.96), dark, 0, 1.13, -0.8);
 
-  // Mudguard over each rear wheel: the detail that stops the body looking
-  // like it is floating over the axle.
-  const guardGeo = new THREE.TorusGeometry(0.4, 0.055, 6, 12, Math.PI);
-  for (const sx of [-1, 1]) {
-    const guard = new THREE.Mesh(guardGeo, shell);
-    guard.rotation.y = Math.PI / 2;
-    guard.position.set(sx * 0.74, 0.36, -0.9);
-    g.add(guard);
-  }
-
-  // Windscreen, raked back over the cowl.
-  const glass = new THREE.Mesh(
-    new THREE.BoxGeometry(1.24, 0.62, 0.05),
-    new THREE.MeshPhysicalMaterial({
-      color: 0x9fc6d4,
-      transparent: true,
-      opacity: 0.42,
-      roughness: 0.08,
-      metalness: 0.1,
-    })
-  );
-  glass.rotation.x = -0.24;
-  glass.position.set(0, 1.58, 0.53);
-  g.add(glass);
-
-  // Handlebar and the driver's bench, visible through the open sides.
-  const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.028, 0.62, 6), chrome);
+  // Inside, through the open sides: the driver's seat, handlebar, the
+  // passengers' bench and backrest, a grab rail across the doorway.
+  add(new RoundedBoxGeometry(0.5, 0.14, 0.4, 2, 0.05), seat, 0, 0.92, 0.32);
+  const bar = add(new THREE.CylinderGeometry(0.025, 0.025, 0.66, 6), chrome, 0, 1.2, 0.66);
   bar.rotation.z = Math.PI / 2;
-  bar.position.set(0, 1.16, 0.42);
-  g.add(bar);
-  const bench = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.12, 0.5), std(0x2a2622, 0.9));
-  bench.position.set(0, 1.02, -0.66);
-  g.add(bench);
+  add(new THREE.CylinderGeometry(0.02, 0.02, 0.35, 6), chrome, 0, 1.03, 0.74, -0.4);
+  add(new RoundedBoxGeometry(1.24, 0.16, 0.46, 2, 0.05), seat, 0, 1.0, -0.62);
+  add(new RoundedBoxGeometry(1.24, 0.45, 0.1, 2, 0.04), seat, 0, 1.3, -0.88);
+  const rail = add(new THREE.CylinderGeometry(0.018, 0.018, 1.3, 6), chrome, 0, 1.45, 0.05);
+  rail.rotation.z = Math.PI / 2;
 
-  // Headlight in a chrome ring, and the rear number plate.
-  const lampRing = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.035, 6, 14), chrome);
-  lampRing.position.set(0, 1.14, 1.44);
-  g.add(lampRing);
-  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10), glow(0xfff3c4, 1.3));
-  lamp.position.set(0, 1.14, 1.44);
-  g.add(lamp);
-
-  const plate = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.13, 0.03), std(0xe4e2d6, 0.9));
-  plate.position.set(0, 0.72, -1.27);
-  g.add(plate);
-
-  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.04), glow(0xff2a18, 0.8));
-  tail.position.set(0.5, 0.95, -1.26);
-  g.add(tail);
+  // Rear: mudguards, tail lamps, the number plate on the engine cover.
+  const guardGeo = new THREE.TorusGeometry(0.4, 0.06, 6, 12, Math.PI);
+  for (const sx of [-1, 1]) {
+    const guard = new THREE.Mesh(guardGeo, body);
+    guard.rotation.y = Math.PI / 2;
+    guard.position.set(sx * 0.76, 0.36, -0.9);
+    g.add(guard);
+    add(new THREE.BoxGeometry(0.12, 0.12, 0.04), glow(0xff2a18, 0.8), sx * 0.55, 0.92, -1.28);
+  }
+  add(new THREE.BoxGeometry(0.46, 0.14, 0.03), std(0xe4e2d6, 0.9), 0, 0.74, -1.28);
 
   const tyre = std(0x0d0e10, 0.96, 0);
   const wheelGeo = new THREE.CylinderGeometry(0.33, 0.33, 0.2, 14);

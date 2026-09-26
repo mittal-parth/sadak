@@ -14,7 +14,7 @@
 
 import * as THREE from "three";
 import type { Landmark } from "../assets";
-import { makeAuto, mulberry32 } from "../props";
+import { autoBodyFor, makeAuto, mulberry32 } from "../props";
 import { makeCar, TRAFFIC_KINDS, type CarKind, type VehicleMaterials } from "../vehicles";
 import { CITY_TRAFFIC, makeBus, makeTwoWheeler } from "../transit";
 import { makeCycleRickshaw, makeHandRickshaw, makeAmbassadorTaxi } from "../assets";
@@ -113,7 +113,7 @@ export function createTraffic(map: MapData, opts: TrafficOpts): Traffic {
       case "bike":
         return makeTwoWheeler(opts.transitMat, seed);
       case "auto":
-        return makeAuto(opts.autoCanopy);
+        return makeAuto(opts.autoCanopy, autoBodyFor(opts.landmark));
       case "bus":
         return makeBus(opts.vehicleMats, opts.transitMat, city.bus, seed);
       case "rickshaw":
