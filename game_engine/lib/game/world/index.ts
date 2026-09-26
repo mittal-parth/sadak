@@ -20,6 +20,8 @@ import { placeLandmarks, type InnerSpot } from "./landmarks";
 import { buildStreet } from "./street";
 import { createTraffic, type Traffic } from "./traffic";
 import { buildRails } from "./rails";
+import { createFlocks, flockSites } from "./birds";
+import { buildMarkets, marketStalls } from "./market";
 import { CollisionWorld } from "./collide";
 import { HeightField } from "./height";
 import { KERB_H, type MapData } from "./mapData";
@@ -160,8 +162,23 @@ export function buildWorld(map: MapData, district: District, deps: WorldDeps): W
   });
   group.add(traffic.group);
 
-  // People gather at the task spots, the bus stops and the shops nearby.
+  // Market grounds: stall rows down walkable aisles. Laid out before the
+  // stalls' own colliders go in, so the shoppers below use the same rows.
+  const stallRows = marketStalls(map, (x, z, r) => collide.blocked(x, z, r));
+  const markets = buildMarkets(map, theme.canopies, collide, groundAt);
+  if (markets.stalls !== stallRows.reduce((n, r) => n + r.stalls.length, 0)) {
+    throw new Error("market stalls and their shoppers were laid out differently");
+  }
+  group.add(markets.group);
+
+  // People gather at the task spots, the bus stops and the shops nearby,
+  // and in front of every third market stall.
   const gatherings = [
+    ...stallRows.flatMap(({ stalls }) =>
+      stalls
+        .filter((_, i) => i % 3 === 0)
+        .map((s) => ({ x: s.x + Math.sin(s.rot) * 1.9, z: s.z + Math.cos(s.rot) * 1.9, size: 2 }))
+    ),
     ...Object.values(map.spots).map((s) => ({ x: s.x + Math.sin(s.yaw) * -2.5, z: s.z + Math.cos(s.yaw) * -2.5, size: 3 })),
     ...map.pois
       .filter((p) => p.kind === "bus_stop" || p.kind === "food" || p.kind === "market")
@@ -175,6 +192,10 @@ export function buildWorld(map: MapData, district: District, deps: WorldDeps): W
     gatherings,
   });
   group.add(crowd.group);
+
+  // Pigeons where the city feeds them.
+  const flocks = createFlocks(flockSites(map, landmarks.inners, groundAt));
+  group.add(flocks.group);
 
   return {
     map,
@@ -207,12 +228,15 @@ export function buildWorld(map: MapData, district: District, deps: WorldDeps): W
       crowd.update(dt, focus);
       rails.update(dt);
       areas.update(t);
+      flocks.update(dt, t, focus);
     },
     dispose() {
       buildings.dispose();
       crowd.dispose();
       street.dispose();
       rails.dispose();
+      flocks.dispose();
+      markets.dispose();
       clutter.dispose();
       areas.dispose();
       roads.textures.forEach((t) => t.dispose());
