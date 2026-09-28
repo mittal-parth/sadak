@@ -22,7 +22,7 @@ Set the same LiveKit project on Vercel and on the agent worker.
 
 Optional: `SARVAM_CHAT_MODEL`, `SARVAM_TTS_MODEL`.
 
-Enable **Google** and **Email (magic link)** in the Supabase dashboard. Set the Supabase **Site URL** and **Redirect URLs** to your Vercel deployment (including `/auth/callback`).
+Enable **Google** in the Supabase dashboard (the sign-in page has no magic link). Set the Supabase **Site URL** and **Redirect URLs** to your Vercel deployment (including `/auth/callback`).
 
 Never commit `.env`. Use the Vercel dashboard and `lk agent update-secrets`.
 
