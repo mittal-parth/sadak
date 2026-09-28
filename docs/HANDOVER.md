@@ -9,7 +9,8 @@ Use this doc when picking up the project in Cursor Cloud (or locally). It captur
 | `agent.py` | Voice worker: plays the game's NPCs, falls back to a plain assistant |
 | `requirements.txt` | `livekit-agents[sarvam,silero]`, `python-dotenv` |
 | `.env.example` | LiveKit + Sarvam key template (copy to `.env`, never commit `.env`) |
-| `README.md` | Setup and run commands |
+| `README.md` | Project overview and quick start |
+| `docs/VOICE_AGENT.md` | Worker setup, run modes and the game ↔ worker protocol |
 | `game_engine/` | SADAK, the three.js game the worker speaks for |
 
 ## The game integration (2026-07-26)

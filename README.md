@@ -1,94 +1,98 @@
 <p align="center">
-  <img src="game_engine/app/icon.png" alt="SADAK" width="36" height="36" />
+  <img src="game_engine/app/icon.png" alt="SADAK" width="56" height="56" />
 </p>
 
-## Sarvam Hackathon — LiveKit Voice Agent
+<h1 align="center">SADAK</h1>
 
-Real-time voice agent using [LiveKit](https://docs.livekit.io) and [Sarvam AI](https://docs.sarvam.ai) (STT, LLM, TTS). Supports 11 languages (10 Indian + English).
+<p align="center">
+  <b>Ten Indian cities. Talk your way through.</b><br/>
+  An interactive, voice-first game where you learn new languages through everyday conversations.
+</p>
 
-`agent.py` is the voice worker for **SADAK**, the game in [`game_engine/`](game_engine/README.md). One LiveKit room is one conversation with one NPC: the game mints the token, ships the character brief in the player's participant metadata, and this worker plays that character — reading its persona, language, voice and mission rubric off the wire. Run it with no game attached (`python agent.py console`) and it falls back to a plain voice assistant, which is the fastest way to check keys and audio.
+<p align="center">
+  <a href="https://playsadak.vercel.app"><b>Play now →</b></a>
+</p>
+
+<p align="center">
+  <img src="game_engine/public/open-graph-img.jpg" alt="SADAK" width="100%" />
+</p>
+
+## About
+
+SADAK drops you into real Indian neighbourhoods, rebuilt from OpenStreetMap, with a list of everyday errands in each one: stop an auto, order at a food stall, buy an offering at the temple, catch a bus, and one errand that belongs to that city. You get them done by walking up to people and **speaking to them** in Hindi, Tamil, Kannada, Bengali, Telugu, Malayalam, Marathi, Gujarati, Punjabi or Odia.
+
+Each errand is a short spoken lesson. The character says a line, you see what to say back in script and romanisation, with its meaning in whichever language you read best, and every word you say is scored. Every voice, in both directions, runs on [Sarvam AI](https://www.sarvam.ai). You leave each district knowing a few real sentences you didn't know before.
+
+## Screenshots
+
+<table>
+  <tr>
+    <td><img src="game_engine/public/covers/game/purani-sadak.jpg" alt="Chandni Chowk, Old Delhi" /></td>
+    <td><img src="game_engine/public/covers/game/charminar-lane.jpg" alt="Charminar, Hyderabad" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Chandni Chowk, Old Delhi</sub></td>
+    <td align="center"><sub>Charminar, Hyderabad</sub></td>
+  </tr>
+  <tr>
+    <td><img src="game_engine/public/covers/game/dadar-chowk.jpg" alt="Dadar, Mumbai" /></td>
+    <td><img src="game_engine/public/covers/game/fort-kochi-2.jpg" alt="Fort Kochi, Kochi" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Dadar, Mumbai</sub></td>
+    <td align="center"><sub>Fort Kochi, Kochi</sub></td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="docs/assets/dialogue-lesson-header.png" alt="A conversation with an NPC" width="80%" /><br/>
+  <sub>Every line comes with script, romanisation and its meaning in your language.</sub>
+</p>
+
+## Features
+
+- **Talk, don't click.** Hold to speak, and the character answers out loud in their own language.
+- **10 districts, 10 languages.** Each with five everyday errands, its own characters and a phrasebook.
+- **Word-by-word feedback.** Each line you speak is matched against the phrase, word by word.
+- **Learn from the language you know.** Instructions and meanings come in English or any of the ten Indian languages, so a Tamil speaker can learn Bengali through Tamil.
+- **Three difficulty levels.** Pick easy, medium or hard and the lessons change with it.
+- **Characters who remember you.** Come back to someone you've already met and they greet you with something you told them last time.
+- **Real maps.** Street networks, landmarks and transit from OpenStreetMap, cel-shaded in three.js.
+
+## How it works
 
 ```
-browser mic → LiveKit room → saaras:v4 → sarvam-105b → bulbul:v3 → browser speakers
-                                  ↘ subtitles + mission grading (data channel) ↗
+scripted NPC line → bulbul:v3 (TTS) → you hear it, with script, romanisation and its meaning in your language
+your reply → saaras:v4 (STT) → word-by-word score against the target phrase
+return visit → sarvam-105b writes a line that remembers your last conversation
 ```
 
-To play the game with live voice you need **both** processes running:
+The game lives in [`game_engine/`](game_engine/README.md): Next.js, three.js, Sarvam (TTS, STT, LLM) and Supabase (auth and progress).
+
+## Quick start
+
+**Prerequisites:** Node 18.18+, keys for [Sarvam AI](https://dashboard.sarvam.ai) and [Supabase](https://supabase.com).
 
 ```bash
-python agent.py dev                      # this repo: the NPC worker
-cd game_engine && npm run dev            # the game, on http://localhost:3000
+cd game_engine
+npm install
+cp .env.example .env        # Sarvam and Supabase keys
+npm run dev                 # http://localhost:3000
 ```
 
-Both need the same LiveKit project (`LIVEKIT_URL` / `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET`) and a `SARVAM_API_KEY`. Without the worker, or without LiveKit keys in `game_engine/.env`, conversations fall back to the game's push-to-talk REST path on their own.
+Supabase setup (migrations, auth redirect URLs) is in the [game README](game_engine/README.md).
 
-### Prerequisites
+## Docs
 
-- Python **3.10+** (`livekit-agents` needs 3.10+; create the venv with the same `python3` you use day to day)
-- [LiveKit Cloud](https://cloud.livekit.io) API credentials
-- [Sarvam AI](https://dashboard.sarvam.ai) API key
+- [Game engine](game_engine/README.md): architecture, setup, design notes
+- [Voice agent](docs/VOICE_AGENT.md): the LiveKit worker in `agent.py` (not used by the game at the moment)
+- [Deploy](docs/DEPLOY.md): Vercel and Supabase production setup
+- [Handover](docs/HANDOVER.md): current state, latency measurements, logs
 
-### Setup
+## Credits
 
-```bash
-python3 -m venv .venv          # must be 3.10+, not Xcode’s old 3.9
-source .venv/bin/activate      # Windows: .venv\Scripts\activate
-python --version               # should match `python3 --version` (e.g. 3.14.x)
-pip install -r requirements.txt
-cp .env.example .env
-# Edit .env with your keys
-```
+Built by [ahmedfahim21](https://github.com/ahmedfahim21), [Parth Mittal](https://github.com/mittal-parth), [Apoorva Agrawal](https://github.com/imApoorva36) and [Mardav Gandhi](https://github.com/marcdhi).
 
-If you already have a `.venv` built with Python 3.9, delete it and recreate:
-
-```bash
-rm -rf .venv && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
-```
-
-### Run
-
-**Local voice test (mock job, no separate worker):**
-
-```bash
-python agent.py console
-```
-
-Output is **audio on speakers/headphones**, not a chat UI. Use **headphones** for console tests so the mic does not pick up the agent’s TTS (echo, false transcripts, and `resumed false interrupted speech` in logs).
-
-**Cloud worker (LiveKit rooms / frontend):**
-
-```bash
-python agent.py dev
-```
-
-Registers with LiveKit Cloud and stays idle until a client joins a room. `console` does not use the `dev` worker process. This is the mode the game needs: the worker has no `agent_name`, so LiveKit dispatches it into every room the game opens.
-
-### What the game sends the worker
-
-The player's participant metadata (minted in `game_engine/app/api/voice/token/route.ts`) carries one JSON brief:
-
-| Field | Used for |
-|---|---|
-| `instructions` | The NPC's system prompt, built from the game bible |
-| `greeting` | The line the NPC opens on when the player walks up |
-| `voice.language`, `voice.speaker` | Bulbul target language and speaker for this character |
-| `grader.system`, `grader.minUserTurns` | Mission and anger rubric, scored after every NPC line |
-
-The worker republishes everything on the room's `sadak` data topic, which is what the browser draws:
-
-| Packet | Meaning |
-|---|---|
-| `{"t":"line","role":…,"text":…}` | A committed turn, player or NPC: the subtitle |
-| `{"t":"partial","text":…}` | Interim transcript of the player, still being spoken |
-| `{"t":"state","state":…}` | `listening` / `thinking` / `speaking` |
-| `{"t":"grade","missionComplete":…,"anger":…}` | Mission passed, and wanted-level damage |
-
-Grading is a **separate** Sarvam call after the NPC has already spoken, so it never delays the voice, and the spoken model is never asked for JSON it would otherwise read aloud.
-
-### Docs
-
-- **[Handover, latency, and logs](docs/HANDOVER.md)** — state for the next agent; STT/LLM/TTS timing notes
-- Raw console log sample: [docs/logs/console-2026-07-26-sarvam-105b.txt](docs/logs/console-2026-07-26-sarvam-105b.txt)
-- [Build your first voice agent](https://docs.sarvam.ai)
-- Sarvam docs index: https://docs.sarvam.ai/llms.txt
-- MCP: https://docs.sarvam.ai/_mcp/server
+- Speech, language and voices by [Sarvam AI](https://www.sarvam.ai): Saaras (STT), sarvam-105b (LLM), Bulbul (TTS).
+- Map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, available under the Open Database License (ODbL 1.0).
+- The cel-shaded look is adapted from [sakura-crossing](https://github.com/Kenton-GMI/sakura-crossing) by Kenton Wang (MIT).

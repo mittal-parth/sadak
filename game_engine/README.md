@@ -85,7 +85,7 @@ There are two ways to run that pipeline, and the game picks at the moment you
 walk up to someone.
 
 **Live (default).** Walking up to an NPC puts you in a LiveKit room with them.
-The mic stays open, the character is a Python worker ([`../agent.py`](../README.md))
+The mic stays open, the character is a Python worker ([`../agent.py`](../docs/VOICE_AGENT.md))
 holding the whole conversation, and lines land as subtitles while they are being
 spoken. There is no send button in the loop: you talk, they answer, you interrupt
 them if you want. The worker is briefed per conversation from
