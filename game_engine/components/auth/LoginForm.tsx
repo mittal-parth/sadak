@@ -88,21 +88,21 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-md text-center">
-      <div className="flex items-baseline justify-center gap-2">
-        <span className="font-indic text-2xl font-heading" lang="hi">
+    <div className="mx-auto w-full max-w-sm text-center">
+      <div className="flex items-baseline justify-center gap-3">
+        <span className="font-indic text-3xl font-heading lg:text-4xl" lang="hi">
           सड़क
         </span>
-        <h1 className="text-3xl font-heading tracking-tight">sadak</h1>
+        <h1 className="text-4xl font-heading tracking-tight lg:text-5xl">sadak</h1>
       </div>
-      <p className="mt-3 text-sm text-foreground/70">
+      <p className="mt-4 text-base text-foreground/70">
         A third-person street across ten Indian languages. Sign in to walk it.
       </p>
 
       {authError ? (
         <Alert variant="destructive" className="mt-6 text-left">
           <AlertTitle>Sign-in failed</AlertTitle>
-          <AlertDescription>The link may have expired. Try again below.</AlertDescription>
+          <AlertDescription>Sign-in didn&apos;t complete. Try again below.</AlertDescription>
         </Alert>
       ) : null}
       {formError ? (
@@ -112,11 +112,12 @@ export default function LoginForm() {
         </Alert>
       ) : null}
 
-      <div className="mt-8 flex flex-col items-center gap-4">
+      <div className="mt-10 flex flex-col gap-4">
         <Button
           type="button"
           variant="neutral"
-          className="w-full max-w-xs"
+          size="lg"
+          className="w-full text-base"
           disabled={busy !== null}
           onClick={() => void signInWithGoogle()}
         >
@@ -126,7 +127,7 @@ export default function LoginForm() {
 
         {IS_DEV ? (
           <>
-            <div className="relative w-full max-w-xs text-center text-sm text-foreground/70">
+            <div className="relative text-center text-sm text-foreground/70">
               <span className="bg-background px-2 relative z-10 uppercase tracking-widest text-[11px] font-heading">
                 development only
               </span>
@@ -134,7 +135,7 @@ export default function LoginForm() {
             </div>
 
             <form
-              className="flex w-full max-w-xs flex-col gap-3 rounded-base border-2 border-dashed border-border p-3 text-left"
+              className="flex flex-col gap-3 rounded-base border-2 border-dashed border-border p-3 text-left"
               onSubmit={(e) => void signInWithPassword(e)}
             >
               <label className="flex flex-col gap-1.5 text-sm">

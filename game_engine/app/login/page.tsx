@@ -20,13 +20,13 @@ export default function LoginPage() {
   // wall runs the full height beside the form.
   return (
     <main className="flex min-h-dvh flex-col-reverse lg:flex-row">
-      <div className="flex flex-1 items-center justify-center px-6 py-10 lg:basis-[45%] lg:px-10 lg:py-14">
+      <div className="flex flex-1 items-center justify-center px-6 py-12 lg:basis-[45%] lg:px-10 lg:py-14">
         <Suspense fallback={<LoginFallback />}>
           <LoginForm />
         </Suspense>
       </div>
 
-      <LoginShowcase className="h-[32vh] shrink-0 lg:h-auto lg:basis-[55%] lg:shrink" />
+      <LoginShowcase className="h-[48dvh] shrink-0 lg:h-auto lg:basis-[55%] lg:shrink" />
     </main>
   );
 }
