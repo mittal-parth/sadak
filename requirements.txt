@@ -1,2 +1,2 @@
-livekit-agents[sarvam,silero]
-python-dotenv
+livekit-agents[sarvam,silero]>=1.8.8
+python-dotenv>=1.2.4

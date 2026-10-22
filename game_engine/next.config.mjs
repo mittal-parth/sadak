@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false,
+  // Next.js 16 builds with Turbopack by default; acknowledge while webpack stays for dev.
+  turbopack: {},
 
   async rewrites() {
     return [
