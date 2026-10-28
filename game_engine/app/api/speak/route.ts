@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { sarvamTTS, type LangCode } from "@/lib/sarvam";
 import { findTaskInLoaded, loadDistrictById } from "@/lib/game/load-district";
 import { publicTtsUrl, ttsObjectExists } from "@/lib/tts/cache";
+import { clampTtsPace, DEFAULT_TTS_PACE } from "@/lib/tts/pace";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -15,7 +16,7 @@ export const maxDuration = 60;
  * misses still call Sarvam live (no upload — run warm-tts-cache to populate).
  */
 export async function POST(req: Request) {
-  let body: { districtId: string; npcId: string; text: string };
+  let body: { districtId: string; npcId: string; text: string; pace?: number };
   try {
     body = await req.json();
   } catch {
@@ -41,11 +42,15 @@ export async function POST(req: Request) {
   }
 
   const lang = district.language as LangCode;
-  const cachedUrl = publicTtsUrl(lang, speaker, body.text);
-  if (await ttsObjectExists(cachedUrl)) {
-    return NextResponse.json({ audio: cachedUrl, cached: true });
+  const pace = clampTtsPace(body.pace);
+
+  if (pace === DEFAULT_TTS_PACE) {
+    const cachedUrl = publicTtsUrl(lang, speaker, body.text);
+    if (await ttsObjectExists(cachedUrl)) {
+      return NextResponse.json({ audio: cachedUrl, cached: true });
+    }
   }
 
-  const audio = await sarvamTTS(body.text, lang, speaker);
+  const audio = await sarvamTTS(body.text, lang, speaker, { pace });
   return NextResponse.json({ audio, cached: false });
 }
