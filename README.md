@@ -72,7 +72,7 @@ The player's participant metadata (minted in `game_engine/app/api/voice/token/ro
 | `instructions` | The NPC's system prompt, built from the game bible |
 | `greeting` | The line the NPC opens on when the player walks up |
 | `voice.language`, `voice.speaker` | Bulbul target language and speaker for this character |
-| `grader.system`, `grader.minUserTurns` | Mission and anger rubric, scored after every NPC line |
+| `grader.questions`, `grader.minUserTurns` | Prism (sarvam-prism) yes/no and anger scale, scored after every NPC line |
 
 The worker republishes everything on the room's `sadak` data topic, which is what the browser draws:
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { sarvamChat, type ChatMessage } from "@/lib/sarvam";
+import { sarvamChat, sarvamDecisions, type ChatMessage } from "@/lib/sarvam";
 import { loadDistrictById } from "@/lib/game/load-district";
+import { missionQuestions, readMissionVerdict } from "@/lib/game/mission-grade";
 import { talkSystemPrompt } from "@/lib/game/prompt";
 
 export const runtime = "nodejs";
@@ -15,39 +16,40 @@ type Body = {
   clues: string[];
 };
 
-type Parsed = { reply: string; missionComplete: boolean; anger: number };
-
-function shape(parsed: Record<string, unknown>): Parsed | null {
-  if (typeof parsed?.reply !== "string") return null;
-  const raw = Number(parsed.anger ?? 0);
-  return {
-    reply: parsed.reply.trim(),
-    missionComplete: parsed.mission_complete === true,
-    // Clamped: one bad turn should never jump the player straight to busted.
-    anger: Number.isFinite(raw) ? Math.max(0, Math.min(2, Math.round(raw))) : 0,
-  };
-}
-
-function parseReply(raw: string): Parsed {
+function replyFrom(text: string): string | null {
   try {
-    const hit = shape(JSON.parse(raw));
-    if (hit) return hit;
+    const parsed = JSON.parse(text) as { reply?: unknown };
+    if (typeof parsed?.reply === "string" && parsed.reply.trim()) return parsed.reply.trim();
   } catch {
     // json_object should make this unreachable, but a stray fence or a
     // truncated response shouldn't lose the player's turn.
   }
+  return null;
+}
+
+function parseReply(raw: string): string {
+  const direct = replyFrom(raw);
+  if (direct) return direct;
 
   const braced = raw.match(/\{[\s\S]*\}/);
   if (braced) {
-    try {
-      const hit = shape(JSON.parse(braced[0]));
-      if (hit) return hit;
-    } catch {
-      /* fall through */
-    }
+    const salvaged = replyFrom(braced[0]);
+    if (salvaged) return salvaged;
   }
 
-  return { reply: raw.replace(/```/g, "").trim(), missionComplete: false, anger: 0 };
+  return raw.replace(/```/g, "").trim();
+}
+
+/** PLAYER/NPC lines, including the reply just generated, which is where the clue lands. */
+function transcriptOf(
+  history: { role: "user" | "assistant"; content: string }[],
+  playerText: string,
+  reply: string
+): string {
+  const prior = history.slice(-8).map((turn) =>
+    `${turn.role === "user" ? "PLAYER" : "NPC"}: ${turn.content}`
+  );
+  return [...prior, `PLAYER: ${playerText}`, `NPC: ${reply}`].join("\n");
 }
 
 export async function POST(req: Request) {
@@ -109,18 +111,37 @@ export async function POST(req: Request) {
     );
   }
 
-  const parsed = parseReply(raw);
-  const reply = parsed.reply;
+  const reply = parseReply(raw);
 
-  // The model will sometimes grant the objective on a bare greeting. Every
-  // mission here needs a real exchange, so the first turn can never pass.
-  const missionComplete = parsed.missionComplete && history.length >= 2;
+  // Grade the transcript that includes this reply. The clue is usually spoken
+  // in it, so scoring the history alone would pass the mission a turn late.
+  // A missed grade costs nothing: the line still goes out.
+  let missionComplete = false;
+  let anger = 0;
+  if (reply) {
+    try {
+      const answers = await sarvamDecisions(
+        transcriptOf(history, body.playerText, reply),
+        missionQuestions(npc, district.languageLabel)
+      );
+      const verdict = readMissionVerdict(answers);
+      if (verdict) {
+        missionComplete = verdict.missionComplete;
+        anger = verdict.anger;
+      }
+    } catch (err) {
+      console.error("prism grade failed", err);
+    }
+  }
+
+  // A greeting must never pass a mission. The first exchange can't score.
+  missionComplete = missionComplete && history.length >= 2;
 
   // Audio is fetched separately via /api/speak so the subtitle lands first.
   return NextResponse.json({
     reply,
     missionComplete,
-    anger: parsed.anger,
+    anger,
     reward: missionComplete ? npc.mission.reward : 0,
     clue: missionComplete ? npc.clue : null,
   });

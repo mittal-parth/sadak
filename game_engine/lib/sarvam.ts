@@ -2,9 +2,10 @@
  * Server-only Sarvam AI client.
  *
  * Base URL + auth header per https://docs.sarvam.ai/api/getting-started/quickstart.md
- *   chat : POST /v1/chat/completions   (sarvam-105b | sarvam-30b)
- *   tts  : POST /text-to-speech        (bulbul:v3)
- *   stt  : POST /speech-to-text        (saaras:v4, multipart)
+ *   chat      : POST /v1/chat/completions   (sarvam-105b | sarvam-30b)
+ *   decisions : POST /v2/systemone         (sarvam-prism)
+ *   tts       : POST /text-to-speech       (bulbul:v3)
+ *   stt       : POST /speech-to-text       (saaras:v4, multipart)
  *
  * The TTS shape here follows the pattern already proven in Kahani.
  */
@@ -14,6 +15,7 @@ import { DEFAULT_RETRY_OPTS, withRetry } from "@/lib/retry";
 const BASE = "https://api.sarvam.ai";
 const TTS_MODEL = process.env.SARVAM_TTS_MODEL || "bulbul:v3";
 const CHAT_MODEL = process.env.SARVAM_CHAT_MODEL || "sarvam-105b";
+const PRISM_MODEL = "sarvam-prism";
 
 function key(): string {
   const k = process.env.SARVAM_API_KEY;
@@ -122,6 +124,54 @@ export async function sarvamChat(
   }
 
   return content;
+}
+
+/**
+ * One Prism decision. `questions` is the Decisions API map (noul / choice /
+ * score). Returns the `answers` object keyed by those same ids. Prism emits
+ * probabilities, not text, so there is nothing to parse past this object.
+ */
+export async function sarvamDecisions(
+  state: string,
+  questions: Record<string, unknown>
+): Promise<Record<string, { type?: string; noul?: number; score?: number }>> {
+  const json = await withRetry(async () => {
+    let res: Response;
+    try {
+      res = await fetch(`${BASE}/v2/systemone`, {
+        method: "POST",
+        headers: {
+          "api-subscription-key": key(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ model: PRISM_MODEL, state, questions }),
+        signal: AbortSignal.timeout(20_000),
+      });
+    } catch (err) {
+      const wrapped = new Error(
+        `Sarvam prism unreachable: ${err instanceof Error ? err.message : "request failed"}`
+      ) as Error & { status: number };
+      // 408 is not retried. A hung model must not stall the turn three times.
+      wrapped.status = 408;
+      throw wrapped;
+    }
+
+    if (!res.ok) {
+      const err = new Error(`Sarvam prism ${res.status}: ${await res.text()}`) as Error & {
+        status: number;
+      };
+      err.status = res.status;
+      throw err;
+    }
+
+    return res.json();
+  }, { attempts: 2, baseDelayMs: 400, retryOn: [429, 502, 503] });
+
+  const answers = json?.answers;
+  if (!answers || typeof answers !== "object") {
+    throw new Error("Sarvam prism returned no answers.");
+  }
+  return answers;
 }
 
 export type SpeechOpts = { pace?: number; temperature?: number };

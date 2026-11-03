@@ -10,8 +10,9 @@ participant metadata, minted by the game at
 
 Everything said in either direction is republished to the room on the `sadak`
 data topic so the browser can draw subtitles, and every NPC line kicks off a
-grader pass that scores the conversation against the mission criterion without
-holding up the audio.
+Prism pass (sarvam-prism) that scores the mission and the player's anger
+without holding up the audio. The questions themselves are minted with the
+brief in `game_engine/lib/game/mission-grade.ts`.
 
 Run `python agent.py console` with no game attached and it falls back to a
 plain assistant, which is the quickest way to check keys and audio.
@@ -37,8 +38,10 @@ logger = logging.getLogger("sadak-voice")
 logger.setLevel(logging.INFO)
 
 DATA_TOPIC = "sadak"
-SARVAM_CHAT_URL = "https://api.sarvam.ai/v1/chat/completions"
-GRADER_MODEL = os.getenv("SARVAM_GRADER_MODEL", "sarvam-105b")
+SARVAM_DECISIONS_URL = "https://api.sarvam.ai/v2/systemone"
+PRISM_MODEL = "sarvam-prism"
+# Yes, once "met" is more likely than "not". A tie stays incomplete.
+MISSION_YES = 0.5
 NPC_MODEL = os.getenv("SARVAM_CHAT_MODEL", "sarvam-105b")
 TTS_MODEL = os.getenv("SARVAM_TTS_MODEL", "bulbul:v3")
 
@@ -71,8 +74,8 @@ class Brief:
     language: str = "hi-IN"
     speaker: str = "simran"
     name: str = "Assistant"
-    #: Grader rubric. Empty means no mission to grade (console / non-game rooms).
-    grader_system: str = ""
+    #: Prism questions from the brief. Empty means nothing to grade.
+    questions: dict = field(default_factory=dict)
     min_user_turns: int = 2
     #: Only set for game rooms, purely for log lines.
     npc_id: str = ""
@@ -83,7 +86,7 @@ class Brief:
 
     @property
     def grades(self) -> bool:
-        return bool(self.grader_system)
+        return bool(self.questions)
 
 
 def parse_brief(metadata: str | None) -> Brief:
@@ -102,6 +105,7 @@ def parse_brief(metadata: str | None) -> Brief:
     grader = raw.get("grader") or {}
     npc = raw.get("npc") or {}
     district = raw.get("district") or {}
+    questions = grader.get("questions")
 
     return Brief(
         instructions=raw["instructions"],
@@ -109,7 +113,7 @@ def parse_brief(metadata: str | None) -> Brief:
         language=voice.get("language") or district.get("language") or "hi-IN",
         speaker=voice.get("speaker") or "simran",
         name=npc.get("name") or "NPC",
-        grader_system=grader.get("system") or "",
+        questions=questions if isinstance(questions, dict) else {},
         min_user_turns=int(grader.get("minUserTurns") or 2),
         npc_id=npc.get("id") or "",
     )
@@ -153,15 +157,36 @@ async def publish(ctx: JobContext, payload: dict) -> None:
         logger.debug("could not publish %s: %s", payload.get("t"), err)
 
 
+def verdict_from_answers(answers: dict | None) -> dict | None:
+    """Mirrors `readMissionVerdict` in game_engine/lib/game/mission-grade.ts."""
+    if not isinstance(answers, dict):
+        return None
+    mission = answers.get("mission_complete")
+    anger_answer = answers.get("anger")
+    if not isinstance(mission, dict) or not isinstance(anger_answer, dict):
+        return None
+    if mission.get("type") != "noul" or anger_answer.get("type") != "score":
+        return None
+    noul = mission.get("noul")
+    score = anger_answer.get("score")
+    # bool is an int subclass; a JSON boolean is not a probability.
+    if isinstance(noul, bool) or not isinstance(noul, (int, float)):
+        return None
+    if isinstance(score, bool) or not isinstance(score, (int, float)):
+        return None
+    anger = max(0, min(2, int(round(float(score)))))
+    return {"missionComplete": float(noul) > MISSION_YES, "anger": anger}
+
+
 async def grade(brief: Brief, session: aiohttp.ClientSession) -> dict | None:
     """Scores the conversation so far against the mission criterion.
 
     Runs after the NPC has already spoken, so its latency is invisible. Returns
-    None when the model is unreachable or answers with something unparseable:
-    a missed grade costs the player nothing, a wrong one costs them a mission.
+    None when Prism is unreachable or the answer is the wrong shape: a missed
+    grade costs the player nothing, a wrong one costs them a mission.
     """
     api_key = os.getenv("SARVAM_API_KEY")
-    if not api_key:
+    if not api_key or not brief.questions:
         return None
 
     lines = "\n".join(
@@ -169,57 +194,27 @@ async def grade(brief: Brief, session: aiohttp.ClientSession) -> dict | None:
         for turn in brief.transcript
     )
 
-    body = {
-        "model": GRADER_MODEL,
-        "messages": [
-            {"role": "system", "content": brief.grader_system},
-            {"role": "user", "content": f"THE CONVERSATION SO FAR\n{lines}"},
-        ],
-        "temperature": 0.2,
-        "max_tokens": 120,
-        "reasoning_effort": None,
-        # json_schema makes this model pad whitespace to the token limit and
-        # never close the object; json_object closes cleanly.
-        "response_format": {"type": "json_object"},
-    }
+    body = {"model": PRISM_MODEL, "state": lines, "questions": brief.questions}
 
     try:
         async with session.post(
-            SARVAM_CHAT_URL,
+            SARVAM_DECISIONS_URL,
             headers={"api-subscription-key": api_key, "Content-Type": "application/json"},
             json=body,
             timeout=aiohttp.ClientTimeout(total=20),
         ) as res:
             if res.status != 200:
-                logger.warning("grader returned %s: %s", res.status, (await res.text())[:200])
+                logger.warning("prism returned %s: %s", res.status, (await res.text())[:200])
                 return None
             payload = await res.json()
     except Exception as err:  # noqa: BLE001 - grading is never worth crashing a session
-        logger.warning("grader unreachable: %s", err)
+        logger.warning("prism unreachable: %s", err)
         return None
 
-    content = (payload.get("choices") or [{}])[0].get("message", {}).get("content")
-    if not content:
-        return None
-
-    try:
-        parsed = json.loads(content)
-    except json.JSONDecodeError:
-        start, end = content.find("{"), content.rfind("}")
-        if start == -1 or end <= start:
-            return None
-        try:
-            parsed = json.loads(content[start : end + 1])
-        except json.JSONDecodeError:
-            return None
-
-    anger = parsed.get("anger", 0)
-    try:
-        anger = max(0, min(2, int(round(float(anger)))))
-    except (TypeError, ValueError):
-        anger = 0
-
-    return {"missionComplete": parsed.get("mission_complete") is True, "anger": anger}
+    verdict = verdict_from_answers(payload.get("answers"))
+    if verdict is None:
+        logger.warning("prism answers were not a mission grade: %s", str(payload)[:200])
+    return verdict
 
 
 async def entrypoint(ctx: JobContext):

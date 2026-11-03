@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { AccessToken } from "livekit-server-sdk";
 import { loadDistrictById } from "@/lib/game/load-district";
 import { resolveSpeaker } from "@/lib/sarvam";
-import { greetingPrompt, graderSystemPrompt, voiceSystemPrompt } from "@/lib/game/prompt";
+import { missionQuestions, type MissionQuestions } from "@/lib/game/mission-grade";
+import { greetingPrompt, voiceSystemPrompt } from "@/lib/game/prompt";
 
 export const runtime = "nodejs";
 
@@ -12,7 +13,8 @@ export const runtime = "nodejs";
  * The whole character brief travels in the participant's metadata, so the
  * Python worker in ../../../agent.py stays a generic voice pipeline and the
  * bible in lib/game/districts.ts stays the only copy. The agent reads this on
- * join, configures Saaras / sarvam-105b / Bulbul from it, and grades against it.
+ * join, configures Saaras / sarvam-105b / Bulbul from it, and grades with
+ * sarvam-prism against the questions in the brief.
  *
  * 503 here is not a failure: the client falls back to the push-to-talk REST
  * path (/api/stt → /api/talk → /api/speak) and the game plays on.
@@ -22,13 +24,13 @@ type Body = { districtId: string; npcId: string; clues?: string[] };
 
 /** Read by agent.py. Bump `v` if the shape changes under a running worker. */
 export type AgentBrief = {
-  v: 1;
+  v: 2;
   npc: { id: string; name: string; role: string };
   district: { id: string; city: string; language: string; script: string; label: string };
   instructions: string;
   greeting: string;
   voice: { speaker: string; language: string };
-  grader: { system: string; minUserTurns: number };
+  grader: { questions: MissionQuestions; minUserTurns: number };
 };
 
 export async function POST(req: Request) {
@@ -79,7 +81,7 @@ export async function POST(req: Request) {
   }
 
   const brief: AgentBrief = {
-    v: 1,
+    v: 2,
     npc: { id: npc.id, name: npc.name, role: npc.role },
     district: {
       id: district.id,
@@ -92,7 +94,7 @@ export async function POST(req: Request) {
     greeting: greetingPrompt(district, npc),
     voice: { speaker: resolveSpeaker(npc.speaker), language: district.language },
     grader: {
-      system: graderSystemPrompt(district, npc),
+      questions: missionQuestions(npc, district.languageLabel),
       // A greeting must never pass a mission, so the first exchange can't score.
       minUserTurns: 2,
     },

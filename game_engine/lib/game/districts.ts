@@ -71,7 +71,7 @@ export type Theme = {
 export type Mission = {
   title: string;
   brief: string;
-  /** The model grades itself against this each turn. */
+  /** Prism grades the conversation against this. */
   successCriteria: string;
   reward: number;
 };

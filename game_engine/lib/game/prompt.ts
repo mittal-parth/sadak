@@ -6,9 +6,11 @@ import type { StreetTask } from "@/lib/game/tasks";
  * THE PROMPTS
  *
  * One character brief, two consumers:
- *   - /api/talk           text turn, replies with JSON so it can grade itself
+ *   - /api/talk           text turn, replies with the spoken line as JSON
  *   - the LiveKit agent   spoken turn, replies with the bare line (it goes
  *                         straight into Bulbul, so JSON would be read aloud)
+ *
+ * Neither path grades. Mission and anger are a Prism call (`mission-grade.ts`).
  *
  * The bible lives in districts.ts and must stay the single source of truth, so
  * the voice agent is handed its brief at join time rather than keeping a second
@@ -20,7 +22,7 @@ import type { StreetTask } from "@/lib/game/tasks";
  * model satisfies the required keys and then pads whitespace until it hits
  * max_tokens, leaving the object unterminated. json_object closes cleanly.
  */
-export const JSON_SHAPE = `{"reply": "<your line>", "mission_complete": false, "anger": 0}`;
+export const JSON_SHAPE = `{"reply": "<your line>"}`;
 
 export const RECALL_JSON_SHAPE = `{"reply": "<your line>"}`;
 
@@ -90,26 +92,18 @@ RULES
   never narrate your own actions in brackets.`;
 }
 
-/** The success criterion and the anger scale, shared by the model and the grader. */
+/** What this NPC is waiting to give, and what makes them snap. Spoken behavior only. */
 function objectiveBlock(npc: Npc): string {
   return `OBJECTIVE
 "${npc.mission.successCriteria}"
 
-Judge this honestly at the end of every turn, against the whole conversation so
-far and not just the player's last message:
-- A greeting alone is never enough, and you should not hand it over cheaply.
-- But the moment the criterion IS satisfied, you MUST set mission_complete to
-  true on that same turn. Do not withhold it once it has genuinely been earned,
-  and do not wait for the player to ask again.
+Do not hand this over cheaply. A greeting is never enough. But once the player
+has genuinely earned it, give it to them in this turn rather than stalling.
 
 TROUBLE
 These things provoke you: ${npc.provokes}
-Rate how badly the player's last message crossed that line, as "anger":
-  0 = fine, normal conversation, or merely clumsy
-  1 = genuinely rude, insulting, or pushy
-  2 = outrageous. A bribe, a threat, or open contempt
-Most turns are 0. Be strict about 2, and never punish someone for speaking your
-language badly. Fumbling the grammar is not rudeness.`;
+React in character when the player crosses that line. Never punish them for
+speaking your language badly. Fumbling the grammar is not rudeness.`;
 }
 
 /**
@@ -132,7 +126,7 @@ failure. Every reply is rendered as ${district.script} text and read aloud by a
 ${district.languageLabel} voice, so Latin letters break it.`;
 }
 
-/** The text path: one JSON object per turn, reply plus its own grading. */
+/** The text path: one JSON object per turn, the spoken line only. */
 export function talkSystemPrompt(district: District, npc: Npc, clues: string[]): string {
   return `${characterBrief(district, npc, clues)}
 
@@ -147,8 +141,8 @@ ${JSON_SHAPE}`;
 
 /**
  * The voice path. Everything the model says here is spoken by Bulbul the
- * instant it is generated, so there is no JSON and no grading: a second pass
- * (`graderSystemPrompt`) scores the conversation off the critical path.
+ * instant it is generated, so there is no JSON and no grading: Prism scores
+ * the conversation afterwards, off the microphone path.
  */
 export function voiceSystemPrompt(district: District, npc: Npc, clues: string[]): string {
   return `${characterBrief(district, npc, clues)}
@@ -217,36 +211,4 @@ export function greetingPrompt(district: District, npc: Npc): string {
 ${district.languageLabel}, in ${district.script} script, in character as
 ${npc.name}. A wary greeting or a "what do you want", not an offer of help.
 One sentence, nothing else.`;
-}
-
-/**
- * The grader. Runs after each NPC line, off the critical path, over the whole
- * transcript. The spoken model is never asked to do this, because anything it
- * produces gets read aloud.
- */
-export function graderSystemPrompt(district: District, npc: Npc): string {
-  return `You are grading a conversation from a language-learning game, set on
-the street in ${district.city}. The player is talking to ${npc.name}, ${npc.role}.
-
-THE OBJECTIVE THE PLAYER MUST MEET
-"${npc.mission.successCriteria}"
-
-WHAT PROVOKES ${npc.name.toUpperCase()}
-${npc.provokes}
-
-You are given the conversation so far. Judge the WHOLE conversation, not just
-the last message, and answer two questions:
-
-1. mission_complete: has the objective genuinely been met? A greeting, or the
-   player merely asking, is never enough. Be honest in both directions: do not
-   pass it early, and do not withhold it once it has actually been earned.
-2. anger: how badly did the player's LAST message cross the line above?
-     0 = fine, normal conversation, or merely clumsy
-     1 = genuinely rude, insulting, or pushy
-     2 = outrageous. A bribe, a threat, or open contempt
-   Most turns are 0. Never punish bad grammar or a thick accent: this player is
-   speaking ${district.languageLabel} as a beginner, and fumbling it is not rudeness.
-
-Reply with a single JSON object and nothing else:
-{"mission_complete": false, "anger": 0}`;
 }
